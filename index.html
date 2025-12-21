@@ -7,10 +7,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script>
-      // POLYFILL: Mencegah crash "process is not defined" di browser/Vercel
-      window.process = window.process || { env: {} };
-    </script>
-    <script>
       tailwind.config = {
         theme: {
           extend: {
