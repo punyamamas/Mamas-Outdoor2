@@ -1,8 +1,22 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { GeminiModel, Product } from '../types';
 
-const apiKey = process.env.API_KEY || '';
-const ai = new GoogleGenAI({ apiKey });
+// Helper function to safely get env variables
+const getEnv = (key: string) => {
+  // @ts-ignore
+  if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env[key]) {
+    // @ts-ignore
+    return import.meta.env[key];
+  }
+  if (typeof process !== 'undefined' && process.env && process.env[key]) {
+    return process.env[key];
+  }
+  return '';
+};
+
+const apiKey = getEnv('API_KEY');
+// Fallback to avoid crash if key is missing, though calls will fail
+const ai = new GoogleGenAI({ apiKey: apiKey || 'dummy-key' });
 
 export const getAdventureRecommendation = async (userQuery: string, products: Product[]): Promise<{ text: string, recommendedIds: string[] }> => {
   if (!apiKey) {
