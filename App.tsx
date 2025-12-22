@@ -3,6 +3,7 @@ import Navbar from './components/Navbar';
 import CartDrawer from './components/CartDrawer';
 import HistoryDrawer from './components/HistoryDrawer';
 import GeminiAdvisor from './components/GeminiAdvisor';
+import TermsModal from './components/TermsModal';
 import { PRODUCTS, CATEGORIES } from './constants';
 import { CartItem, Product } from './types';
 import { getProducts } from './services/productService';
@@ -14,6 +15,7 @@ function App() {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [isTermsOpen, setIsTermsOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('Semua');
 
@@ -95,6 +97,7 @@ function App() {
         onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         isMobileMenuOpen={isMobileMenuOpen}
         onOpenHistory={() => setIsHistoryOpen(true)}
+        onOpenTerms={() => setIsTermsOpen(true)}
       />
 
       <CartDrawer 
@@ -109,6 +112,11 @@ function App() {
       <HistoryDrawer 
         isOpen={isHistoryOpen}
         onClose={() => setIsHistoryOpen(false)}
+      />
+
+      <TermsModal 
+        isOpen={isTermsOpen} 
+        onClose={() => setIsTermsOpen(false)} 
       />
 
       {/* Hero Section */}
