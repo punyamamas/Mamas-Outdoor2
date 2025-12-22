@@ -8,7 +8,7 @@ import AdminDashboard from './components/AdminDashboard';
 import { PRODUCTS, CATEGORIES } from './constants';
 import { CartItem, Product } from './types';
 import { getProducts, addProduct, updateProduct, deleteProduct } from './services/productService';
-import { MapPin, Star, Plus, Check, School, Github, Loader2, Flame, Lock, Calendar, Users, ArrowRight as ArrowIcon, ChevronDown, ShieldCheck, Zap } from 'lucide-react';
+import { MapPin, Star, Plus, Check, School, Github, Loader2, Flame, Lock, Calendar, Users, ArrowRight as ArrowIcon, ChevronDown, ShieldCheck, Zap, ShoppingCart, Info, Weight, Tent, Wind } from 'lucide-react';
 
 function App() {
   const [currentPage, setCurrentPage] = useState<'home' | 'admin'>('home');
@@ -153,6 +153,17 @@ function App() {
   const filteredProducts = selectedCategory === 'Semua' 
     ? products 
     : products.filter(p => p.category === selectedCategory);
+
+  // Helper untuk menampilkan ikon fitur berdasarkan kategori
+  const getProductFeatures = (category: string) => {
+    switch(category) {
+      case 'Tenda': return <div className="flex items-center gap-1"><Tent size={14} /> <span>Waterproof</span></div>;
+      case 'Carrier': return <div className="flex items-center gap-1"><Weight size={14} /> <span>Backsystem</span></div>;
+      case 'Tidur': return <div className="flex items-center gap-1"><Wind size={14} /> <span>Warm</span></div>;
+      case 'Masak': return <div className="flex items-center gap-1"><Flame size={14} /> <span>Portable</span></div>;
+      default: return <div className="flex items-center gap-1"><Star size={14} /> <span>Premium</span></div>;
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 pt-16">
@@ -318,26 +329,30 @@ function App() {
         </div>
       </section>
 
-      {/* Catalog Section */}
-      <section id="katalog" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-        <div className="flex flex-col md:flex-row md:items-end justify-between mb-10 gap-6">
-          <div>
-            <h2 className="text-3xl font-bold text-gray-900 mb-2 flex items-center gap-2">
-              <span className="w-2 h-8 bg-nature-600 rounded-full"></span>
-              Gear Catalog
-            </h2>
-            <p className="text-gray-500 font-medium">Pilih senjatamu untuk petualangan berikutnya.</p>
-          </div>
-          
-          <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 scrollbar-hide">
+      {/* Catalog Section Revamped */}
+      <section id="katalog" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 bg-white">
+        
+        {/* Modern Header */}
+        <div className="text-center mb-12">
+          <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-4 tracking-tight">
+            Pilih <span className="text-transparent bg-clip-text bg-gradient-to-r from-nature-600 to-red-500">Gear Andalan</span>
+          </h2>
+          <p className="text-gray-500 text-lg max-w-2xl mx-auto">
+            Koleksi lengkap, bersih, dan terawat. Siap menemanimu menaklukkan puncak impian.
+          </p>
+        </div>
+
+        {/* Category Filter Pills */}
+        <div className="flex justify-center mb-12">
+          <div className="inline-flex p-1.5 bg-gray-100 rounded-full overflow-x-auto max-w-full no-scrollbar">
             {CATEGORIES.map(cat => (
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
-                className={`px-5 py-2.5 rounded-lg text-sm font-bold whitespace-nowrap transition border-2 ${
+                className={`px-6 py-2.5 rounded-full text-sm font-bold whitespace-nowrap transition-all duration-300 ${
                   selectedCategory === cat 
-                    ? 'bg-nature-600 border-nature-600 text-white shadow-lg shadow-nature-200' 
-                    : 'bg-white text-gray-600 border-gray-100 hover:border-nature-600 hover:text-nature-600'
+                    ? 'bg-white text-nature-600 shadow-md transform scale-105' 
+                    : 'text-gray-500 hover:text-gray-900 hover:bg-gray-200/50'
                 }`}
               >
                 {cat}
@@ -349,59 +364,94 @@ function App() {
         {isLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
             {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-              <div key={i} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden animate-pulse">
-                <div className="h-48 bg-gray-200"></div>
-                <div className="p-5 space-y-3">
-                  <div className="h-4 bg-gray-200 rounded w-1/3"></div>
-                  <div className="h-6 bg-gray-200 rounded w-3/4"></div>
-                  <div className="h-4 bg-gray-200 rounded w-full"></div>
-                </div>
-              </div>
+              <div key={i} className="bg-gray-100 rounded-3xl h-[400px] animate-pulse"></div>
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
             {filteredProducts.map(product => {
               const inCart = cartItems.find(i => i.id === product.id);
               // SAFETY: Use fallback if price2Days is undefined/null from DB
               const displayPrice = product.price2Days || 0;
               
               return (
-                <div key={product.id} className="bg-white rounded-2xl shadow-sm hover:shadow-2xl hover:shadow-nature-900/10 hover:-translate-y-2 transition duration-300 overflow-hidden border border-gray-100 group">
-                  <div className="relative h-56 overflow-hidden">
-                    <img src={product.image} alt={product.name} className="w-full h-full object-cover group-hover:scale-110 transition duration-700" />
-                    <div className="absolute top-3 right-3 bg-black/70 backdrop-blur-md px-3 py-1.5 rounded-lg text-xs font-bold text-white shadow-sm border border-white/20">
-                      Stok: {product.stock}
-                    </div>
-                    {product.stock < 3 && product.stock > 0 && (
-                       <div className="absolute bottom-3 left-3 bg-red-600 px-3 py-1 rounded text-[10px] font-bold text-white uppercase tracking-wider animate-pulse">
-                        Terbatas
-                      </div>
-                    )}
-                  </div>
-                  <div className="p-5">
-                    <div className="flex justify-between items-start mb-2">
-                      <div className="text-[10px] font-bold text-nature-600 bg-nature-50 px-2 py-1 rounded uppercase tracking-wider border border-nature-100">{product.category}</div>
-                    </div>
-                    <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-1 leading-tight group-hover:text-nature-600 transition">{product.name}</h3>
-                    <p className="text-sm text-gray-500 mb-4 line-clamp-2 min-h-[40px] leading-relaxed">{product.description}</p>
+                <div key={product.id} className="group relative bg-white rounded-3xl border border-gray-100 overflow-hidden hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)] transition-all duration-500 hover:-translate-y-2 flex flex-col h-full">
+                  
+                  {/* Image Section */}
+                  <div className="relative h-64 overflow-hidden bg-gray-100">
+                    <img 
+                      src={product.image} 
+                      alt={product.name} 
+                      className="w-full h-full object-cover group-hover:scale-110 transition duration-700 ease-in-out" 
+                    />
                     
-                    <div className="flex items-center justify-between mt-auto pt-4 border-t border-gray-50">
-                      <div>
-                        {/* Safe Rendering for Price */}
-                        <span className="text-xl font-extrabold text-gray-900">Rp{displayPrice.toLocaleString('id-ID')}</span>
-                        <span className="text-xs text-gray-400 font-medium">/2hari</span>
+                    {/* Gradient Overlay for Text Readability */}
+                    <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition duration-300"></div>
+
+                    {/* Stock & Badges */}
+                    <div className="absolute top-4 right-4 flex flex-col gap-2 items-end">
+                       {product.stock < 3 && product.stock > 0 && (
+                         <span className="bg-adventure-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-full shadow-lg animate-pulse uppercase tracking-wider flex items-center gap-1">
+                           <Zap size={10} fill="currentColor" /> Terbatas!
+                         </span>
+                       )}
+                       <span className={`px-3 py-1.5 rounded-full text-[10px] font-bold shadow-sm backdrop-blur-md border border-white/20 ${
+                         product.stock > 0 ? 'bg-white/90 text-nature-700' : 'bg-red-600 text-white'
+                       }`}>
+                         Stok: {product.stock}
+                       </span>
+                    </div>
+
+                    {/* Category Badge - Floating */}
+                    <div className="absolute top-4 left-4">
+                      <span className="bg-white/20 backdrop-blur-md border border-white/30 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm">
+                        {product.category}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Content Section */}
+                  <div className="p-6 flex flex-col flex-1">
+                    <div className="mb-auto">
+                      <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-2 leading-tight group-hover:text-nature-600 transition">
+                        {product.name}
+                      </h3>
+                      
+                      {/* Short Features / Chips instead of Description */}
+                      <div className="flex flex-wrap gap-2 mb-4">
+                        <span className="inline-flex items-center gap-1 bg-gray-50 text-gray-500 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wide border border-gray-100">
+                           {getProductFeatures(product.category)}
+                        </span>
+                        {/* Fake second feature based on random logic for visual variety */}
+                        <span className="inline-flex items-center gap-1 bg-gray-50 text-gray-500 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wide border border-gray-100">
+                           <Check size={10} /> Bersih
+                        </span>
                       </div>
-                      <button 
-                        onClick={() => addToCart(product)}
-                        className={`p-3 rounded-xl transition shadow-lg ${
-                          inCart 
-                            ? 'bg-green-50 text-green-700 border border-green-200' 
-                            : 'bg-nature-600 text-white hover:bg-nature-700 shadow-nature-200 hover:scale-105 active:scale-95'
-                        }`}
-                      >
-                        {inCart ? <Check size={20} strokeWidth={3} /> : <Plus size={20} strokeWidth={3} />}
-                      </button>
+                    </div>
+                    
+                    <div className="mt-4 pt-4 border-t border-gray-50">
+                      <div className="flex items-end justify-between gap-3">
+                        <div className="flex flex-col">
+                          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-0.5">Paket 2 Hari</span>
+                          <span className="text-xl font-black text-gray-900 tracking-tight">
+                            Rp{displayPrice.toLocaleString('id-ID')}
+                          </span>
+                        </div>
+
+                        <button 
+                          onClick={() => addToCart(product)}
+                          className={`
+                            h-12 w-12 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg
+                            ${inCart 
+                              ? 'bg-green-100 text-green-600 hover:bg-green-200' 
+                              : 'bg-nature-600 text-white hover:bg-nature-700 hover:scale-110 active:scale-95 shadow-nature-200'
+                            }
+                          `}
+                          title={inCart ? "Sudah di keranjang" : "Tambah ke keranjang"}
+                        >
+                          {inCart ? <Check size={24} strokeWidth={3} /> : <Plus size={24} strokeWidth={3} />}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
