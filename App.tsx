@@ -9,7 +9,7 @@ import { PRODUCTS, CATEGORIES as CONSTANT_CATEGORIES } from './constants';
 import { CartItem, Product, Category } from './types';
 import { getProducts, addProduct, updateProduct, deleteProduct } from './services/productService';
 import { getCategories, addCategory, updateCategory, deleteCategory } from './services/categoryService';
-import { MapPin, Star, Plus, Check, School, Github, Loader2, Flame, Lock, Calendar, Users, ArrowRight as ArrowIcon, ChevronDown, ShieldCheck, Zap, ShoppingCart, Info, Weight, Tent, Wind } from 'lucide-react';
+import { MapPin, Star, Plus, Check, School, Github, Loader2, Flame, Lock, Calendar, Users, ArrowRight as ArrowIcon, ChevronDown, ShieldCheck, Zap, ShoppingCart, Info, Weight, Tent, Wind, ArrowUpDown } from 'lucide-react';
 
 function App() {
   const [currentPage, setCurrentPage] = useState<'home' | 'admin'>('home');
@@ -22,6 +22,9 @@ function App() {
   const [isTermsOpen, setIsTermsOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('Semua');
+  
+  // State untuk sorting
+  const [sortBy, setSortBy] = useState<'default' | 'price_low' | 'price_high' | 'name'>('default');
 
   // Define fetch data functions
   const fetchData = async () => {
@@ -182,9 +185,40 @@ function App() {
     );
   }
 
+  // --- Filtering & Sorting Logic ---
+  
+  // 1. Filter
   const filteredProducts = selectedCategory === 'Semua' 
     ? products 
     : products.filter(p => p.category === selectedCategory);
+
+  // 2. Sort
+  const sortedProducts = [...filteredProducts].sort((a, b) => {
+    switch (sortBy) {
+      case 'price_low':
+        return (a.price2Days || 0) - (b.price2Days || 0);
+      case 'price_high':
+        return (b.price2Days || 0) - (a.price2Days || 0);
+      case 'name':
+        return a.name.localeCompare(b.name);
+      case 'default':
+      default:
+        // Sort berdasarkan urutan index di CONSTANT_CATEGORIES
+        const idxA = CONSTANT_CATEGORIES.indexOf(a.category);
+        const idxB = CONSTANT_CATEGORIES.indexOf(b.category);
+        
+        // Jika kategori berbeda, urutkan berdasarkan prioritas kategori
+        if (idxA !== idxB) {
+          // Jika kategori tidak ada di constants (misal baru dibuat), taruh di paling bawah (999)
+          const validIdxA = idxA === -1 ? 999 : idxA;
+          const validIdxB = idxB === -1 ? 999 : idxB;
+          return validIdxA - validIdxB;
+        }
+        
+        // Jika kategori sama, urutkan berdasarkan nama
+        return a.name.localeCompare(b.name);
+    }
+  });
 
   const getProductFeatures = (category: string) => {
     const catLower = category.toLowerCase();
@@ -332,7 +366,7 @@ function App() {
         </div>
 
         {/* Dynamic Category Filter */}
-        <div className="flex justify-center mb-12">
+        <div className="flex justify-center mb-8">
           <div className="inline-flex p-1.5 bg-gray-100 rounded-full overflow-x-auto max-w-full no-scrollbar">
             <button
                onClick={() => setSelectedCategory('Semua')}
@@ -360,6 +394,29 @@ function App() {
           </div>
         </div>
 
+        {/* Sorting Controls */}
+        <div className="flex justify-between items-center mb-6 max-w-7xl mx-auto px-1">
+           <div className="text-sm text-gray-500 font-medium">
+             Menampilkan {sortedProducts.length} produk
+           </div>
+           <div className="flex items-center gap-2">
+             <span className="text-sm font-medium text-gray-500 hidden sm:inline">Urutkan:</span>
+             <div className="relative">
+               <select 
+                 value={sortBy}
+                 onChange={(e) => setSortBy(e.target.value as any)}
+                 className="appearance-none bg-white border border-gray-200 text-gray-700 text-sm font-bold py-2 pl-4 pr-10 rounded-xl focus:outline-none focus:ring-2 focus:ring-nature-500 focus:border-transparent cursor-pointer shadow-sm hover:bg-gray-50 transition"
+               >
+                 <option value="default">Rekomendasi (Kategori)</option>
+                 <option value="price_low">Harga Terendah</option>
+                 <option value="price_high">Harga Tertinggi</option>
+                 <option value="name">Nama (A-Z)</option>
+               </select>
+               <ArrowUpDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
+             </div>
+           </div>
+        </div>
+
         {isLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
             {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
@@ -368,7 +425,7 @@ function App() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-            {filteredProducts.map(product => {
+            {sortedProducts.map(product => {
               const inCart = cartItems.find(i => i.id === product.id);
               const displayPrice = product.price2Days || 0;
               
