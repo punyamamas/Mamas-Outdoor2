@@ -6,7 +6,7 @@ import GeminiAdvisor from './components/GeminiAdvisor';
 import { PRODUCTS, CATEGORIES } from './constants';
 import { CartItem, Product } from './types';
 import { getProducts } from './services/productService';
-import { MapPin, Star, Plus, Check, School, Github, Loader2 } from 'lucide-react';
+import { MapPin, Star, Plus, Check, School, Github, Loader2, Flame } from 'lucide-react';
 
 function App() {
   const [products, setProducts] = useState<Product[]>([]); 
@@ -112,32 +112,34 @@ function App() {
       />
 
       {/* Hero Section */}
-      <section className="relative h-[500px] flex items-center justify-center overflow-hidden">
+      <section className="relative h-[550px] flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0">
           <img 
             src="https://images.unsplash.com/photo-1510312305653-8ed496efae75?q=80&w=1920&auto=format&fit=crop" 
             alt="Camping Background" 
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover grayscale-[30%] contrast-125"
           />
-          <div className="absolute inset-0 bg-black/40"></div>
+          {/* Darker red overlay for more 'edgy' look */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-nature-900/40 to-black/30"></div>
         </div>
-        <div className="relative z-10 text-center px-4 max-w-4xl mx-auto">
-          <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-md px-4 py-1.5 rounded-full text-white text-sm font-medium mb-6 border border-white/20">
-            <MapPin size={16} className="text-adventure-500" />
-            <span>Basecamp: Purwokerto Utara (Dekat UNSOED)</span>
+        <div className="relative z-10 text-center px-4 max-w-5xl mx-auto">
+          <div className="inline-flex items-center gap-2 bg-nature-600/90 backdrop-blur-md px-5 py-2 rounded-full text-white text-sm font-bold mb-8 border border-white/10 uppercase tracking-widest shadow-xl shadow-nature-900/50 transform hover:scale-105 transition duration-300 cursor-default">
+            <Flame size={16} className="text-yellow-400 fill-current" />
+            <span>Basecamp Anak Gunung Purwokerto</span>
           </div>
-          <h1 className="text-4xl md:text-6xl font-bold text-white mb-6 leading-tight">
-            Jelajahi Alam Bebas <br/> Tanpa Batas Biaya
+          <h1 className="text-5xl md:text-7xl font-extrabold text-white mb-6 leading-tight tracking-tight">
+            GAS TERUS!<br/> <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500">TAKLUKKAN ALAM</span>
           </h1>
-          <p className="text-lg md:text-xl text-gray-200 mb-8 max-w-2xl mx-auto">
-            Sewa alat outdoor lengkap, bersih, dan terawat. Partner terbaik mahasiswa Purwokerto untuk mendaki Slamet, Prau, dan sekitarnya.
+          <p className="text-lg md:text-xl text-gray-200 mb-10 max-w-2xl mx-auto font-medium">
+            Sewa alat outdoor gak pake ribet. Gear lengkap, harga mahasiswa, stok melimpah. Siap support pendakian Slamet, Prau, & Sindoro mu!
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <a href="#katalog" className="bg-adventure-500 hover:bg-adventure-600 text-white px-8 py-3.5 rounded-xl font-bold transition shadow-lg shadow-adventure-900/20">
-              Sewa Sekarang
+            <a href="#katalog" className="bg-nature-600 hover:bg-nature-700 text-white px-8 py-4 rounded-xl font-bold text-lg transition shadow-lg shadow-nature-600/30 flex items-center justify-center gap-2 group">
+              Gasken Sewa
+              <ArrowRight className="group-hover:translate-x-1 transition" size={20} />
             </a>
-            <a href="#ai-guide" className="bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/30 text-white px-8 py-3.5 rounded-xl font-bold transition">
-              Tanya AI Guide
+            <a href="#ai-guide" className="bg-white hover:bg-gray-100 text-nature-900 px-8 py-4 rounded-xl font-bold text-lg transition shadow-lg flex items-center justify-center">
+              Tanya AI Dulu
             </a>
           </div>
         </div>
@@ -147,8 +149,11 @@ function App() {
       <section id="katalog" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
         <div className="flex flex-col md:flex-row md:items-end justify-between mb-10 gap-6">
           <div>
-            <h2 className="text-3xl font-bold text-gray-900 mb-2">Katalog Alat</h2>
-            <p className="text-gray-500">Pilih perlengkapan sesuai kebutuhan petualanganmu.</p>
+            <h2 className="text-3xl font-bold text-gray-900 mb-2 flex items-center gap-2">
+              <span className="w-2 h-8 bg-nature-600 rounded-full"></span>
+              Gear Catalog
+            </h2>
+            <p className="text-gray-500 font-medium">Pilih senjatamu untuk petualangan berikutnya.</p>
           </div>
           
           {/* Category Filter */}
@@ -157,10 +162,10 @@ function App() {
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
-                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition ${
+                className={`px-5 py-2.5 rounded-lg text-sm font-bold whitespace-nowrap transition border-2 ${
                   selectedCategory === cat 
-                    ? 'bg-nature-700 text-white shadow-md shadow-nature-200' 
-                    : 'bg-white text-gray-600 border border-gray-200 hover:border-nature-300 hover:text-nature-700'
+                    ? 'bg-nature-600 border-nature-600 text-white shadow-lg shadow-nature-200' 
+                    : 'bg-white text-gray-600 border-gray-100 hover:border-nature-600 hover:text-nature-600'
                 }`}
               >
                 {cat}
@@ -189,32 +194,39 @@ function App() {
             {filteredProducts.map(product => {
               const inCart = cartItems.find(i => i.id === product.id);
               return (
-                <div key={product.id} className="bg-white rounded-2xl shadow-sm hover:shadow-xl hover:-translate-y-1 transition duration-300 overflow-hidden border border-gray-100 group">
-                  <div className="relative h-48 overflow-hidden">
-                    <img src={product.image} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" />
-                    <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-lg text-xs font-bold text-nature-700 shadow-sm">
+                <div key={product.id} className="bg-white rounded-2xl shadow-sm hover:shadow-2xl hover:shadow-nature-900/10 hover:-translate-y-2 transition duration-300 overflow-hidden border border-gray-100 group">
+                  <div className="relative h-56 overflow-hidden">
+                    <img src={product.image} alt={product.name} className="w-full h-full object-cover group-hover:scale-110 transition duration-700" />
+                    <div className="absolute top-3 right-3 bg-black/70 backdrop-blur-md px-3 py-1.5 rounded-lg text-xs font-bold text-white shadow-sm border border-white/20">
                       Stok: {product.stock}
                     </div>
+                    {product.stock < 3 && product.stock > 0 && (
+                       <div className="absolute bottom-3 left-3 bg-red-600 px-3 py-1 rounded text-[10px] font-bold text-white uppercase tracking-wider animate-pulse">
+                        Terbatas
+                      </div>
+                    )}
                   </div>
                   <div className="p-5">
-                    <div className="text-xs font-semibold text-adventure-600 mb-2 uppercase tracking-wide">{product.category}</div>
-                    <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-1" title={product.name}>{product.name}</h3>
-                    <p className="text-sm text-gray-500 mb-4 line-clamp-2 min-h-[40px]">{product.description}</p>
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="text-[10px] font-bold text-nature-600 bg-nature-50 px-2 py-1 rounded uppercase tracking-wider border border-nature-100">{product.category}</div>
+                    </div>
+                    <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-1 leading-tight group-hover:text-nature-600 transition">{product.name}</h3>
+                    <p className="text-sm text-gray-500 mb-4 line-clamp-2 min-h-[40px] leading-relaxed">{product.description}</p>
                     
-                    <div className="flex items-center justify-between mt-auto">
+                    <div className="flex items-center justify-between mt-auto pt-4 border-t border-gray-50">
                       <div>
-                        <span className="text-lg font-bold text-gray-900">Rp{product.price.toLocaleString('id-ID')}</span>
-                        <span className="text-xs text-gray-400">/24jam</span>
+                        <span className="text-xl font-extrabold text-gray-900">Rp{product.price.toLocaleString('id-ID')}</span>
+                        <span className="text-xs text-gray-400 font-medium">/24jam</span>
                       </div>
                       <button 
                         onClick={() => addToCart(product)}
                         className={`p-3 rounded-xl transition shadow-lg ${
                           inCart 
-                            ? 'bg-nature-50 text-nature-700 border border-nature-200' 
-                            : 'bg-nature-600 text-white hover:bg-nature-700 shadow-nature-200'
+                            ? 'bg-green-50 text-green-700 border border-green-200' 
+                            : 'bg-nature-600 text-white hover:bg-nature-700 shadow-nature-200 hover:scale-105 active:scale-95'
                         }`}
                       >
-                        {inCart ? <Check size={20} /> : <Plus size={20} />}
+                        {inCart ? <Check size={20} strokeWidth={3} /> : <Plus size={20} strokeWidth={3} />}
                       </button>
                     </div>
                   </div>
@@ -226,61 +238,66 @@ function App() {
       </section>
 
       {/* AI Assistant Section */}
-      <section className="bg-nature-50 border-y border-nature-100">
+      <section className="bg-nature-50 border-y border-nature-100 relative overflow-hidden">
+        {/* Abstract Pattern */}
+        <div className="absolute top-0 right-0 -mr-20 -mt-20 w-96 h-96 bg-nature-200 rounded-full blur-3xl opacity-50"></div>
+        <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-80 h-80 bg-adventure-200 rounded-full blur-3xl opacity-50"></div>
         <GeminiAdvisor products={products} onAddRecommended={addRecommendedToCart} />
       </section>
 
       {/* Features/Trust Section */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div className="flex flex-col items-center text-center p-6 bg-white rounded-2xl shadow-sm border border-gray-100">
-            <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-4">
-              <Star className="fill-current" size={24} />
+          <div className="flex flex-col items-center text-center p-8 bg-white rounded-2xl shadow-sm border border-gray-100 hover:border-nature-200 transition group">
+            <div className="w-16 h-16 bg-nature-50 text-nature-600 rounded-2xl rotate-3 group-hover:rotate-6 transition duration-300 flex items-center justify-center mb-6">
+              <Star className="fill-current" size={28} />
             </div>
-            <h3 className="text-lg font-bold text-gray-900 mb-2">Alat Terawat</h3>
-            <p className="text-gray-500">Selalu dibersihkan dan dicek setelah pemakaian. Tidak ada tenda bocor atau frame patah.</p>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">Gear Sultan</h3>
+            <p className="text-gray-500">Alat branded, bersih, dan wangi. Gak ada cerita tenda bocor pas badai.</p>
           </div>
-          <div className="flex flex-col items-center text-center p-6 bg-white rounded-2xl shadow-sm border border-gray-100">
-             <div className="w-14 h-14 bg-adventure-50 text-adventure-600 rounded-full flex items-center justify-center mb-4">
-              <MapPin className="fill-current" size={24} />
+          <div className="flex flex-col items-center text-center p-8 bg-white rounded-2xl shadow-sm border border-gray-100 hover:border-nature-200 transition group">
+             <div className="w-16 h-16 bg-adventure-50 text-adventure-600 rounded-2xl -rotate-3 group-hover:-rotate-6 transition duration-300 flex items-center justify-center mb-6">
+              <MapPin className="fill-current" size={28} />
             </div>
-            <h3 className="text-lg font-bold text-gray-900 mb-2">Lokasi Strategis</h3>
-            <p className="text-gray-500">Dekat dengan kampus UNSOED. Mudah dijangkau untuk pengambilan dan pengembalian.</p>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">Lokasi UNSOED</h3>
+            <p className="text-gray-500">Basecamp strategis di Grendeng. Gas ambil alat sambil berangkat kuliah.</p>
           </div>
-          <div className="flex flex-col items-center text-center p-6 bg-white rounded-2xl shadow-sm border border-gray-100">
-             <div className="w-14 h-14 bg-nature-50 text-nature-600 rounded-full flex items-center justify-center mb-4">
-              <School className="fill-current" size={24} />
+          <div className="flex flex-col items-center text-center p-8 bg-white rounded-2xl shadow-sm border border-gray-100 hover:border-nature-200 transition group">
+             <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl rotate-3 group-hover:rotate-6 transition duration-300 flex items-center justify-center mb-6">
+              <School className="fill-current" size={28} />
             </div>
-            <h3 className="text-lg font-bold text-gray-900 mb-2">Diskon Mahasiswa</h3>
-            <p className="text-gray-500">Tunjukkan KTM (Kartu Tanda Mahasiswa) saat pengambilan untuk mendapatkan harga spesial.</p>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">Harga Mahasiswa</h3>
+            <p className="text-gray-500">Tunjukkan KTM sakti mu, dapatkan harga spesial kawan.</p>
           </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-white pt-16 pb-8">
+      <footer className="bg-gray-900 text-white pt-20 pb-10 border-t-4 border-nature-600">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
             <div className="col-span-1 md:col-span-2">
-              <h2 className="text-2xl font-bold mb-4">Mamas<span className="text-nature-400">Outdoor</span></h2>
-              <p className="text-gray-400 max-w-sm">
-                Teman setia petualanganmu. Kami menyediakan peralatan outdoor berkualitas dengan harga mahasiswa.
-                Mari jelajahi keindahan alam Indonesia bersama kami.
+              <h2 className="text-3xl font-black mb-6 tracking-tight">Mamas<span className="text-nature-500">Outdoor</span></h2>
+              <p className="text-gray-400 max-w-sm leading-relaxed text-lg">
+                Partner nanjak paling asik se-Purwokerto. 
+                Sedia alat tempur buat naklukin Slamet, Prau, Sindoro, Sumbing. 
+                <br/><br/>
+                <span className="text-white font-bold">#SalamLestari</span>
               </p>
             </div>
             <div>
-              <h3 className="text-lg font-bold mb-4">Layanan</h3>
-              <ul className="space-y-2 text-gray-400">
-                <li><a href="#" className="hover:text-nature-400">Sewa Tenda</a></li>
-                <li><a href="#" className="hover:text-nature-400">Sewa Carrier</a></li>
-                <li><a href="#" className="hover:text-nature-400">Paket Pendakian</a></li>
-                <li><a href="#" className="hover:text-nature-400">Consultation</a></li>
+              <h3 className="text-lg font-bold mb-6 text-nature-500">Services</h3>
+              <ul className="space-y-3 text-gray-400 font-medium">
+                <li><a href="#" className="hover:text-white transition">Sewa Tenda Dome</a></li>
+                <li><a href="#" className="hover:text-white transition">Sewa Carrier</a></li>
+                <li><a href="#" className="hover:text-white transition">Paket Open Trip</a></li>
+                <li><a href="#" className="hover:text-white transition">Sharing Session</a></li>
               </ul>
             </div>
             <div>
-              <h3 className="text-lg font-bold mb-4">Kontak</h3>
-              <ul className="space-y-2 text-gray-400">
-                <li>Jl. Kampus No. 123, Grendeng</li>
+              <h3 className="text-lg font-bold mb-6 text-nature-500">Contact Us</h3>
+              <ul className="space-y-3 text-gray-400 font-medium">
+                <li>Jl. Kampus Grendeng No. 123</li>
                 <li>Purwokerto Utara</li>
                 <li>WA: 0812-3456-7890</li>
                 <li>IG: @mamasoutdoor</li>
@@ -289,18 +306,39 @@ function App() {
           </div>
           <div className="border-t border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center text-gray-500 text-sm">
             <p>&copy; 2024 Mamas Outdoor. All rights reserved.</p>
-            <div className="flex items-center gap-4">
-              <a href="#" className="flex items-center gap-1 hover:text-white transition">
-                <Github size={16} />
-                <span>Repository</span>
+            <div className="flex items-center gap-6">
+              <a href="#" className="flex items-center gap-2 hover:text-white transition">
+                <Github size={18} />
+                <span>Source Code</span>
               </a>
-              <p>Made with ❤️ for Nature Lovers</p>
+              <p className="font-medium text-nature-500">Made with ❤️ for Nature Lovers</p>
             </div>
           </div>
         </div>
       </footer>
     </div>
   );
+}
+
+// Helper component for arrow icon
+function ArrowRight({ className, size }: { className?: string, size: number }) {
+  return (
+    <svg 
+      xmlns="http://www.w3.org/2000/svg" 
+      width={size} 
+      height={size} 
+      viewBox="0 0 24 24" 
+      fill="none" 
+      stroke="currentColor" 
+      strokeWidth="3" 
+      strokeLinecap="round" 
+      strokeLinejoin="round" 
+      className={className}
+    >
+      <path d="M5 12h14" />
+      <path d="m12 5 7 7-7 7" />
+    </svg>
+  )
 }
 
 export default App;
