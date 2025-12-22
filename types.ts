@@ -4,6 +4,11 @@ export interface Category {
   name: string;
 }
 
+export interface PackageItem {
+  productId: string;
+  quantity: number;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -18,6 +23,7 @@ export interface Product {
   image: string;
   description: string;
   stock: number;
+  packageItems?: PackageItem[]; // Optional: Hanya untuk kategori paket
 }
 
 export interface CartItem extends Product {

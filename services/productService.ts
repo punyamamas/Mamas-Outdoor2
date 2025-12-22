@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 import { PRODUCTS } from '../constants';
-import { Product } from '../types';
+import { Product, CartItem } from '../types';
 
 export const getProducts = async (): Promise<Product[]> => {
   // Jika Supabase belum dikonfigurasi, gunakan data mock
@@ -36,6 +36,7 @@ export const getProducts = async (): Promise<Product[]> => {
         price5Days: item.price5Days || Math.floor(basePrice * 2.2),
         price6Days: item.price6Days || Math.floor(basePrice * 2.5),
         price7Days: item.price7Days || Math.floor(basePrice * 3.0),
+        packageItems: item.package_items || [], // Map kolom DB snake_case ke camelCase
       };
     });
 
@@ -57,10 +58,10 @@ export const addProduct = async (product: Product): Promise<Product | null> => {
   const basePayload = id.length > 10 ? productData : product;
 
   // FIX: Include legacy 'price' column to satisfy DB NOT NULL constraint
-  // We map price2Days to price
   const payload = {
     ...basePayload,
-    price: product.price2Days
+    price: product.price2Days,
+    package_items: product.packageItems // Map camelCase ke snake_case DB
   };
 
   const { data, error } = await supabase
@@ -74,14 +75,17 @@ export const addProduct = async (product: Product): Promise<Product | null> => {
     if (error.code === '42501') {
       alert('Gagal Menambah: Izin Ditolak (RLS). Cek Policy di Supabase.');
     } else if (error.message.includes('null value in column "price"')) {
-      alert('Error Database: Kolom "price" wajib diisi. Script update otomatis sudah dijalankan, coba lagi.');
+      alert('Error Database: Kolom "price" wajib diisi.');
     } else {
       alert('Gagal menambah produk: ' + error.message);
     }
     return null;
   }
 
-  return data as Product;
+  return {
+    ...data,
+    packageItems: data.package_items
+  } as Product;
 };
 
 export const updateProduct = async (product: Product): Promise<Product | null> => {
@@ -90,7 +94,8 @@ export const updateProduct = async (product: Product): Promise<Product | null> =
   // Update legacy 'price' column as well to keep data consistent
   const payload = {
     ...product,
-    price: product.price2Days
+    price: product.price2Days,
+    package_items: product.packageItems
   };
 
   const { data, error } = await supabase
@@ -110,7 +115,10 @@ export const updateProduct = async (product: Product): Promise<Product | null> =
     return null;
   }
 
-  return data as Product;
+  return {
+    ...data,
+    packageItems: data.package_items
+  } as Product;
 };
 
 export const deleteProduct = async (id: string): Promise<boolean> => {
@@ -132,4 +140,51 @@ export const deleteProduct = async (id: string): Promise<boolean> => {
   }
 
   return true;
+};
+
+// --- FUNGSI BARU UNTUK PENGURANGAN STOK PAKET ---
+
+export const processStockReduction = async (cartItems: CartItem[]): Promise<void> => {
+  if (!supabase) return;
+
+  try {
+    // 1. Ambil data produk terbaru dari DB untuk memastikan kita punya data packageItems yang valid
+    const { data: allProducts, error } = await supabase
+      .from('products')
+      .select('id, stock, package_items');
+
+    if (error || !allProducts) throw new Error("Gagal mengambil data stok terbaru");
+
+    // Map untuk memudahkan akses
+    const productMap = new Map(allProducts.map((p: any) => [p.id.toString(), p]));
+
+    // 2. Loop setiap item di keranjang
+    for (const item of cartItems) {
+      const dbProduct = productMap.get(item.id);
+      if (!dbProduct) continue;
+
+      // A. Kurangi stok item utama (paket itu sendiri atau produk biasa)
+      const newStock = Math.max(0, dbProduct.stock - item.quantity);
+      await supabase.from('products').update({ stock: newStock }).eq('id', item.id);
+
+      // B. Jika item ini adalah PAKET, kurangi stok komponen di dalamnya
+      if (dbProduct.package_items && Array.isArray(dbProduct.package_items)) {
+        for (const subItem of dbProduct.package_items) {
+          const childProduct = productMap.get(subItem.productId);
+          
+          if (childProduct) {
+            // Jumlah pengurangan = Jumlah Paket yang dibeli * Jumlah item per paket
+            const deductionAmount = item.quantity * subItem.quantity;
+            const newChildStock = Math.max(0, childProduct.stock - deductionAmount);
+            
+            // Update stok anak
+            await supabase.from('products').update({ stock: newChildStock }).eq('id', subItem.productId);
+            console.log(`Updated stock for child item ${subItem.productId}: ${childProduct.stock} -> ${newChildStock}`);
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error("Error processing stock reduction:", err);
+  }
 };

@@ -3,9 +3,9 @@ import {
   LayoutDashboard, Package, LogOut, Plus, Search, 
   Edit, Trash2, Save, X, Image as ImageIcon,
   AlertTriangle, DollarSign, Loader2, RotateCcw,
-  Database, Wifi, WifiOff, Tags, CheckSquare
+  Database, Wifi, WifiOff, Tags, CheckSquare, Layers
 } from 'lucide-react';
-import { Product, Category } from '../types';
+import { Product, Category, PackageItem } from '../types';
 import { supabase } from '../services/supabase';
 
 interface AdminDashboardProps {
@@ -50,7 +50,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // Form State for Products
   const [productFormData, setProductFormData] = useState<Partial<Product>>({
     name: '',
-    category: '', // Dynamic
+    category: '', 
     price2Days: 0,
     price3Days: 0,
     price4Days: 0,
@@ -59,7 +59,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     price7Days: 0,
     stock: 0,
     description: '',
-    image: ''
+    image: '',
+    packageItems: []
   });
 
   // State for Categories Management
@@ -83,13 +84,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const openProductModal = (product?: Product) => {
     if (product) {
       setEditingProduct(product);
-      setProductFormData(product);
+      setProductFormData({
+        ...product,
+        packageItems: product.packageItems || []
+      });
     } else {
       setEditingProduct(null);
       setProductFormData({
         id: Date.now().toString(),
         name: '',
-        category: categories.length > 0 ? categories[0].name : 'Tenda', // Default to first available or fallback
+        category: categories.length > 0 ? categories[0].name : 'Tenda', 
         price2Days: 0,
         price3Days: 0,
         price4Days: 0,
@@ -98,7 +102,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         price7Days: 0,
         stock: 0,
         description: '',
-        image: 'https://picsum.photos/400/300'
+        image: 'https://picsum.photos/400/300',
+        packageItems: []
       });
     }
     setIsProductModalOpen(true);
@@ -120,6 +125,29 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // Helper untuk Package Items
+  const addPackageItem = () => {
+    setProductFormData(prev => ({
+      ...prev,
+      packageItems: [...(prev.packageItems || []), { productId: products[0]?.id || '', quantity: 1 }]
+    }));
+  };
+
+  const removePackageItem = (index: number) => {
+    setProductFormData(prev => ({
+      ...prev,
+      packageItems: (prev.packageItems || []).filter((_, i) => i !== index)
+    }));
+  };
+
+  const updatePackageItem = (index: number, field: keyof PackageItem, value: any) => {
+    setProductFormData(prev => {
+      const newItems = [...(prev.packageItems || [])];
+      newItems[index] = { ...newItems[index], [field]: value };
+      return { ...prev, packageItems: newItems };
+    });
   };
 
   const handleCategoryAdd = async (e: React.FormEvent) => {
@@ -357,7 +385,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
                             <img src={product.image} alt="" className="w-10 h-10 rounded-lg object-cover bg-gray-200" />
-                            <span className="font-medium text-gray-900">{product.name}</span>
+                            <div className="flex flex-col">
+                              <span className="font-medium text-gray-900">{product.name}</span>
+                              {product.packageItems && product.packageItems.length > 0 && (
+                                <span className="text-xs text-adventure-600 flex items-center gap-1">
+                                  <Layers size={10} /> {product.packageItems.length} Komponen
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </td>
                         <td className="px-6 py-4">
@@ -521,7 +556,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </select>
                 </div>
                 <div>
-                   <label className="block text-sm font-medium text-gray-700 mb-1">Stok</label>
+                   <label className="block text-sm font-medium text-gray-700 mb-1">Stok (Paket/Unit)</label>
                    <input 
                     type="number" 
                     required
@@ -532,6 +567,57 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   />
                 </div>
               </div>
+
+              {/* SECTION PACKAGE ITEMS: Only show if category contains 'Paketan' or similar logic */}
+              {(productFormData.category?.toLowerCase().includes('paket') || productFormData.category?.toLowerCase().includes('bundling')) && (
+                 <div className="bg-purple-50 p-4 rounded-xl border border-purple-100">
+                    <div className="flex justify-between items-center mb-3">
+                       <h4 className="text-sm font-bold text-purple-800 flex items-center gap-2">
+                         <Layers size={16} /> Isi Paket (Komponen)
+                       </h4>
+                       <button type="button" onClick={addPackageItem} className="text-xs bg-purple-200 hover:bg-purple-300 text-purple-800 px-2 py-1 rounded font-bold">
+                         + Tambah Alat
+                       </button>
+                    </div>
+                    
+                    <div className="space-y-2">
+                       {productFormData.packageItems?.map((item, index) => (
+                         <div key={index} className="flex gap-2 items-center">
+                            <select 
+                              className="flex-1 text-xs px-2 py-2 rounded border border-purple-200 focus:outline-none"
+                              value={item.productId}
+                              onChange={(e) => updatePackageItem(index, 'productId', e.target.value)}
+                            >
+                               <option value="">Pilih Alat...</option>
+                               {products.filter(p => p.id !== productFormData.id).map(p => (
+                                 <option key={p.id} value={p.id}>{p.name} (Stok: {p.stock})</option>
+                               ))}
+                            </select>
+                            <input 
+                              type="number"
+                              min="1"
+                              className="w-16 text-xs px-2 py-2 rounded border border-purple-200 text-center"
+                              value={item.quantity}
+                              onChange={(e) => updatePackageItem(index, 'quantity', parseInt(e.target.value))}
+                            />
+                            <button 
+                              type="button" 
+                              onClick={() => removePackageItem(index)}
+                              className="text-red-500 hover:text-red-700 p-1"
+                            >
+                              <X size={14} />
+                            </button>
+                         </div>
+                       ))}
+                       {(!productFormData.packageItems || productFormData.packageItems.length === 0) && (
+                         <p className="text-xs text-purple-400 italic text-center">Belum ada alat dalam paket ini.</p>
+                       )}
+                    </div>
+                    <p className="text-[10px] text-purple-600 mt-2">
+                      *Saat paket ini disewa, stok alat-alat di atas akan otomatis berkurang.
+                    </p>
+                 </div>
+              )}
 
               <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
                  <h4 className="text-sm font-bold text-blue-800 mb-3 flex items-center gap-2">

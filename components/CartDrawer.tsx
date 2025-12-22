@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { X, Trash2, Calendar, Phone, User, School, ArrowRight, AlertCircle } from 'lucide-react';
+import { X, Trash2, Calendar, Phone, User, School, ArrowRight, AlertCircle, Loader2 } from 'lucide-react';
 import { CartItem, UserDetails, Transaction } from '../types';
 import { WA_NUMBER } from '../constants';
+import { processStockReduction } from '../services/productService';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -14,6 +15,7 @@ interface CartDrawerProps {
 
 const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, cartItems, onUpdateQuantity, onRemoveItem, onClearCart }) => {
   const [step, setStep] = useState<'cart' | 'details'>('cart');
+  const [isProcessing, setIsProcessing] = useState(false);
   const [userDetails, setUserDetails] = useState<UserDetails>({
     name: '',
     whatsapp: '',
@@ -25,7 +27,6 @@ const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, cartItems, onU
   // Fungsi helper hitung harga item berdasarkan durasi
   const getItemPriceForDuration = (item: CartItem, days: number): number => {
     // Safety check: jika item format lama, gunakan default 0
-    // Pastikan semua properti ada atau berikan default
     const p2 = item.price2Days || 0;
     const p3 = item.price3Days || 0;
     const p4 = item.price4Days || 0;
@@ -53,8 +54,14 @@ const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, cartItems, onU
 
   const total = calculateTotal();
 
-  const handleCheckout = () => {
-    // 1. Save Transaction to Local History
+  const handleCheckout = async () => {
+    setIsProcessing(true);
+    
+    // 1. Process Stock Reduction (New Feature)
+    // Ini akan mengurangi stok paket DAN stok komponen di dalamnya
+    await processStockReduction(cartItems);
+
+    // 2. Save Transaction to Local History
     const newTransaction: Transaction = {
       id: Date.now().toString(),
       date: new Date().toISOString(),
@@ -70,7 +77,7 @@ const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, cartItems, onU
     history.push(newTransaction);
     localStorage.setItem('mamasHistory', JSON.stringify(history));
 
-    // 2. Construct WhatsApp Message
+    // 3. Construct WhatsApp Message
     const header = `*Halo Mamas Outdoor! Saya mau sewa dong.*\n\n`;
     const buyerInfo = `*Data Penyewa:*\nNama: ${userDetails.name}\nKampus: ${userDetails.campus}\nWA: ${userDetails.whatsapp}\nTanggal Ambil: ${userDetails.rentalDate}\nLama Sewa: ${userDetails.duration} Hari\n\n`;
     
@@ -83,10 +90,12 @@ const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, cartItems, onU
     
     const fullMessage = encodeURIComponent(header + buyerInfo + "*List Alat:*\n" + itemsList + footer);
     
-    // 3. Open WhatsApp
+    setIsProcessing(false);
+    
+    // 4. Open WhatsApp
     window.open(`https://wa.me/${WA_NUMBER}?text=${fullMessage}`, '_blank');
     
-    // 4. Reset & Close
+    // 5. Reset & Close
     onClearCart();
     setStep('cart');
     onClose();
@@ -297,10 +306,18 @@ const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, cartItems, onU
                  </button>
                  <button 
                   onClick={handleCheckout}
-                  disabled={!userDetails.name || !userDetails.whatsapp}
+                  disabled={!userDetails.name || !userDetails.whatsapp || isProcessing}
                   className="flex-1 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-green-200 transition flex items-center justify-center gap-2"
                  >
-                   Pesan via WhatsApp
+                   {isProcessing ? (
+                     <>
+                        <Loader2 className="animate-spin" size={20} /> Memproses...
+                     </>
+                   ) : (
+                     <>
+                        Pesan via WhatsApp
+                     </>
+                   )}
                  </button>
                </div>
              )}
