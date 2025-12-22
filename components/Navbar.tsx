@@ -1,5 +1,5 @@
 import React from 'react';
-import { Mountain, ShoppingBag, Menu, X, History, FileText } from 'lucide-react';
+import { Mountain, ShoppingBag, Menu, X, History, FileText, Calendar, Phone } from 'lucide-react';
 
 interface NavbarProps {
   cartCount: number;
@@ -27,13 +27,16 @@ const Navbar: React.FC<NavbarProps> = ({ cartCount, onOpenCart, onToggleMobileMe
           </div>
 
           {/* Desktop Menu */}
-          <div className="hidden md:flex items-center space-x-8">
-            <a href="#" className="text-gray-600 hover:text-nature-600 font-medium transition">Beranda</a>
-            <a href="#katalog" className="text-gray-600 hover:text-nature-600 font-medium transition">Katalog</a>
-            <a href="#ai-guide" className="text-gray-600 hover:text-nature-600 font-medium transition">AI Guide</a>
-            <button onClick={onOpenTerms} className="text-gray-600 hover:text-nature-600 font-medium transition">Syarat Sewa</button>
+          <div className="hidden md:flex items-center space-x-6 lg:space-x-8">
+            <a href="#" className="text-gray-600 hover:text-nature-600 font-medium transition text-sm lg:text-base">Beranda</a>
+            <a href="#katalog" className="text-gray-600 hover:text-nature-600 font-medium transition text-sm lg:text-base">Katalog</a>
+            <a href="#event" className="text-gray-600 hover:text-nature-600 font-medium transition text-sm lg:text-base">Event</a>
+            <a href="#ai-guide" className="text-gray-600 hover:text-nature-600 font-medium transition text-sm lg:text-base">AI Guide</a>
+            <a href="#contact" className="text-gray-600 hover:text-nature-600 font-medium transition text-sm lg:text-base">Kontak</a>
             
             <div className="h-6 w-px bg-gray-200 mx-2"></div>
+
+            <button onClick={onOpenTerms} className="text-gray-600 hover:text-nature-600 font-medium transition text-sm lg:text-base">Sewa</button>
 
             <button 
               onClick={onOpenHistory}
@@ -41,7 +44,6 @@ const Navbar: React.FC<NavbarProps> = ({ cartCount, onOpenCart, onToggleMobileMe
               title="Riwayat Sewa"
             >
               <History size={20} />
-              <span className="hidden lg:inline">Riwayat</span>
             </button>
 
             <button 
@@ -81,15 +83,21 @@ const Navbar: React.FC<NavbarProps> = ({ cartCount, onOpenCart, onToggleMobileMe
       {isMobileMenuOpen && (
         <div className="md:hidden bg-white border-t border-gray-100">
           <div className="px-4 pt-2 pb-6 space-y-2">
-            <a href="#" className="block py-3 px-2 text-base font-medium text-gray-700 border-b border-gray-50">Beranda</a>
-            <a href="#katalog" className="block py-3 px-2 text-base font-medium text-gray-700 border-b border-gray-50">Katalog Alat</a>
-            <a href="#ai-guide" className="block py-3 px-2 text-base font-medium text-gray-700 border-b border-gray-50">Tanya AI Assistant</a>
-            <button onClick={() => { onOpenTerms(); onToggleMobileMenu(); }} className="w-full text-left py-3 px-2 text-base font-medium text-gray-700 flex items-center gap-2">
+            <a href="#" onClick={onToggleMobileMenu} className="block py-3 px-2 text-base font-medium text-gray-700 border-b border-gray-50">Beranda</a>
+            <a href="#katalog" onClick={onToggleMobileMenu} className="block py-3 px-2 text-base font-medium text-gray-700 border-b border-gray-50">Katalog Alat</a>
+            <a href="#event" onClick={onToggleMobileMenu} className="block py-3 px-2 text-base font-medium text-gray-700 border-b border-gray-50 flex items-center gap-2">
+              <Calendar size={18} /> Event & Open Trip
+            </a>
+            <a href="#ai-guide" onClick={onToggleMobileMenu} className="block py-3 px-2 text-base font-medium text-gray-700 border-b border-gray-50">Tanya AI Assistant</a>
+            <button onClick={() => { onOpenTerms(); onToggleMobileMenu(); }} className="w-full text-left py-3 px-2 text-base font-medium text-gray-700 flex items-center gap-2 border-b border-gray-50">
               <FileText size={18} /> Syarat Sewa
             </button>
-            <button onClick={() => { onOpenHistory(); onToggleMobileMenu(); }} className="w-full text-left py-3 px-2 text-base font-medium text-gray-700 flex items-center gap-2">
+            <button onClick={() => { onOpenHistory(); onToggleMobileMenu(); }} className="w-full text-left py-3 px-2 text-base font-medium text-gray-700 flex items-center gap-2 border-b border-gray-50">
               <History size={18} /> Riwayat Sewa
             </button>
+            <a href="#contact" onClick={onToggleMobileMenu} className="block py-3 px-2 text-base font-medium text-gray-700 flex items-center gap-2">
+              <Phone size={18} /> Hubungi Kami
+            </a>
           </div>
         </div>
       )}

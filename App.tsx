@@ -8,7 +8,7 @@ import AdminDashboard from './components/AdminDashboard';
 import { PRODUCTS, CATEGORIES } from './constants';
 import { CartItem, Product } from './types';
 import { getProducts, addProduct, updateProduct, deleteProduct } from './services/productService';
-import { MapPin, Star, Plus, Check, School, Github, Loader2, Flame, Lock } from 'lucide-react';
+import { MapPin, Star, Plus, Check, School, Github, Loader2, Flame, Lock, Calendar, Users, ArrowRight as ArrowIcon } from 'lucide-react';
 
 function App() {
   const [currentPage, setCurrentPage] = useState<'home' | 'admin'>('home');
@@ -299,9 +299,91 @@ function App() {
         <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-80 h-80 bg-adventure-200 rounded-full blur-3xl opacity-50"></div>
         <GeminiAdvisor products={products} onAddRecommended={addRecommendedToCart} />
       </section>
+      
+      {/* Event Section (NEW) */}
+      <section id="event" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+        <div className="mb-10 text-center">
+          <span className="text-nature-600 font-bold tracking-widest uppercase text-sm mb-2 block">Agenda & Kegiatan</span>
+          <h2 className="text-3xl md:text-4xl font-black text-gray-900">Mamas Open Trip</h2>
+          <p className="text-gray-500 mt-4 max-w-2xl mx-auto">
+            Gak punya temen nanjak? Gabung bareng komunitas Mamas Outdoor. 
+            Fasilitas lengkap, guide asik, dokumentasi kece.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {/* Event Card 1 */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden group hover:shadow-xl transition duration-300">
+            <div className="relative h-64 overflow-hidden">
+              <img 
+                src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=800&auto=format&fit=crop" 
+                alt="Gunung Slamet" 
+                className="w-full h-full object-cover group-hover:scale-105 transition duration-700"
+              />
+              <div className="absolute top-4 left-4 bg-white/90 backdrop-blur px-4 py-2 rounded-lg text-center shadow-lg">
+                <span className="block text-xs text-gray-500 font-bold uppercase">Agustus</span>
+                <span className="block text-2xl font-black text-nature-600">17</span>
+              </div>
+            </div>
+            <div className="p-8">
+              <div className="flex items-center gap-2 mb-3 text-sm font-medium text-nature-600">
+                <MapPin size={16} /> 
+                <span>Via Bambangan</span>
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-3">Upacara 17 Agustus Atap Jawa Tengah</h3>
+              <p className="text-gray-500 mb-6 leading-relaxed">
+                Rayakan kemerdekaan di puncak tertinggi Jawa Tengah (3.428 mdpl). Include transportasi PP Purwokerto, tenda, alat masak, dan porter tim.
+              </p>
+              <div className="flex items-center justify-between pt-6 border-t border-gray-50">
+                <div className="flex items-center gap-2 text-gray-500">
+                   <Users size={18} />
+                   <span className="text-sm">Sisa 5 Seat</span>
+                </div>
+                <a href="#" className="flex items-center gap-2 text-nature-600 font-bold hover:gap-3 transition">
+                  Daftar Sekarang <ArrowIcon size={18} />
+                </a>
+              </div>
+            </div>
+          </div>
+
+          {/* Event Card 2 */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden group hover:shadow-xl transition duration-300">
+            <div className="relative h-64 overflow-hidden">
+              <img 
+                src="https://images.unsplash.com/photo-1533240332313-0db49b459ad6?q=80&w=800&auto=format&fit=crop" 
+                alt="Camping Ceria" 
+                className="w-full h-full object-cover group-hover:scale-105 transition duration-700"
+              />
+              <div className="absolute top-4 left-4 bg-white/90 backdrop-blur px-4 py-2 rounded-lg text-center shadow-lg">
+                <span className="block text-xs text-gray-500 font-bold uppercase">Setiap</span>
+                <span className="block text-xl font-black text-nature-600">Weekend</span>
+              </div>
+            </div>
+            <div className="p-8">
+              <div className="flex items-center gap-2 mb-3 text-sm font-medium text-nature-600">
+                <MapPin size={16} /> 
+                <span>Bukit Tranggulasih / Baturraden</span>
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-3">Paket Camping Ceria Anti Ribet</h3>
+              <p className="text-gray-500 mb-6 leading-relaxed">
+                Buat kamu yang mau healing tipis-tipis. Kami siapkan tenda berdiri, api unggun, dan jagung bakar. Datang tinggal bawa badan!
+              </p>
+              <div className="flex items-center justify-between pt-6 border-t border-gray-50">
+                <div className="flex items-center gap-2 text-gray-500">
+                   <Users size={18} />
+                   <span className="text-sm">Private Group</span>
+                </div>
+                <a href="#" className="flex items-center gap-2 text-nature-600 font-bold hover:gap-3 transition">
+                  Booking Tanggal <ArrowIcon size={18} />
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* Features Section */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+      <section className="bg-gray-50 border-t border-gray-200 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className="flex flex-col items-center text-center p-8 bg-white rounded-2xl shadow-sm border border-gray-100 hover:border-nature-200 transition group">
             <div className="w-16 h-16 bg-nature-50 text-nature-600 rounded-2xl rotate-3 group-hover:rotate-6 transition duration-300 flex items-center justify-center mb-6">
@@ -328,7 +410,7 @@ function App() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-white pt-20 pb-10 border-t-4 border-nature-600">
+      <footer id="contact" className="bg-gray-900 text-white pt-20 pb-10 border-t-4 border-nature-600 scroll-mt-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
             <div className="col-span-1 md:col-span-2">
