@@ -5,10 +5,11 @@ import GeminiAdvisor from './components/GeminiAdvisor';
 import { PRODUCTS, CATEGORIES } from './constants';
 import { CartItem, Product } from './types';
 import { getProducts } from './services/productService';
-import { MapPin, Star, Plus, Check, School, Github } from 'lucide-react';
+import { MapPin, Star, Plus, Check, School, Github, Loader2 } from 'lucide-react';
 
 function App() {
-  const [products, setProducts] = useState<Product[]>(PRODUCTS); // Init dengan data mock/statis dulu agar tidak kosong
+  const [products, setProducts] = useState<Product[]>([]); 
+  const [isLoading, setIsLoading] = useState(true); // State untuk loading
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -17,8 +18,16 @@ function App() {
   // Load products from Supabase (or fallback)
   useEffect(() => {
     const initProducts = async () => {
-      const data = await getProducts();
-      setProducts(data);
+      setIsLoading(true);
+      try {
+        const data = await getProducts();
+        setProducts(data);
+      } catch (error) {
+        console.error("Failed to load products", error);
+        setProducts(PRODUCTS); // Fallback to mock data on catastrophic failure
+      } finally {
+        setIsLoading(false);
+      }
     };
     initProducts();
   }, []);
@@ -148,43 +157,59 @@ function App() {
         </div>
 
         {/* Product Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-          {filteredProducts.map(product => {
-            const inCart = cartItems.find(i => i.id === product.id);
-            return (
-              <div key={product.id} className="bg-white rounded-2xl shadow-sm hover:shadow-xl hover:-translate-y-1 transition duration-300 overflow-hidden border border-gray-100 group">
-                <div className="relative h-48 overflow-hidden">
-                  <img src={product.image} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" />
-                  <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-lg text-xs font-bold text-nature-700 shadow-sm">
-                    Stok: {product.stock}
-                  </div>
-                </div>
-                <div className="p-5">
-                  <div className="text-xs font-semibold text-adventure-600 mb-2 uppercase tracking-wide">{product.category}</div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-1" title={product.name}>{product.name}</h3>
-                  <p className="text-sm text-gray-500 mb-4 line-clamp-2 min-h-[40px]">{product.description}</p>
-                  
-                  <div className="flex items-center justify-between mt-auto">
-                    <div>
-                      <span className="text-lg font-bold text-gray-900">Rp{product.price.toLocaleString('id-ID')}</span>
-                      <span className="text-xs text-gray-400">/24jam</span>
-                    </div>
-                    <button 
-                      onClick={() => addToCart(product)}
-                      className={`p-3 rounded-xl transition shadow-lg ${
-                        inCart 
-                          ? 'bg-nature-50 text-nature-700 border border-nature-200' 
-                          : 'bg-nature-600 text-white hover:bg-nature-700 shadow-nature-200'
-                      }`}
-                    >
-                      {inCart ? <Check size={20} /> : <Plus size={20} />}
-                    </button>
-                  </div>
+        {isLoading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+              <div key={i} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden animate-pulse">
+                <div className="h-48 bg-gray-200"></div>
+                <div className="p-5 space-y-3">
+                  <div className="h-4 bg-gray-200 rounded w-1/3"></div>
+                  <div className="h-6 bg-gray-200 rounded w-3/4"></div>
+                  <div className="h-4 bg-gray-200 rounded w-full"></div>
+                  <div className="h-10 bg-gray-200 rounded w-full mt-4"></div>
                 </div>
               </div>
-            );
-          })}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+            {filteredProducts.map(product => {
+              const inCart = cartItems.find(i => i.id === product.id);
+              return (
+                <div key={product.id} className="bg-white rounded-2xl shadow-sm hover:shadow-xl hover:-translate-y-1 transition duration-300 overflow-hidden border border-gray-100 group">
+                  <div className="relative h-48 overflow-hidden">
+                    <img src={product.image} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" />
+                    <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-lg text-xs font-bold text-nature-700 shadow-sm">
+                      Stok: {product.stock}
+                    </div>
+                  </div>
+                  <div className="p-5">
+                    <div className="text-xs font-semibold text-adventure-600 mb-2 uppercase tracking-wide">{product.category}</div>
+                    <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-1" title={product.name}>{product.name}</h3>
+                    <p className="text-sm text-gray-500 mb-4 line-clamp-2 min-h-[40px]">{product.description}</p>
+                    
+                    <div className="flex items-center justify-between mt-auto">
+                      <div>
+                        <span className="text-lg font-bold text-gray-900">Rp{product.price.toLocaleString('id-ID')}</span>
+                        <span className="text-xs text-gray-400">/24jam</span>
+                      </div>
+                      <button 
+                        onClick={() => addToCart(product)}
+                        className={`p-3 rounded-xl transition shadow-lg ${
+                          inCart 
+                            ? 'bg-nature-50 text-nature-700 border border-nature-200' 
+                            : 'bg-nature-600 text-white hover:bg-nature-700 shadow-nature-200'
+                        }`}
+                      >
+                        {inCart ? <Check size={20} /> : <Plus size={20} />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </section>
 
       {/* AI Assistant Section */}
