@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, Package, LogOut, Plus, Search, 
   Edit, Trash2, Save, X, Image as ImageIcon,
-  AlertTriangle, DollarSign, Loader2, RotateCcw
+  AlertTriangle, DollarSign, Loader2, RotateCcw,
+  Database, Wifi, WifiOff
 } from 'lucide-react';
 import { Product } from '../types';
 import { CATEGORIES } from '../constants';
+import { supabase } from '../services/supabase'; // Import supabase instance check
 
 interface AdminDashboardProps {
   products: Product[];
@@ -30,6 +32,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
   
+  // Connection Status State
+  const [isConnected, setIsConnected] = useState(false);
+  
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -49,6 +54,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     description: '',
     image: ''
   });
+
+  useEffect(() => {
+    // Check connection status simply by checking if supabase client exists
+    setIsConnected(!!supabase);
+  }, []);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -150,6 +160,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               Kembali ke Website
             </button>
           </form>
+          
+          {/* Connection Status Footnote */}
+          <div className="mt-6 pt-6 border-t border-gray-100 text-center">
+             <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold ${isConnected ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                {isConnected ? <Wifi size={14} /> : <WifiOff size={14} />}
+                {isConnected ? 'Supabase Connected' : 'Running on Mock Data'}
+             </div>
+             {!isConnected && (
+               <p className="text-xs text-red-500 mt-2">
+                 *Cek VITE_SUPABASE_URL di .env atau Vercel Settings
+               </p>
+             )}
+          </div>
         </div>
       </div>
     );
@@ -175,7 +198,20 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           >
             <Package size={20} /> Produk
           </button>
-          <div className="pt-8 mt-8 border-t border-white/10">
+          
+          {/* Database Status Widget in Sidebar */}
+          <div className="mt-8 mx-2 p-4 bg-black/20 rounded-xl border border-white/5">
+            <div className="flex items-center gap-2 mb-2">
+              <Database size={16} className="text-nature-400" />
+              <span className="text-xs font-bold uppercase tracking-wider text-nature-200">System Status</span>
+            </div>
+            <div className={`text-xs font-bold flex items-center gap-2 ${isConnected ? 'text-green-400' : 'text-red-400'}`}>
+               <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`}></div>
+               {isConnected ? 'DB Connected' : 'Local Mock Data'}
+            </div>
+          </div>
+
+          <div className="pt-4 mt-4 border-t border-white/10">
             <button 
               onClick={onBackToHome}
               className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-nature-200 hover:bg-white/5 transition"
