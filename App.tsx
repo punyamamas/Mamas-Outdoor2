@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from './components/Navbar';
 import CartDrawer from './components/CartDrawer';
+import HistoryDrawer from './components/HistoryDrawer';
 import GeminiAdvisor from './components/GeminiAdvisor';
 import { PRODUCTS, CATEGORIES } from './constants';
 import { CartItem, Product } from './types';
@@ -12,6 +13,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(true); // State untuk loading
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('Semua');
 
@@ -77,6 +79,10 @@ function App() {
     setCartItems(prev => prev.filter(item => item.id !== id));
   };
 
+  const clearCart = () => {
+    setCartItems([]);
+  };
+
   const filteredProducts = selectedCategory === 'Semua' 
     ? products 
     : products.filter(p => p.category === selectedCategory);
@@ -88,6 +94,7 @@ function App() {
         onOpenCart={() => setIsCartOpen(true)}
         onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         isMobileMenuOpen={isMobileMenuOpen}
+        onOpenHistory={() => setIsHistoryOpen(true)}
       />
 
       <CartDrawer 
@@ -96,6 +103,12 @@ function App() {
         cartItems={cartItems}
         onUpdateQuantity={updateQuantity}
         onRemoveItem={removeItem}
+        onClearCart={clearCart}
+      />
+
+      <HistoryDrawer 
+        isOpen={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
       />
 
       {/* Hero Section */}

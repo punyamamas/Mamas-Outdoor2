@@ -20,6 +20,16 @@ export interface UserDetails {
   duration: number; // Hari
 }
 
+export interface Transaction {
+  id: string;
+  date: string; // ISO string of when the booking was made
+  rentalDate: string; // Date of pickup
+  duration: number;
+  totalPrice: number;
+  items: CartItem[];
+  status: 'pending' | 'completed'; // Visual indicator
+}
+
 export enum GeminiModel {
   FLASH = 'gemini-3-flash-preview',
 }

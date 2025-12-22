@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, Trash2, Calendar, Phone, User, School, ArrowRight } from 'lucide-react';
-import { CartItem, UserDetails } from '../types';
+import { CartItem, UserDetails, Transaction } from '../types';
 import { WA_NUMBER } from '../constants';
 
 interface CartDrawerProps {
@@ -9,9 +9,10 @@ interface CartDrawerProps {
   cartItems: CartItem[];
   onUpdateQuantity: (id: string, delta: number) => void;
   onRemoveItem: (id: string) => void;
+  onClearCart: () => void;
 }
 
-const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, cartItems, onUpdateQuantity, onRemoveItem }) => {
+const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, cartItems, onUpdateQuantity, onRemoveItem, onClearCart }) => {
   const [step, setStep] = useState<'cart' | 'details'>('cart');
   const [userDetails, setUserDetails] = useState<UserDetails>({
     name: '',
@@ -25,7 +26,23 @@ const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, cartItems, onU
   const total = subtotal * userDetails.duration;
 
   const handleCheckout = () => {
-    // Construct WhatsApp Message
+    // 1. Save Transaction to Local History
+    const newTransaction: Transaction = {
+      id: Date.now().toString(),
+      date: new Date().toISOString(),
+      rentalDate: userDetails.rentalDate,
+      duration: userDetails.duration,
+      totalPrice: total,
+      items: [...cartItems],
+      status: 'pending'
+    };
+
+    const existingHistory = localStorage.getItem('mamasHistory');
+    const history = existingHistory ? JSON.parse(existingHistory) : [];
+    history.push(newTransaction);
+    localStorage.setItem('mamasHistory', JSON.stringify(history));
+
+    // 2. Construct WhatsApp Message
     const header = `*Halo Mamas Outdoor! Saya mau sewa dong.*\n\n`;
     const buyerInfo = `*Data Penyewa:*\nNama: ${userDetails.name}\nKampus: ${userDetails.campus}\nWA: ${userDetails.whatsapp}\nTanggal Ambil: ${userDetails.rentalDate}\nLama Sewa: ${userDetails.duration} Hari\n\n`;
     const itemsList = cartItems.map((item, idx) => `${idx + 1}. ${item.name} (${item.quantity}x) - Rp${(item.price * item.quantity).toLocaleString('id-ID')}`).join('\n');
@@ -33,8 +50,13 @@ const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, cartItems, onU
     
     const fullMessage = encodeURIComponent(header + buyerInfo + "*List Alat:*\n" + itemsList + footer);
     
-    // Open WhatsApp
+    // 3. Open WhatsApp
     window.open(`https://wa.me/${WA_NUMBER}?text=${fullMessage}`, '_blank');
+    
+    // 4. Reset & Close
+    onClearCart();
+    setStep('cart');
+    onClose();
   };
 
   if (!isOpen) return null;
