@@ -8,7 +8,7 @@ import AdminDashboard from './components/AdminDashboard';
 import { PRODUCTS, CATEGORIES } from './constants';
 import { CartItem, Product } from './types';
 import { getProducts, addProduct, updateProduct, deleteProduct } from './services/productService';
-import { MapPin, Star, Plus, Check, School, Github, Loader2, Flame, Lock, Calendar, Users, ArrowRight as ArrowIcon } from 'lucide-react';
+import { MapPin, Star, Plus, Check, School, Github, Loader2, Flame, Lock, Calendar, Users, ArrowRight as ArrowIcon, ChevronDown, ShieldCheck, Zap } from 'lucide-react';
 
 function App() {
   const [currentPage, setCurrentPage] = useState<'home' | 'admin'>('home');
@@ -171,36 +171,115 @@ function App() {
         onClose={() => setIsTermsOpen(false)} 
       />
 
-      {/* Hero Section */}
-      <section className="relative h-[550px] flex items-center justify-center overflow-hidden">
-        <div className="absolute inset-0">
+      {/* Hero Section Revamped */}
+      <section className="relative min-h-[85vh] flex items-center justify-center overflow-hidden">
+        {/* Background Image with Fixed Effect */}
+        <div className="absolute inset-0 z-0">
           <img 
-            src="https://images.unsplash.com/photo-1510312305653-8ed496efae75?q=80&w=1920&auto=format&fit=crop" 
-            alt="Camping Background" 
-            className="w-full h-full object-cover grayscale-[30%] contrast-125"
+            src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=2000&auto=format&fit=crop" 
+            alt="Gunung Slamet Peak" 
+            className="w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-nature-900/40 to-black/30"></div>
+          {/* Complex Gradient Overlay */}
+          <div className="absolute inset-0 bg-gradient-to-b from-gray-900/70 via-gray-900/40 to-gray-50"></div>
+          <div className="absolute inset-0 bg-gradient-to-r from-black/50 to-transparent"></div>
+          {/* Texture Overlay */}
+          <div className="absolute inset-0 opacity-[0.03]" style={{backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '30px 30px'}}></div>
         </div>
-        <div className="relative z-10 text-center px-4 max-w-5xl mx-auto">
-          <div className="inline-flex items-center gap-2 bg-nature-600/90 backdrop-blur-md px-5 py-2 rounded-full text-white text-sm font-bold mb-8 border border-white/10 uppercase tracking-widest shadow-xl shadow-nature-900/50 transform hover:scale-105 transition duration-300 cursor-default">
-            <Flame size={16} className="text-yellow-400 fill-current" />
-            <span>Basecamp Anak Gunung Purwokerto</span>
+
+        <div className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col items-center pt-10">
+          
+          {/* Main Content */}
+          <div className="text-center max-w-4xl mx-auto relative">
+            
+            {/* Floating Elements (Hidden on Mobile) */}
+            <div className="hidden lg:block absolute -left-32 top-10 animate-slide-in-right" style={{animationDelay: '0.2s'}}>
+              <div className="bg-white/10 backdrop-blur-md border border-white/20 p-4 rounded-2xl shadow-xl flex items-center gap-3 w-64 text-left hover:scale-105 transition duration-300">
+                 <div className="bg-green-500/20 p-2 rounded-lg text-green-400">
+                   <School size={24} />
+                 </div>
+                 <div>
+                   <p className="text-white font-bold text-sm">Diskon Mahasiswa</p>
+                   <p className="text-gray-300 text-xs">UNSOED, UMP, & Lainnya</p>
+                 </div>
+              </div>
+            </div>
+
+            <div className="hidden lg:block absolute -right-32 bottom-20 animate-slide-in-right" style={{animationDelay: '0.4s'}}>
+              <div className="bg-white/10 backdrop-blur-md border border-white/20 p-4 rounded-2xl shadow-xl flex items-center gap-3 w-64 text-left hover:scale-105 transition duration-300">
+                 <div className="bg-orange-500/20 p-2 rounded-lg text-orange-400">
+                   <ShieldCheck size={24} />
+                 </div>
+                 <div>
+                   <p className="text-white font-bold text-sm">Alat Terawat</p>
+                   <p className="text-gray-300 text-xs">Bersih, Wangi, No Bocor</p>
+                 </div>
+              </div>
+            </div>
+
+            {/* Badge */}
+            <div className="inline-flex items-center gap-2 bg-nature-600/90 backdrop-blur-md px-4 py-1.5 rounded-full text-white text-xs md:text-sm font-bold mb-6 border border-white/10 uppercase tracking-widest shadow-xl shadow-nature-900/50 hover:bg-nature-700 transition cursor-default">
+              <Flame size={14} className="text-yellow-400 fill-current animate-pulse" />
+              <span>Basecamp Anak Gunung Purwokerto</span>
+            </div>
+
+            {/* Headline */}
+            <h1 className="text-5xl md:text-7xl lg:text-8xl font-black text-white mb-6 leading-tight tracking-tight drop-shadow-lg">
+              GAS TERUS<br/> 
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500">
+                TAKLUKKAN ALAM
+              </span>
+            </h1>
+
+            {/* Subheadline */}
+            <p className="text-lg md:text-xl text-gray-200 mb-10 max-w-2xl mx-auto font-medium leading-relaxed drop-shadow-md">
+              Sewa alat outdoor gak pake ribet. Gear lengkap, harga bersahabat, stok melimpah. 
+              Partner resmi penakluk <span className="text-yellow-400 font-bold">Slamet, Prau, & Sindoro</span>.
+            </p>
+
+            {/* CTA Buttons */}
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+              <a 
+                href="#katalog" 
+                className="w-full sm:w-auto bg-nature-600 hover:bg-nature-700 text-white px-8 py-4 rounded-xl font-bold text-lg transition shadow-lg shadow-nature-600/30 flex items-center justify-center gap-2 group border border-transparent hover:border-white/20"
+              >
+                Gasken Sewa
+                <ArrowRight className="group-hover:translate-x-1 transition" size={20} />
+              </a>
+              <a 
+                href="#ai-guide" 
+                className="w-full sm:w-auto bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/20 px-8 py-4 rounded-xl font-bold text-lg transition shadow-lg flex items-center justify-center gap-2 group"
+              >
+                <Zap size={20} className="text-yellow-400 group-hover:text-yellow-300" />
+                Tanya AI Dulu
+              </a>
+            </div>
+
           </div>
-          <h1 className="text-5xl md:text-7xl font-extrabold text-white mb-6 leading-tight tracking-tight">
-            GAS TERUS!<br/> <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500">TAKLUKKAN ALAM</span>
-          </h1>
-          <p className="text-lg md:text-xl text-gray-200 mb-10 max-w-2xl mx-auto font-medium">
-            Sewa alat outdoor gak pake ribet. Gear lengkap, harga mahasiswa, stok melimpah. Siap support pendakian Slamet, Prau, & Sindoro mu!
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <a href="#katalog" className="bg-nature-600 hover:bg-nature-700 text-white px-8 py-4 rounded-xl font-bold text-lg transition shadow-lg shadow-nature-600/30 flex items-center justify-center gap-2 group">
-              Gasken Sewa
-              <ArrowRight className="group-hover:translate-x-1 transition" size={20} />
-            </a>
-            <a href="#ai-guide" className="bg-white hover:bg-gray-100 text-nature-900 px-8 py-4 rounded-xl font-bold text-lg transition shadow-lg flex items-center justify-center">
-              Tanya AI Dulu
-            </a>
-          </div>
+        </div>
+
+        {/* Bottom Trust Strip */}
+        <div className="absolute bottom-0 left-0 right-0 bg-white/5 backdrop-blur-md border-t border-white/10 py-6 hidden md:block">
+           <div className="max-w-7xl mx-auto px-4 flex justify-center gap-16 text-white/80">
+              <div className="text-center">
+                 <p className="text-2xl font-bold text-white">500+</p>
+                 <p className="text-xs uppercase tracking-wider text-gray-400">Happy Hikers</p>
+              </div>
+              <div className="text-center">
+                 <p className="text-2xl font-bold text-white">50+</p>
+                 <p className="text-xs uppercase tracking-wider text-gray-400">Jenis Gear</p>
+              </div>
+              <div className="text-center">
+                 <p className="text-2xl font-bold text-white">24h</p>
+                 <p className="text-xs uppercase tracking-wider text-gray-400">Support</p>
+              </div>
+           </div>
+        </div>
+        
+        {/* Scroll Indicator */}
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 text-white/50 animate-bounce md:hidden">
+          <span className="text-[10px] font-bold uppercase tracking-widest">Scroll</span>
+          <ChevronDown size={20} />
         </div>
       </section>
 
