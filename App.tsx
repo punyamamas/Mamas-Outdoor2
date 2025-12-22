@@ -172,14 +172,14 @@ function App() {
       />
 
       {/* Hero Section Revamped for Cleanliness & Fixed Overlapping */}
-      <section className="relative min-h-screen flex items-center justify-center overflow-hidden py-32">
+      <section className="relative min-h-screen flex items-center justify-center overflow-hidden py-32 group/hero">
         
-        {/* Background Image */}
-        <div className="absolute inset-0 z-0">
+        {/* Background Image with Slow Zoom Animation on Hover */}
+        <div className="absolute inset-0 z-0 overflow-hidden">
           <img 
             src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=2000&auto=format&fit=crop" 
             alt="Gunung Slamet Peak" 
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover transition-transform duration-[20s] ease-in-out group-hover/hero:scale-110"
           />
           {/* Enhanced Gradient for Better Text Contrast */}
           <div className="absolute inset-0 bg-gradient-to-b from-gray-900/90 via-gray-900/50 to-gray-50/10"></div>
@@ -192,9 +192,9 @@ function App() {
         <div className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex flex-col justify-center items-center">
           
           {/* Floating Cards - ONLY VISIBLE ON EXTRA LARGE SCREENS (2xl) to prevent overlap on laptops */}
-          {/* Left Card - Moved further left */}
-          <div className="hidden 2xl:block absolute left-4 top-1/4 animate-slide-in-right" style={{animationDelay: '0.2s'}}>
-            <div className="bg-white/10 backdrop-blur-md border border-white/20 p-4 rounded-2xl shadow-2xl flex items-center gap-4 w-72 text-left hover:scale-105 transition duration-300 -rotate-2 hover:rotate-0">
+          {/* Left Card - Moved further left with Float Animation */}
+          <div className="hidden 2xl:block absolute left-4 top-1/4 animate-float" style={{animationDelay: '0s'}}>
+            <div className="bg-white/10 backdrop-blur-md border border-white/20 p-4 rounded-2xl shadow-2xl flex items-center gap-4 w-72 text-left hover:scale-105 transition duration-300 cursor-default">
                <div className="bg-green-500/20 p-3 rounded-xl text-green-400 shadow-inner">
                  <School size={32} />
                </div>
@@ -205,9 +205,9 @@ function App() {
             </div>
           </div>
 
-          {/* Right Card - Moved further right */}
-          <div className="hidden 2xl:block absolute right-4 bottom-1/4 animate-slide-in-right" style={{animationDelay: '0.4s'}}>
-            <div className="bg-white/10 backdrop-blur-md border border-white/20 p-4 rounded-2xl shadow-2xl flex items-center gap-4 w-72 text-left hover:scale-105 transition duration-300 rotate-2 hover:rotate-0">
+          {/* Right Card - Moved further right with Float Animation */}
+          <div className="hidden 2xl:block absolute right-4 bottom-1/4 animate-float" style={{animationDelay: '3s'}}>
+            <div className="bg-white/10 backdrop-blur-md border border-white/20 p-4 rounded-2xl shadow-2xl flex items-center gap-4 w-72 text-left hover:scale-105 transition duration-300 cursor-default">
                <div className="bg-orange-500/20 p-3 rounded-xl text-orange-400 shadow-inner">
                  <ShieldCheck size={32} />
                </div>
@@ -218,19 +218,23 @@ function App() {
             </div>
           </div>
 
-          {/* Center Content - Reduced Font Sizes for standard laptops to fix "numpuk" */}
+          {/* Center Content - Adjusted Font Sizes for standard laptops to fix "numpuk" */}
           <div className="text-center max-w-5xl mx-auto relative z-20 px-4 flex flex-col items-center">
             
-            {/* Badge */}
-            <div className="inline-flex items-center gap-2 bg-nature-600/90 backdrop-blur-md px-5 py-2 rounded-full text-white text-xs md:text-sm font-bold mb-8 border border-white/10 uppercase tracking-widest shadow-xl shadow-nature-900/50 hover:bg-nature-700 transition cursor-default">
+            {/* Badge with Hover Pop */}
+            <div className="inline-flex items-center gap-2 bg-nature-600/90 backdrop-blur-md px-5 py-2 rounded-full text-white text-xs md:text-sm font-bold mb-8 border border-white/10 uppercase tracking-widest shadow-xl shadow-nature-900/50 hover:bg-nature-700 hover:scale-105 transition duration-300 cursor-default">
               <Flame size={16} className="text-yellow-400 fill-current animate-pulse" />
               <span>Basecamp Anak Gunung Purwokerto</span>
             </div>
 
-            {/* Headline - Responsive sizing specifically tuned for 1280px-1440px screens */}
+            {/* Headline - Improved sizing and spacing */}
             <h1 className="font-black text-white mb-8 tracking-tight drop-shadow-2xl">
-              <span className="block text-4xl sm:text-5xl md:text-6xl lg:text-7xl mb-2 sm:mb-4">GAS TERUS</span>
-              <span className="block text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 text-5xl sm:text-6xl md:text-7xl lg:text-8xl py-2">
+              {/* Reduced font size slightly on md/lg to prevent wrapping issues */}
+              <span className="block text-4xl sm:text-5xl md:text-6xl lg:text-7xl mb-4 hover:tracking-wide transition-all duration-500 ease-out cursor-default">
+                GAS TERUS
+              </span>
+              {/* Gradient Animation added */}
+              <span className="block text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 text-5xl sm:text-6xl md:text-7xl lg:text-8xl py-2 animate-gradient-x bg-[length:200%_auto] cursor-default">
                 TAKLUKKAN ALAM
               </span>
             </h1>
@@ -238,21 +242,21 @@ function App() {
             {/* Subheadline - Constrained width for readability */}
             <p className="text-lg text-gray-200 mb-10 max-w-2xl mx-auto font-medium leading-relaxed drop-shadow-md px-4">
               Sewa alat outdoor gak pake ribet. Gear lengkap, harga bersahabat, stok melimpah. 
-              Partner resmi penakluk <span className="text-yellow-400 font-bold border-b-2 border-yellow-400/30">Slamet, Prau, & Sindoro</span>.
+              Partner resmi penakluk <span className="text-yellow-400 font-bold border-b-2 border-yellow-400/30 hover:bg-yellow-400/10 transition-colors px-1">Slamet, Prau, & Sindoro</span>.
             </p>
 
-            {/* CTA Buttons */}
+            {/* CTA Buttons with Active Feedback */}
             <div className="flex flex-col sm:flex-row gap-4 w-full justify-center">
               <a 
                 href="#katalog" 
-                className="w-full sm:w-auto bg-nature-600 hover:bg-nature-700 text-white px-8 py-4 rounded-xl font-bold text-lg transition duration-300 shadow-lg shadow-nature-600/30 flex items-center justify-center gap-2 group border border-transparent hover:border-white/20 hover:-translate-y-1"
+                className="w-full sm:w-auto bg-nature-600 hover:bg-nature-700 text-white px-8 py-4 rounded-xl font-bold text-lg transition duration-300 shadow-lg shadow-nature-600/30 flex items-center justify-center gap-2 group border border-transparent hover:border-white/20 hover:-translate-y-1 active:scale-95"
               >
                 Gasken Sewa
                 <ArrowRight className="group-hover:translate-x-1 transition" size={20} />
               </a>
               <a 
                 href="#ai-guide" 
-                className="w-full sm:w-auto bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/20 px-8 py-4 rounded-xl font-bold text-lg transition duration-300 shadow-lg flex items-center justify-center gap-2 group hover:-translate-y-1"
+                className="w-full sm:w-auto bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/20 px-8 py-4 rounded-xl font-bold text-lg transition duration-300 shadow-lg flex items-center justify-center gap-2 group hover:-translate-y-1 active:scale-95"
               >
                 <Zap size={20} className="text-yellow-400 group-hover:text-yellow-300" />
                 Tanya AI Dulu
@@ -261,11 +265,11 @@ function App() {
 
             {/* Integrated Info Chips for Smaller Desktops (Visible when floating cards are hidden) */}
             <div className="mt-16 flex flex-wrap justify-center gap-6 2xl:hidden">
-              <div className="flex items-center gap-3 px-5 py-2 rounded-full border border-white/20 bg-black/40 backdrop-blur-md">
+              <div className="flex items-center gap-3 px-5 py-2 rounded-full border border-white/20 bg-black/40 backdrop-blur-md hover:bg-black/60 transition cursor-default">
                 <School size={18} className="text-green-400" />
                 <span className="text-white text-sm font-bold tracking-wide">Diskon Mahasiswa</span>
               </div>
-              <div className="flex items-center gap-3 px-5 py-2 rounded-full border border-white/20 bg-black/40 backdrop-blur-md">
+              <div className="flex items-center gap-3 px-5 py-2 rounded-full border border-white/20 bg-black/40 backdrop-blur-md hover:bg-black/60 transition cursor-default">
                 <ShieldCheck size={18} className="text-orange-400" />
                 <span className="text-white text-sm font-bold tracking-wide">Alat Terawat & Bersih</span>
               </div>
@@ -277,17 +281,17 @@ function App() {
         {/* Bottom Trust Strip */}
         <div className="absolute bottom-0 left-0 right-0 bg-black/60 backdrop-blur-xl border-t border-white/10 py-6 hidden md:block z-30">
            <div className="max-w-7xl mx-auto px-4 flex justify-center gap-12 lg:gap-32 text-white/90">
-              <div className="text-center group cursor-default transform hover:scale-105 transition">
+              <div className="text-center group cursor-default transform hover:scale-105 transition duration-300">
                  <p className="text-3xl font-black text-white tracking-tight group-hover:text-yellow-400 transition">500+</p>
                  <p className="text-[10px] uppercase tracking-[0.2em] text-gray-400 font-bold group-hover:text-white transition mt-1">Happy Hikers</p>
               </div>
               <div className="w-px bg-white/10 h-10 my-auto"></div>
-              <div className="text-center group cursor-default transform hover:scale-105 transition">
+              <div className="text-center group cursor-default transform hover:scale-105 transition duration-300">
                  <p className="text-3xl font-black text-white tracking-tight group-hover:text-yellow-400 transition">50+</p>
                  <p className="text-[10px] uppercase tracking-[0.2em] text-gray-400 font-bold group-hover:text-white transition mt-1">Jenis Gear</p>
               </div>
               <div className="w-px bg-white/10 h-10 my-auto"></div>
-              <div className="text-center group cursor-default transform hover:scale-105 transition">
+              <div className="text-center group cursor-default transform hover:scale-105 transition duration-300">
                  <p className="text-3xl font-black text-white tracking-tight group-hover:text-yellow-400 transition">24h</p>
                  <p className="text-[10px] uppercase tracking-[0.2em] text-gray-400 font-bold group-hover:text-white transition mt-1">Support</p>
               </div>
