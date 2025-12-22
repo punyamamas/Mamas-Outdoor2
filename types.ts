@@ -1,7 +1,13 @@
+
+export interface Category {
+  id: string; // Bisa number dari DB, tapi string aman untuk frontend
+  name: string;
+}
+
 export interface Product {
   id: string;
   name: string;
-  category: 'Tenda' | 'Carrier' | 'Tidur' | 'Masak' | 'Aksesoris';
+  category: string; // Changed from union type to string to support dynamic categories
   // Mengganti single price dengan tiered pricing
   price2Days: number; // Minimal sewa
   price3Days: number;

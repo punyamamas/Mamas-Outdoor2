@@ -5,14 +5,16 @@ import HistoryDrawer from './components/HistoryDrawer';
 import GeminiAdvisor from './components/GeminiAdvisor';
 import TermsModal from './components/TermsModal';
 import AdminDashboard from './components/AdminDashboard';
-import { PRODUCTS, CATEGORIES } from './constants';
-import { CartItem, Product } from './types';
+import { PRODUCTS } from './constants'; // Removed CATEGORIES import
+import { CartItem, Product, Category } from './types';
 import { getProducts, addProduct, updateProduct, deleteProduct } from './services/productService';
+import { getCategories, addCategory, updateCategory, deleteCategory } from './services/categoryService';
 import { MapPin, Star, Plus, Check, School, Github, Loader2, Flame, Lock, Calendar, Users, ArrowRight as ArrowIcon, ChevronDown, ShieldCheck, Zap, ShoppingCart, Info, Weight, Tent, Wind } from 'lucide-react';
 
 function App() {
   const [currentPage, setCurrentPage] = useState<'home' | 'admin'>('home');
   const [products, setProducts] = useState<Product[]>([]); 
+  const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true); 
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -21,42 +23,53 @@ function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('Semua');
 
-  // Define fetchProducts outside to make it reusable
-  const fetchProducts = async () => {
-    // Only set loading true if it's the initial load to avoid flashing
+  // Define fetch data functions
+  const fetchData = async () => {
     if (products.length === 0) setIsLoading(true);
+    
     try {
-      const data = await getProducts();
-      setProducts(data);
+      // Fetch concurrently
+      const [productsData, categoriesData] = await Promise.all([
+        getProducts(),
+        getCategories()
+      ]);
+      
+      setProducts(productsData);
+      setCategories(categoriesData);
     } catch (error) {
-      console.error("Failed to load products", error);
+      console.error("Failed to load data", error);
       setProducts(PRODUCTS); 
+      setCategories([
+        { id: '1', name: 'Tenda' },
+        { id: '2', name: 'Carrier' },
+        { id: '3', name: 'Tidur' },
+        { id: '4', name: 'Masak' },
+        { id: '5', name: 'Aksesoris' }
+      ]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Load products on mount
+  // Load data on mount
   useEffect(() => {
-    fetchProducts();
+    fetchData();
   }, []);
 
-  // Cart Management with Safety Check for Old Schema
+  // Cart Management
   useEffect(() => {
     const savedCart = localStorage.getItem('mamasCart');
     if (savedCart) {
       try {
         const parsed = JSON.parse(savedCart);
-        // Cek apakah data keranjang masih pakai format lama (tidak ada price2Days)
         if (parsed.length > 0 && parsed[0].price2Days === undefined) {
-          console.warn("Mendeteksi format keranjang lama. Mereset keranjang untuk mencegah error.");
+          console.warn("Mendeteksi format keranjang lama. Mereset keranjang.");
           setCartItems([]);
           localStorage.removeItem('mamasCart');
         } else {
           setCartItems(parsed);
         }
       } catch (e) {
-        console.error("Error parsing cart", e);
         setCartItems([]);
       }
     }
@@ -102,21 +115,15 @@ function App() {
     setCartItems([]);
   };
 
-  // --- Admin Handlers (Connected to Supabase) ---
+  // --- Product Handlers ---
   const handleAddProduct = async (newProduct: Product) => {
-    // Optimistic Update (biar terasa cepat)
     setProducts(prev => [newProduct, ...prev]);
-    
-    // Call Supabase
     const savedProduct = await addProduct(newProduct);
-    
-    // If Supabase returns real data (e.g. real ID), update state
     if (savedProduct) {
        setProducts(prev => prev.map(p => p.id === newProduct.id ? savedProduct : p));
     } else {
-       // Revert if failed (optional, simplified here)
-       alert("Gagal menyimpan ke database. Data hanya tampil sementara.");
-       fetchProducts(); // Refresh to sync
+       alert("Gagal menyimpan ke database.");
+       fetchData();
     }
   };
 
@@ -126,13 +133,36 @@ function App() {
   };
 
   const handleDeleteProduct = async (id: string) => {
-    if (window.confirm('Yakin ingin menghapus produk ini dari Database?')) {
+    if (window.confirm('Yakin ingin menghapus produk ini?')) {
       const success = await deleteProduct(id);
       if (success) {
         setProducts(prev => prev.filter(p => p.id !== id));
       } else {
-        // Jika gagal, refresh data dari server untuk memastikan konsistensi
-        fetchProducts();
+        fetchData();
+      }
+    }
+  };
+
+  // --- Category Handlers ---
+  const handleAddCategory = async (name: string) => {
+    const newCat = await addCategory(name);
+    if (newCat) {
+      setCategories(prev => [...prev, newCat]);
+    }
+  };
+
+  const handleUpdateCategory = async (id: string, name: string) => {
+    const updated = await updateCategory(id, name);
+    if (updated) {
+      setCategories(prev => prev.map(c => c.id === id ? updated : c));
+    }
+  };
+
+  const handleDeleteCategory = async (id: string) => {
+    if (window.confirm('Yakin hapus kategori? Produk di kategori ini mungkin akan kehilangan label kategori.')) {
+      const success = await deleteCategory(id);
+      if (success) {
+        setCategories(prev => prev.filter(c => c.id !== id));
       }
     }
   };
@@ -141,11 +171,15 @@ function App() {
     return (
       <AdminDashboard 
         products={products}
+        categories={categories}
         onBackToHome={() => setCurrentPage('home')}
         onAddProduct={handleAddProduct}
         onUpdateProduct={handleUpdateProduct}
         onDeleteProduct={handleDeleteProduct}
-        onRefresh={fetchProducts}
+        onAddCategory={handleAddCategory}
+        onUpdateCategory={handleUpdateCategory}
+        onDeleteCategory={handleDeleteCategory}
+        onRefresh={fetchData}
       />
     );
   }
@@ -154,15 +188,13 @@ function App() {
     ? products 
     : products.filter(p => p.category === selectedCategory);
 
-  // Helper untuk menampilkan ikon fitur berdasarkan kategori
   const getProductFeatures = (category: string) => {
-    switch(category) {
-      case 'Tenda': return <div className="flex items-center gap-1"><Tent size={14} /> <span>Waterproof</span></div>;
-      case 'Carrier': return <div className="flex items-center gap-1"><Weight size={14} /> <span>Backsystem</span></div>;
-      case 'Tidur': return <div className="flex items-center gap-1"><Wind size={14} /> <span>Warm</span></div>;
-      case 'Masak': return <div className="flex items-center gap-1"><Flame size={14} /> <span>Portable</span></div>;
-      default: return <div className="flex items-center gap-1"><Star size={14} /> <span>Premium</span></div>;
-    }
+    const catLower = category.toLowerCase();
+    if (catLower.includes('tenda')) return <div className="flex items-center gap-1"><Tent size={14} /> <span>Waterproof</span></div>;
+    if (catLower.includes('carrier') || catLower.includes('tas')) return <div className="flex items-center gap-1"><Weight size={14} /> <span>Backsystem</span></div>;
+    if (catLower.includes('tidur') || catLower.includes('sleeping')) return <div className="flex items-center gap-1"><Wind size={14} /> <span>Warm</span></div>;
+    if (catLower.includes('masak') || catLower.includes('kompor')) return <div className="flex items-center gap-1"><Flame size={14} /> <span>Portable</span></div>;
+    return <div className="flex items-center gap-1"><Star size={14} /> <span>Premium</span></div>;
   };
 
   return (
@@ -195,28 +227,20 @@ function App() {
         onClose={() => setIsTermsOpen(false)} 
       />
 
-      {/* Hero Section Revamped for Cleanliness & Fixed Overlapping */}
+      {/* Hero Section */}
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden py-32 group/hero">
-        
-        {/* Background Image with Slow Zoom Animation on Hover */}
         <div className="absolute inset-0 z-0 overflow-hidden">
           <img 
             src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=2000&auto=format&fit=crop" 
             alt="Gunung Slamet Peak" 
             className="w-full h-full object-cover transition-transform duration-[20s] ease-in-out group-hover/hero:scale-110"
           />
-          {/* Enhanced Gradient for Better Text Contrast */}
           <div className="absolute inset-0 bg-gradient-to-b from-gray-900/90 via-gray-900/50 to-gray-50/10"></div>
           <div className="absolute inset-0 bg-black/20"></div>
-          {/* Texture Overlay */}
           <div className="absolute inset-0 opacity-[0.03]" style={{backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '30px 30px'}}></div>
         </div>
 
-        {/* Main Content Container */}
         <div className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex flex-col justify-center items-center">
-          
-          {/* Floating Cards - ONLY VISIBLE ON EXTRA LARGE SCREENS (2xl) to prevent overlap on laptops */}
-          {/* Left Card - Moved further left with Float Animation */}
           <div className="hidden 2xl:block absolute left-4 top-1/4 animate-float" style={{animationDelay: '0s'}}>
             <div className="bg-white/10 backdrop-blur-md border border-white/20 p-4 rounded-2xl shadow-2xl flex items-center gap-4 w-72 text-left hover:scale-105 transition duration-300 cursor-default">
                <div className="bg-green-500/20 p-3 rounded-xl text-green-400 shadow-inner">
@@ -229,7 +253,6 @@ function App() {
             </div>
           </div>
 
-          {/* Right Card - Moved further right with Float Animation */}
           <div className="hidden 2xl:block absolute right-4 bottom-1/4 animate-float" style={{animationDelay: '3s'}}>
             <div className="bg-white/10 backdrop-blur-md border border-white/20 p-4 rounded-2xl shadow-2xl flex items-center gap-4 w-72 text-left hover:scale-105 transition duration-300 cursor-default">
                <div className="bg-orange-500/20 p-3 rounded-xl text-orange-400 shadow-inner">
@@ -242,41 +265,33 @@ function App() {
             </div>
           </div>
 
-          {/* Center Content - Adjusted Font Sizes for standard laptops to fix "numpuk" */}
           <div className="text-center max-w-5xl mx-auto relative z-20 px-4 flex flex-col items-center">
-            
-            {/* Badge with Hover Pop */}
             <div className="inline-flex items-center gap-2 bg-nature-600/90 backdrop-blur-md px-5 py-2 rounded-full text-white text-xs md:text-sm font-bold mb-8 border border-white/10 uppercase tracking-widest shadow-xl shadow-nature-900/50 hover:bg-nature-700 hover:scale-105 transition duration-300 cursor-default">
               <Flame size={16} className="text-yellow-400 fill-current animate-pulse" />
               <span>Basecamp Anak Gunung Purwokerto</span>
             </div>
 
-            {/* Headline - Improved sizing and spacing */}
             <h1 className="font-black text-white mb-8 tracking-tight drop-shadow-2xl">
-              {/* Reduced font size slightly on md/lg to prevent wrapping issues */}
               <span className="block text-4xl sm:text-5xl md:text-6xl lg:text-7xl mb-4 hover:tracking-wide transition-all duration-500 ease-out cursor-default">
                 GAS TERUS
               </span>
-              {/* Gradient Animation added */}
               <span className="block text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 text-5xl sm:text-6xl md:text-7xl lg:text-8xl py-2 animate-gradient-x bg-[length:200%_auto] cursor-default">
                 TAKLUKKAN ALAM
               </span>
             </h1>
 
-            {/* Subheadline - Constrained width for readability */}
             <p className="text-lg text-gray-200 mb-10 max-w-2xl mx-auto font-medium leading-relaxed drop-shadow-md px-4">
               Sewa alat outdoor gak pake ribet. Gear lengkap, harga bersahabat, stok melimpah. 
               Partner resmi penakluk <span className="text-yellow-400 font-bold border-b-2 border-yellow-400/30 hover:bg-yellow-400/10 transition-colors px-1">Slamet, Prau, & Sindoro</span>.
             </p>
 
-            {/* CTA Buttons with Active Feedback */}
             <div className="flex flex-col sm:flex-row gap-4 w-full justify-center">
               <a 
                 href="#katalog" 
                 className="w-full sm:w-auto bg-nature-600 hover:bg-nature-700 text-white px-8 py-4 rounded-xl font-bold text-lg transition duration-300 shadow-lg shadow-nature-600/30 flex items-center justify-center gap-2 group border border-transparent hover:border-white/20 hover:-translate-y-1 active:scale-95"
               >
                 Gasken Sewa
-                <ArrowRight className="group-hover:translate-x-1 transition" size={20} />
+                <ArrowIcon className="group-hover:translate-x-1 transition" size={20} />
               </a>
               <a 
                 href="#ai-guide" 
@@ -287,7 +302,6 @@ function App() {
               </a>
             </div>
 
-            {/* Integrated Info Chips for Smaller Desktops (Visible when floating cards are hidden) */}
             <div className="mt-16 flex flex-wrap justify-center gap-6 2xl:hidden">
               <div className="flex items-center gap-3 px-5 py-2 rounded-full border border-white/20 bg-black/40 backdrop-blur-md hover:bg-black/60 transition cursor-default">
                 <School size={18} className="text-green-400" />
@@ -298,28 +312,7 @@ function App() {
                 <span className="text-white text-sm font-bold tracking-wide">Alat Terawat & Bersih</span>
               </div>
             </div>
-
           </div>
-        </div>
-
-        {/* Bottom Trust Strip */}
-        <div className="absolute bottom-0 left-0 right-0 bg-black/60 backdrop-blur-xl border-t border-white/10 py-6 hidden md:block z-30">
-           <div className="max-w-7xl mx-auto px-4 flex justify-center gap-12 lg:gap-32 text-white/90">
-              <div className="text-center group cursor-default transform hover:scale-105 transition duration-300">
-                 <p className="text-3xl font-black text-white tracking-tight group-hover:text-yellow-400 transition">500+</p>
-                 <p className="text-[10px] uppercase tracking-[0.2em] text-gray-400 font-bold group-hover:text-white transition mt-1">Happy Hikers</p>
-              </div>
-              <div className="w-px bg-white/10 h-10 my-auto"></div>
-              <div className="text-center group cursor-default transform hover:scale-105 transition duration-300">
-                 <p className="text-3xl font-black text-white tracking-tight group-hover:text-yellow-400 transition">50+</p>
-                 <p className="text-[10px] uppercase tracking-[0.2em] text-gray-400 font-bold group-hover:text-white transition mt-1">Jenis Gear</p>
-              </div>
-              <div className="w-px bg-white/10 h-10 my-auto"></div>
-              <div className="text-center group cursor-default transform hover:scale-105 transition duration-300">
-                 <p className="text-3xl font-black text-white tracking-tight group-hover:text-yellow-400 transition">24h</p>
-                 <p className="text-[10px] uppercase tracking-[0.2em] text-gray-400 font-bold group-hover:text-white transition mt-1">Support</p>
-              </div>
-           </div>
         </div>
         
         {/* Scroll Indicator */}
@@ -331,8 +324,6 @@ function App() {
 
       {/* Catalog Section Revamped */}
       <section id="katalog" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 bg-white">
-        
-        {/* Modern Header */}
         <div className="text-center mb-12">
           <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-4 tracking-tight">
             Pilih <span className="text-transparent bg-clip-text bg-gradient-to-r from-nature-600 to-red-500">Gear Andalan</span>
@@ -342,20 +333,30 @@ function App() {
           </p>
         </div>
 
-        {/* Category Filter Pills */}
+        {/* Dynamic Category Filter */}
         <div className="flex justify-center mb-12">
           <div className="inline-flex p-1.5 bg-gray-100 rounded-full overflow-x-auto max-w-full no-scrollbar">
-            {CATEGORIES.map(cat => (
+            <button
+               onClick={() => setSelectedCategory('Semua')}
+               className={`px-6 py-2.5 rounded-full text-sm font-bold whitespace-nowrap transition-all duration-300 ${
+                 selectedCategory === 'Semua'
+                   ? 'bg-white text-nature-600 shadow-md transform scale-105' 
+                   : 'text-gray-500 hover:text-gray-900 hover:bg-gray-200/50'
+               }`}
+            >
+              Semua
+            </button>
+            {categories.map(cat => (
               <button
-                key={cat}
-                onClick={() => setSelectedCategory(cat)}
+                key={cat.id}
+                onClick={() => setSelectedCategory(cat.name)}
                 className={`px-6 py-2.5 rounded-full text-sm font-bold whitespace-nowrap transition-all duration-300 ${
-                  selectedCategory === cat 
+                  selectedCategory === cat.name 
                     ? 'bg-white text-nature-600 shadow-md transform scale-105' 
                     : 'text-gray-500 hover:text-gray-900 hover:bg-gray-200/50'
                 }`}
               >
-                {cat}
+                {cat.name}
               </button>
             ))}
           </div>
@@ -371,24 +372,18 @@ function App() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
             {filteredProducts.map(product => {
               const inCart = cartItems.find(i => i.id === product.id);
-              // SAFETY: Use fallback if price2Days is undefined/null from DB
               const displayPrice = product.price2Days || 0;
               
               return (
                 <div key={product.id} className="group relative bg-white rounded-3xl border border-gray-100 overflow-hidden hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)] transition-all duration-500 hover:-translate-y-2 flex flex-col h-full">
-                  
-                  {/* Image Section */}
                   <div className="relative h-64 overflow-hidden bg-gray-100">
                     <img 
                       src={product.image} 
                       alt={product.name} 
                       className="w-full h-full object-cover group-hover:scale-110 transition duration-700 ease-in-out" 
                     />
-                    
-                    {/* Gradient Overlay for Text Readability */}
                     <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition duration-300"></div>
 
-                    {/* Stock & Badges */}
                     <div className="absolute top-4 right-4 flex flex-col gap-2 items-end">
                        {product.stock < 3 && product.stock > 0 && (
                          <span className="bg-adventure-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-full shadow-lg animate-pulse uppercase tracking-wider flex items-center gap-1">
@@ -402,7 +397,6 @@ function App() {
                        </span>
                     </div>
 
-                    {/* Category Badge - Floating */}
                     <div className="absolute top-4 left-4">
                       <span className="bg-white/20 backdrop-blur-md border border-white/30 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm">
                         {product.category}
@@ -410,19 +404,16 @@ function App() {
                     </div>
                   </div>
 
-                  {/* Content Section */}
                   <div className="p-6 flex flex-col flex-1">
                     <div className="mb-auto">
                       <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-2 leading-tight group-hover:text-nature-600 transition">
                         {product.name}
                       </h3>
                       
-                      {/* Short Features / Chips instead of Description */}
                       <div className="flex flex-wrap gap-2 mb-4">
                         <span className="inline-flex items-center gap-1 bg-gray-50 text-gray-500 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wide border border-gray-100">
                            {getProductFeatures(product.category)}
                         </span>
-                        {/* Fake second feature based on random logic for visual variety */}
                         <span className="inline-flex items-center gap-1 bg-gray-50 text-gray-500 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wide border border-gray-100">
                            <Check size={10} /> Bersih
                         </span>
@@ -461,16 +452,16 @@ function App() {
         )}
       </section>
 
-      {/* AI Assistant Section */}
+      {/* Other sections (AI, Event, Features, Footer) remain unchanged... */}
       <section className="bg-nature-50 border-y border-nature-100 relative overflow-hidden">
         <div className="absolute top-0 right-0 -mr-20 -mt-20 w-96 h-96 bg-nature-200 rounded-full blur-3xl opacity-50"></div>
         <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-80 h-80 bg-adventure-200 rounded-full blur-3xl opacity-50"></div>
         <GeminiAdvisor products={products} onAddRecommended={addRecommendedToCart} />
       </section>
       
-      {/* Event Section (NEW) */}
+      {/* Event Section */}
       <section id="event" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-        <div className="mb-10 text-center">
+         <div className="mb-10 text-center">
           <span className="text-nature-600 font-bold tracking-widest uppercase text-sm mb-2 block">Agenda & Kegiatan</span>
           <h2 className="text-3xl md:text-4xl font-black text-gray-900">Mamas Open Trip</h2>
           <p className="text-gray-500 mt-4 max-w-2xl mx-auto">
@@ -478,10 +469,8 @@ function App() {
             Fasilitas lengkap, guide asik, dokumentasi kece.
           </p>
         </div>
-
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Event Card 1 */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden group hover:shadow-xl transition duration-300">
+           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden group hover:shadow-xl transition duration-300">
             <div className="relative h-64 overflow-hidden">
               <img 
                 src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=800&auto=format&fit=crop" 
@@ -513,8 +502,6 @@ function App() {
               </div>
             </div>
           </div>
-
-          {/* Event Card 2 */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden group hover:shadow-xl transition duration-300">
             <div className="relative h-64 overflow-hidden">
               <img 

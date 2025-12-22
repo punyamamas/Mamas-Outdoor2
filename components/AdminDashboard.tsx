@@ -3,47 +3,54 @@ import {
   LayoutDashboard, Package, LogOut, Plus, Search, 
   Edit, Trash2, Save, X, Image as ImageIcon,
   AlertTriangle, DollarSign, Loader2, RotateCcw,
-  Database, Wifi, WifiOff
+  Database, Wifi, WifiOff, Tags, CheckSquare
 } from 'lucide-react';
-import { Product } from '../types';
-import { CATEGORIES } from '../constants';
-import { supabase } from '../services/supabase'; // Import supabase instance check
+import { Product, Category } from '../types';
+import { supabase } from '../services/supabase';
 
 interface AdminDashboardProps {
   products: Product[];
+  categories: Category[];
   onBackToHome: () => void;
   onAddProduct: (product: Product) => Promise<void>;
   onUpdateProduct: (product: Product) => Promise<void>;
   onDeleteProduct: (id: string) => Promise<void>;
+  onAddCategory: (name: string) => Promise<void>;
+  onUpdateCategory: (id: string, name: string) => Promise<void>;
+  onDeleteCategory: (id: string) => Promise<void>;
   onRefresh: () => Promise<void>;
 }
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ 
   products, 
+  categories,
   onBackToHome,
   onAddProduct,
   onUpdateProduct,
   onDeleteProduct,
+  onAddCategory,
+  onUpdateCategory,
+  onDeleteCategory,
   onRefresh
 }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'products'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'categories'>('dashboard');
   const [searchTerm, setSearchTerm] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
   
   // Connection Status State
   const [isConnected, setIsConnected] = useState(false);
   
-  // Modal State
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  // Modal State for Products
+  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   
-  // Form State
-  const [formData, setFormData] = useState<Partial<Product>>({
+  // Form State for Products
+  const [productFormData, setProductFormData] = useState<Partial<Product>>({
     name: '',
-    category: 'Tenda',
+    category: '', // Dynamic
     price2Days: 0,
     price3Days: 0,
     price4Days: 0,
@@ -55,8 +62,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     image: ''
   });
 
+  // State for Categories Management
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
+  const [editCategoryName, setEditCategoryName] = useState('');
+
   useEffect(() => {
-    // Check connection status simply by checking if supabase client exists
     setIsConnected(!!supabase);
   }, []);
 
@@ -69,16 +80,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
-  const openModal = (product?: Product) => {
+  const openProductModal = (product?: Product) => {
     if (product) {
       setEditingProduct(product);
-      setFormData(product);
+      setProductFormData(product);
     } else {
       setEditingProduct(null);
-      setFormData({
+      setProductFormData({
         id: Date.now().toString(),
         name: '',
-        category: 'Tenda',
+        category: categories.length > 0 ? categories[0].name : 'Tenda', // Default to first available or fallback
         price2Days: 0,
         price3Days: 0,
         price4Days: 0,
@@ -90,19 +101,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         image: 'https://picsum.photos/400/300'
       });
     }
-    setIsModalOpen(true);
+    setIsProductModalOpen(true);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleProductSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
       if (editingProduct) {
-        await onUpdateProduct(formData as Product);
+        await onUpdateProduct(productFormData as Product);
       } else {
-        await onAddProduct(formData as Product);
+        await onAddProduct(productFormData as Product);
       }
-      setIsModalOpen(false);
+      setIsProductModalOpen(false);
     } catch (error) {
       console.error("Error submitting form", error);
       alert("Terjadi kesalahan saat menyimpan data.");
@@ -111,10 +122,35 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
+  const handleCategoryAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCategoryName.trim()) return;
+    setIsSubmitting(true);
+    await onAddCategory(newCategoryName);
+    setNewCategoryName('');
+    setIsSubmitting(false);
+  };
+
+  const startEditCategory = (cat: Category) => {
+    setEditingCategoryId(cat.id);
+    setEditCategoryName(cat.name);
+  };
+
+  const cancelEditCategory = () => {
+    setEditingCategoryId(null);
+    setEditCategoryName('');
+  };
+
+  const saveEditCategory = async (id: string) => {
+    if (!editCategoryName.trim()) return;
+    await onUpdateCategory(id, editCategoryName);
+    setEditingCategoryId(null);
+  };
+
   const handleRefreshData = async () => {
     setIsRefreshing(true);
     await onRefresh();
-    setTimeout(() => setIsRefreshing(false), 500); // Visual delay minimal
+    setTimeout(() => setIsRefreshing(false), 500);
   };
 
   const filteredProducts = products.filter(p => 
@@ -122,9 +158,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     p.category.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Stats
   const lowStockCount = products.filter(p => p.stock < 3).length;
-  // Use Base Price (2 Days) for asset calculation approximation, with safety check
   const totalValue = products.reduce((acc, curr) => acc + ((curr.price2Days || 0) * curr.stock), 0);
 
   if (!isAuthenticated) {
@@ -161,7 +195,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </button>
           </form>
           
-          {/* Connection Status Footnote */}
           <div className="mt-6 pt-6 border-t border-gray-100 text-center">
              <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold ${isConnected ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                 {isConnected ? <Wifi size={14} /> : <WifiOff size={14} />}
@@ -198,8 +231,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           >
             <Package size={20} /> Produk
           </button>
+          <button 
+            onClick={() => setActiveTab('categories')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition ${activeTab === 'categories' ? 'bg-white/10 text-white font-bold' : 'text-nature-200 hover:bg-white/5'}`}
+          >
+            <Tags size={20} /> Kategori
+          </button>
           
-          {/* Database Status Widget in Sidebar */}
           <div className="mt-8 mx-2 p-4 bg-black/20 rounded-xl border border-white/5">
             <div className="flex items-center gap-2 mb-2">
               <Database size={16} className="text-nature-400" />
@@ -243,7 +281,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </header>
 
         <div className="p-8">
-          {activeTab === 'dashboard' ? (
+          {activeTab === 'dashboard' && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                 <div className="flex items-center gap-4">
@@ -279,9 +317,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
               </div>
             </div>
-          ) : (
+          )}
+
+          {activeTab === 'products' && (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-              {/* Toolbar */}
               <div className="p-5 border-b border-gray-100 flex flex-col md:flex-row justify-between gap-4">
                 <div className="relative flex-1 max-w-md">
                   <Search className="absolute left-3 top-3 text-gray-400" size={18} />
@@ -294,14 +333,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   />
                 </div>
                 <button 
-                  onClick={() => openModal()}
+                  onClick={() => openProductModal()}
                   className="bg-nature-600 hover:bg-nature-700 text-white px-4 py-2.5 rounded-xl font-bold flex items-center gap-2 transition shadow-lg shadow-nature-200"
                 >
                   <Plus size={18} /> Tambah Produk
                 </button>
               </div>
 
-              {/* Table */}
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm text-gray-600">
                   <thead className="bg-gray-50 text-gray-700 font-bold uppercase text-xs">
@@ -328,7 +366,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           </span>
                         </td>
                         <td className="px-6 py-4 font-medium text-nature-600">
-                          {/* SAFETY RENDER: Check undefined */}
                           Rp{(product.price2Days || 0).toLocaleString('id-ID')}
                         </td>
                         <td className="px-6 py-4">
@@ -339,7 +376,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         <td className="px-6 py-4">
                           <div className="flex justify-center gap-2">
                             <button 
-                              onClick={() => openModal(product)}
+                              onClick={() => openProductModal(product)}
                               className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
                               title="Edit"
                             >
@@ -361,32 +398,111 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
             </div>
           )}
+
+          {activeTab === 'categories' && (
+             <div className="max-w-2xl mx-auto">
+               {/* Add Category */}
+               <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-6">
+                 <h3 className="font-bold text-gray-900 mb-4">Tambah Kategori Baru</h3>
+                 <form onSubmit={handleCategoryAdd} className="flex gap-4">
+                   <input 
+                      type="text"
+                      required
+                      placeholder="Nama Kategori (misal: Sepatu, Jaket)"
+                      className="flex-1 px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-nature-500 outline-none"
+                      value={newCategoryName}
+                      onChange={e => setNewCategoryName(e.target.value)}
+                   />
+                   <button 
+                      type="submit"
+                      disabled={isSubmitting}
+                      className="bg-nature-600 hover:bg-nature-700 text-white px-6 py-2 rounded-xl font-bold transition disabled:opacity-50"
+                   >
+                     {isSubmitting ? '...' : 'Tambah'}
+                   </button>
+                 </form>
+               </div>
+
+               {/* List Categories */}
+               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                 <div className="px-6 py-4 bg-gray-50 border-b border-gray-100">
+                   <h3 className="font-bold text-gray-700">Daftar Kategori</h3>
+                 </div>
+                 <ul className="divide-y divide-gray-100">
+                   {categories.map(cat => (
+                     <li key={cat.id} className="px-6 py-4 flex items-center justify-between hover:bg-gray-50">
+                       {editingCategoryId === cat.id ? (
+                         <div className="flex items-center gap-2 flex-1 mr-4">
+                           <input 
+                             type="text"
+                             className="w-full px-3 py-1.5 bg-white border border-nature-300 rounded-lg focus:ring-2 focus:ring-nature-500 outline-none text-sm"
+                             value={editCategoryName}
+                             onChange={e => setEditCategoryName(e.target.value)}
+                           />
+                           <button onClick={() => saveEditCategory(cat.id)} className="p-1.5 text-green-600 hover:bg-green-100 rounded">
+                             <CheckSquare size={18} />
+                           </button>
+                           <button onClick={cancelEditCategory} className="p-1.5 text-gray-400 hover:bg-gray-100 rounded">
+                             <X size={18} />
+                           </button>
+                         </div>
+                       ) : (
+                         <span className="font-medium text-gray-800">{cat.name}</span>
+                       )}
+                       
+                       <div className="flex gap-2">
+                         {editingCategoryId !== cat.id && (
+                           <button 
+                             onClick={() => startEditCategory(cat)}
+                             className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                           >
+                             <Edit size={16} />
+                           </button>
+                         )}
+                         <button 
+                           onClick={() => onDeleteCategory(cat.id)}
+                           className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
+                         >
+                           <Trash2 size={16} />
+                         </button>
+                       </div>
+                     </li>
+                   ))}
+                   {categories.length === 0 && (
+                     <li className="px-6 py-8 text-center text-gray-500">
+                       Belum ada kategori. Tambahkan di atas.
+                     </li>
+                   )}
+                 </ul>
+               </div>
+             </div>
+          )}
         </div>
       </main>
 
-      {/* Add/Edit Modal */}
-      {isModalOpen && (
+      {/* Add/Edit Product Modal */}
+      {isProductModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}></div>
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsProductModalOpen(false)}></div>
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg relative z-10 overflow-hidden animate-slide-in-right max-h-[90vh] flex flex-col">
             <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 flex-shrink-0">
               <h3 className="font-bold text-lg text-gray-900">
                 {editingProduct ? 'Edit Produk' : 'Tambah Produk Baru'}
               </h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+              <button onClick={() => setIsProductModalOpen(false)} className="text-gray-400 hover:text-gray-600">
                 <X size={24} />
               </button>
             </div>
             
-            <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
+            <form onSubmit={handleProductSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Nama Produk</label>
                 <input 
                   type="text" 
                   required
                   className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-nature-500 outline-none"
-                  value={formData.name}
-                  onChange={e => setFormData({...formData, name: e.target.value})}
+                  value={productFormData.name}
+                  onChange={e => setProductFormData({...productFormData, name: e.target.value})}
                 />
               </div>
 
@@ -395,13 +511,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <label className="block text-sm font-medium text-gray-700 mb-1">Kategori</label>
                   <select 
                     className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-nature-500 outline-none"
-                    value={formData.category}
-                    // @ts-ignore
-                    onChange={e => setFormData({...formData, category: e.target.value})}
+                    value={productFormData.category}
+                    onChange={e => setProductFormData({...productFormData, category: e.target.value})}
                   >
-                    {CATEGORIES.filter(c => c !== 'Semua').map(c => (
-                      <option key={c} value={c}>{c}</option>
+                    {categories.map(c => (
+                      <option key={c.id} value={c.name}>{c.name}</option>
                     ))}
+                    {categories.length === 0 && <option value="Umum">Umum</option>}
                   </select>
                 </div>
                 <div>
@@ -411,8 +527,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     required
                     min="0"
                     className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-nature-500 outline-none"
-                    value={formData.stock}
-                    onChange={e => setFormData({...formData, stock: parseInt(e.target.value)})}
+                    value={productFormData.stock}
+                    onChange={e => setProductFormData({...productFormData, stock: parseInt(e.target.value)})}
                   />
                 </div>
               </div>
@@ -428,8 +544,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         type="number" 
                         required min="0"
                         className="w-full px-3 py-1.5 bg-white border border-gray-200 rounded focus:ring-1 focus:ring-nature-500 outline-none text-sm"
-                        value={formData.price2Days}
-                        onChange={e => setFormData({...formData, price2Days: parseInt(e.target.value)})}
+                        value={productFormData.price2Days}
+                        onChange={e => setProductFormData({...productFormData, price2Days: parseInt(e.target.value)})}
                       />
                     </div>
                     <div>
@@ -438,8 +554,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         type="number" 
                         required min="0"
                         className="w-full px-3 py-1.5 bg-white border border-gray-200 rounded focus:ring-1 focus:ring-nature-500 outline-none text-sm"
-                        value={formData.price3Days}
-                        onChange={e => setFormData({...formData, price3Days: parseInt(e.target.value)})}
+                        value={productFormData.price3Days}
+                        onChange={e => setProductFormData({...productFormData, price3Days: parseInt(e.target.value)})}
                       />
                     </div>
                     <div>
@@ -448,8 +564,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         type="number" 
                         required min="0"
                         className="w-full px-3 py-1.5 bg-white border border-gray-200 rounded focus:ring-1 focus:ring-nature-500 outline-none text-sm"
-                        value={formData.price4Days}
-                        onChange={e => setFormData({...formData, price4Days: parseInt(e.target.value)})}
+                        value={productFormData.price4Days}
+                        onChange={e => setProductFormData({...productFormData, price4Days: parseInt(e.target.value)})}
                       />
                     </div>
                     <div>
@@ -458,8 +574,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         type="number" 
                         required min="0"
                         className="w-full px-3 py-1.5 bg-white border border-gray-200 rounded focus:ring-1 focus:ring-nature-500 outline-none text-sm"
-                        value={formData.price5Days}
-                        onChange={e => setFormData({...formData, price5Days: parseInt(e.target.value)})}
+                        value={productFormData.price5Days}
+                        onChange={e => setProductFormData({...productFormData, price5Days: parseInt(e.target.value)})}
                       />
                     </div>
                     <div>
@@ -468,8 +584,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         type="number" 
                         required min="0"
                         className="w-full px-3 py-1.5 bg-white border border-gray-200 rounded focus:ring-1 focus:ring-nature-500 outline-none text-sm"
-                        value={formData.price6Days}
-                        onChange={e => setFormData({...formData, price6Days: parseInt(e.target.value)})}
+                        value={productFormData.price6Days}
+                        onChange={e => setProductFormData({...productFormData, price6Days: parseInt(e.target.value)})}
                       />
                     </div>
                     <div>
@@ -478,8 +594,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         type="number" 
                         required min="0"
                         className="w-full px-3 py-1.5 bg-white border border-gray-200 rounded focus:ring-1 focus:ring-nature-500 outline-none text-sm"
-                        value={formData.price7Days}
-                        onChange={e => setFormData({...formData, price7Days: parseInt(e.target.value)})}
+                        value={productFormData.price7Days}
+                        onChange={e => setProductFormData({...productFormData, price7Days: parseInt(e.target.value)})}
                       />
                     </div>
                  </div>
@@ -494,12 +610,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       type="url" 
                       required
                       className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-nature-500 outline-none text-sm"
-                      value={formData.image}
-                      onChange={e => setFormData({...formData, image: e.target.value})}
+                      value={productFormData.image}
+                      onChange={e => setProductFormData({...productFormData, image: e.target.value})}
                     />
                    </div>
-                   {formData.image && (
-                     <img src={formData.image} alt="Preview" className="w-10 h-10 rounded object-cover border border-gray-200" />
+                   {productFormData.image && (
+                     <img src={productFormData.image} alt="Preview" className="w-10 h-10 rounded object-cover border border-gray-200" />
                    )}
                 </div>
               </div>
@@ -510,15 +626,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   rows={3}
                   required
                   className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-nature-500 outline-none text-sm"
-                  value={formData.description}
-                  onChange={e => setFormData({...formData, description: e.target.value})}
+                  value={productFormData.description}
+                  onChange={e => setProductFormData({...productFormData, description: e.target.value})}
                 ></textarea>
               </div>
 
               <div className="pt-4 flex gap-3">
                 <button 
                   type="button"
-                  onClick={() => setIsModalOpen(false)}
+                  onClick={() => setIsProductModalOpen(false)}
                   disabled={isSubmitting}
                   className="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition disabled:opacity-50"
                 >
