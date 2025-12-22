@@ -51,18 +51,22 @@ export const getProducts = async (): Promise<Product[]> => {
 export const addProduct = async (product: Product): Promise<Product | null> => {
   if (!supabase) return product; 
 
-  const { id, ...productData } = product;
+  // FIX: Pisahkan 'packageItems' (camelCase) dari object agar tidak dikirim mentah ke DB
+  // karena DB tidak punya kolom 'packageItems', adanya 'package_items'
+  const { packageItems, ...restProductData } = product;
   
   // Handle temporary IDs (timestamp-based from frontend)
   // If ID is long (timestamp), exclude it so DB generates one
-  const basePayload = id.length > 10 ? productData : product;
-
-  // FIX: Include legacy 'price' column to satisfy DB NOT NULL constraint
-  const payload = {
-    ...basePayload,
+  const payload: any = {
+    ...restProductData,
     price: product.price2Days,
-    package_items: product.packageItems // Map camelCase ke snake_case DB
+    package_items: packageItems // Map camelCase ke snake_case DB
   };
+
+  // Hapus ID jika itu adalah temporary ID (timestamp) agar DB yang membuat ID serial
+  if (payload.id && payload.id.length > 10) {
+    delete payload.id;
+  }
 
   const { data, error } = await supabase
     .from('products')
@@ -91,11 +95,14 @@ export const addProduct = async (product: Product): Promise<Product | null> => {
 export const updateProduct = async (product: Product): Promise<Product | null> => {
   if (!supabase) return product;
 
+  // FIX: Pisahkan 'packageItems' (camelCase)
+  const { packageItems, ...restProductData } = product;
+
   // Update legacy 'price' column as well to keep data consistent
   const payload = {
-    ...product,
+    ...restProductData,
     price: product.price2Days,
-    package_items: product.packageItems
+    package_items: packageItems // Map ke snake_case
   };
 
   const { data, error } = await supabase
