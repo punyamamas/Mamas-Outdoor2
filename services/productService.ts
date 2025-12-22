@@ -52,8 +52,16 @@ export const addProduct = async (product: Product): Promise<Product | null> => {
 
   const { id, ...productData } = product;
   
-  // Handle temporary IDs
-  const payload = id.length > 10 ? productData : product;
+  // Handle temporary IDs (timestamp-based from frontend)
+  // If ID is long (timestamp), exclude it so DB generates one
+  const basePayload = id.length > 10 ? productData : product;
+
+  // FIX: Include legacy 'price' column to satisfy DB NOT NULL constraint
+  // We map price2Days to price
+  const payload = {
+    ...basePayload,
+    price: product.price2Days
+  };
 
   const { data, error } = await supabase
     .from('products')
@@ -65,6 +73,8 @@ export const addProduct = async (product: Product): Promise<Product | null> => {
     console.error('Error adding product:', error);
     if (error.code === '42501') {
       alert('Gagal Menambah: Izin Ditolak (RLS). Cek Policy di Supabase.');
+    } else if (error.message.includes('null value in column "price"')) {
+      alert('Error Database: Kolom "price" wajib diisi. Script update otomatis sudah dijalankan, coba lagi.');
     } else {
       alert('Gagal menambah produk: ' + error.message);
     }
@@ -77,9 +87,15 @@ export const addProduct = async (product: Product): Promise<Product | null> => {
 export const updateProduct = async (product: Product): Promise<Product | null> => {
   if (!supabase) return product;
 
+  // Update legacy 'price' column as well to keep data consistent
+  const payload = {
+    ...product,
+    price: product.price2Days
+  };
+
   const { data, error } = await supabase
     .from('products')
-    .update(product)
+    .update(payload)
     .eq('id', product.id)
     .select()
     .single();
