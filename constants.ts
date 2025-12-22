@@ -61,7 +61,7 @@ export const PRODUCTS: Product[] = [
   {
     id: '5',
     name: 'Sleeping Bag Polar Bulu',
-    category: 'Tidur',
+    category: 'Tidur', // Maps to Alat Pribadi or Tidur based on DB
     price2Days: 15000,
     price3Days: 20000,
     price4Days: 25000,
@@ -75,7 +75,7 @@ export const PRODUCTS: Product[] = [
   {
     id: '6',
     name: 'Matras Spon Karet',
-    category: 'Tidur',
+    category: 'Alat Jalan',
     // Sesuai Request User: 2h=5k, 3h=8k, 4h=10k, 5h=13k, 6h=15k
     price2Days: 5000,
     price3Days: 8000,
@@ -90,7 +90,7 @@ export const PRODUCTS: Product[] = [
   {
     id: '7',
     name: 'Kompor Portable Kotak',
-    category: 'Masak',
+    category: 'Alat Masak',
     price2Days: 15000,
     price3Days: 20000,
     price4Days: 25000,
@@ -104,7 +104,7 @@ export const PRODUCTS: Product[] = [
   {
     id: '8',
     name: 'Cooking Set / Nesting DS-308',
-    category: 'Masak',
+    category: 'Alat Masak',
     price2Days: 15000,
     price3Days: 20000,
     price4Days: 25000,
@@ -118,7 +118,7 @@ export const PRODUCTS: Product[] = [
   {
     id: '9',
     name: 'Headlamp Led Lenser',
-    category: 'Aksesoris',
+    category: 'Penerangan',
     price2Days: 20000,
     price3Days: 25000,
     price4Days: 30000,
@@ -132,7 +132,7 @@ export const PRODUCTS: Product[] = [
   {
     id: '10',
     name: 'Trekking Pole',
-    category: 'Aksesoris',
+    category: 'Alat Jalan',
     price2Days: 10000,
     price3Days: 15000,
     price4Days: 20000,
@@ -145,6 +145,21 @@ export const PRODUCTS: Product[] = [
   }
 ];
 
-export const CATEGORIES = ['Semua', 'Tenda', 'Carrier', 'Tidur', 'Masak', 'Aksesoris'];
+// Daftar kategori fallback sesuai urutan yang diinginkan user
+export const CATEGORIES = [
+  'Semua',
+  'Paketan Sewa',
+  'Tenda',
+  'Carrier',
+  'Tas',
+  'Pakaian',
+  'Alat Jalan',
+  'Alat Pribadi',
+  'Alat Masak',
+  'Penerangan',
+  'Survival',
+  'Alat Event',
+  'Koper'
+];
 
 export const WA_NUMBER = '6281234567890'; // Ganti dengan nomor Admin Mamas Outdoor

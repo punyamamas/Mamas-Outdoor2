@@ -5,7 +5,7 @@ import HistoryDrawer from './components/HistoryDrawer';
 import GeminiAdvisor from './components/GeminiAdvisor';
 import TermsModal from './components/TermsModal';
 import AdminDashboard from './components/AdminDashboard';
-import { PRODUCTS } from './constants'; // Removed CATEGORIES import
+import { PRODUCTS, CATEGORIES as CONSTANT_CATEGORIES } from './constants'; 
 import { CartItem, Product, Category } from './types';
 import { getProducts, addProduct, updateProduct, deleteProduct } from './services/productService';
 import { getCategories, addCategory, updateCategory, deleteCategory } from './services/categoryService';
@@ -39,13 +39,11 @@ function App() {
     } catch (error) {
       console.error("Failed to load data", error);
       setProducts(PRODUCTS); 
-      setCategories([
-        { id: '1', name: 'Tenda' },
-        { id: '2', name: 'Carrier' },
-        { id: '3', name: 'Tidur' },
-        { id: '4', name: 'Masak' },
-        { id: '5', name: 'Aksesoris' }
-      ]);
+      // Fallback menggunakan daftar constant yang sudah diurutkan
+      const fallbackCats = CONSTANT_CATEGORIES
+        .filter(c => c !== 'Semua')
+        .map((name, idx) => ({ id: (idx + 1).toString(), name }));
+      setCategories(fallbackCats);
     } finally {
       setIsLoading(false);
     }

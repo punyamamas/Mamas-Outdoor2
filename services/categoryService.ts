@@ -1,14 +1,12 @@
 import { supabase } from './supabase';
 import { Category } from '../types';
+import { CATEGORIES as FALLBACK_CATEGORIES_NAMES } from '../constants';
 
-// Default fallback jika DB kosong/error
-const DEFAULT_CATEGORIES: Category[] = [
-  { id: '1', name: 'Tenda' },
-  { id: '2', name: 'Carrier' },
-  { id: '3', name: 'Tidur' },
-  { id: '4', name: 'Masak' },
-  { id: '5', name: 'Aksesoris' }
-];
+// Buat shape object Category dari array string di constants untuk fallback
+const DEFAULT_CATEGORIES: Category[] = FALLBACK_CATEGORIES_NAMES.filter(c => c !== 'Semua').map((name, index) => ({
+  id: (index + 1).toString(),
+  name
+}));
 
 export const getCategories = async (): Promise<Category[]> => {
   if (!supabase) return DEFAULT_CATEGORIES;
@@ -17,7 +15,8 @@ export const getCategories = async (): Promise<Category[]> => {
     const { data, error } = await supabase
       .from('categories')
       .select('*')
-      .order('name', { ascending: true });
+      // PERUBAHAN DISINI: Mengurutkan berdasarkan 'id' (urutan input), bukan 'name' (abjad)
+      .order('id', { ascending: true });
 
     if (error) {
       console.error('Error fetching categories:', error);
