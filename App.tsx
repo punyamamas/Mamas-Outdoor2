@@ -4,14 +4,16 @@ import CartDrawer from './components/CartDrawer';
 import HistoryDrawer from './components/HistoryDrawer';
 import GeminiAdvisor from './components/GeminiAdvisor';
 import TermsModal from './components/TermsModal';
+import AdminDashboard from './components/AdminDashboard';
 import { PRODUCTS, CATEGORIES } from './constants';
 import { CartItem, Product } from './types';
-import { getProducts } from './services/productService';
-import { MapPin, Star, Plus, Check, School, Github, Loader2, Flame } from 'lucide-react';
+import { getProducts, addProduct, updateProduct, deleteProduct } from './services/productService';
+import { MapPin, Star, Plus, Check, School, Github, Loader2, Flame, Lock } from 'lucide-react';
 
 function App() {
+  const [currentPage, setCurrentPage] = useState<'home' | 'admin'>('home');
   const [products, setProducts] = useState<Product[]>([]); 
-  const [isLoading, setIsLoading] = useState(true); // State untuk loading
+  const [isLoading, setIsLoading] = useState(true); 
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
@@ -19,7 +21,7 @@ function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('Semua');
 
-  // Load products from Supabase (or fallback)
+  // Load products
   useEffect(() => {
     const initProducts = async () => {
       setIsLoading(true);
@@ -28,7 +30,7 @@ function App() {
         setProducts(data);
       } catch (error) {
         console.error("Failed to load products", error);
-        setProducts(PRODUCTS); // Fallback to mock data on catastrophic failure
+        setProducts(PRODUCTS); 
       } finally {
         setIsLoading(false);
       }
@@ -36,7 +38,7 @@ function App() {
     initProducts();
   }, []);
 
-  // Load cart from local storage on mount
+  // Cart Management
   useEffect(() => {
     const savedCart = localStorage.getItem('mamasCart');
     if (savedCart) {
@@ -44,7 +46,6 @@ function App() {
     }
   }, []);
 
-  // Save cart whenever it changes
   useEffect(() => {
     localStorage.setItem('mamasCart', JSON.stringify(cartItems));
   }, [cartItems]);
@@ -84,6 +85,53 @@ function App() {
   const clearCart = () => {
     setCartItems([]);
   };
+
+  // --- Admin Handlers (Connected to Supabase) ---
+  const handleAddProduct = async (newProduct: Product) => {
+    // Optimistic Update (biar terasa cepat)
+    setProducts(prev => [newProduct, ...prev]);
+    
+    // Call Supabase
+    const savedProduct = await addProduct(newProduct);
+    
+    // If Supabase returns real data (e.g. real ID), update state
+    if (savedProduct) {
+       setProducts(prev => prev.map(p => p.id === newProduct.id ? savedProduct : p));
+    } else {
+       // Revert if failed (optional, simplified here)
+       alert("Gagal menyimpan ke database. Data hanya tampil sementara.");
+    }
+  };
+
+  const handleUpdateProduct = async (updatedProduct: Product) => {
+    setProducts(prev => prev.map(p => p.id === updatedProduct.id ? updatedProduct : p));
+    await updateProduct(updatedProduct);
+  };
+
+  const handleDeleteProduct = async (id: string) => {
+    if (window.confirm('Yakin ingin menghapus produk ini dari Database?')) {
+      const success = await deleteProduct(id);
+      if (success) {
+        setProducts(prev => prev.filter(p => p.id !== id));
+      } else {
+        // Jika gagal, refresh data dari server untuk memastikan konsistensi
+        const data = await getProducts();
+        setProducts(data);
+      }
+    }
+  };
+
+  if (currentPage === 'admin') {
+    return (
+      <AdminDashboard 
+        products={products}
+        onBackToHome={() => setCurrentPage('home')}
+        onAddProduct={handleAddProduct}
+        onUpdateProduct={handleUpdateProduct}
+        onDeleteProduct={handleDeleteProduct}
+      />
+    );
+  }
 
   const filteredProducts = selectedCategory === 'Semua' 
     ? products 
@@ -127,7 +175,6 @@ function App() {
             alt="Camping Background" 
             className="w-full h-full object-cover grayscale-[30%] contrast-125"
           />
-          {/* Darker red overlay for more 'edgy' look */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-nature-900/40 to-black/30"></div>
         </div>
         <div className="relative z-10 text-center px-4 max-w-5xl mx-auto">
@@ -164,7 +211,6 @@ function App() {
             <p className="text-gray-500 font-medium">Pilih senjatamu untuk petualangan berikutnya.</p>
           </div>
           
-          {/* Category Filter */}
           <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 scrollbar-hide">
             {CATEGORIES.map(cat => (
               <button
@@ -182,7 +228,6 @@ function App() {
           </div>
         </div>
 
-        {/* Product Grid */}
         {isLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
             {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
@@ -192,7 +237,6 @@ function App() {
                   <div className="h-4 bg-gray-200 rounded w-1/3"></div>
                   <div className="h-6 bg-gray-200 rounded w-3/4"></div>
                   <div className="h-4 bg-gray-200 rounded w-full"></div>
-                  <div className="h-10 bg-gray-200 rounded w-full mt-4"></div>
                 </div>
               </div>
             ))}
@@ -247,13 +291,12 @@ function App() {
 
       {/* AI Assistant Section */}
       <section className="bg-nature-50 border-y border-nature-100 relative overflow-hidden">
-        {/* Abstract Pattern */}
         <div className="absolute top-0 right-0 -mr-20 -mt-20 w-96 h-96 bg-nature-200 rounded-full blur-3xl opacity-50"></div>
         <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-80 h-80 bg-adventure-200 rounded-full blur-3xl opacity-50"></div>
         <GeminiAdvisor products={products} onAddRecommended={addRecommendedToCart} />
       </section>
 
-      {/* Features/Trust Section */}
+      {/* Features Section */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className="flex flex-col items-center text-center p-8 bg-white rounded-2xl shadow-sm border border-gray-100 hover:border-nature-200 transition group">
@@ -299,7 +342,7 @@ function App() {
                 <li><a href="#" className="hover:text-white transition">Sewa Tenda Dome</a></li>
                 <li><a href="#" className="hover:text-white transition">Sewa Carrier</a></li>
                 <li><a href="#" className="hover:text-white transition">Paket Open Trip</a></li>
-                <li><a href="#" className="hover:text-white transition">Sharing Session</a></li>
+                <li><button onClick={() => setCurrentPage('admin')} className="text-left hover:text-white transition text-nature-800">Admin Login</button></li>
               </ul>
             </div>
             <div>
