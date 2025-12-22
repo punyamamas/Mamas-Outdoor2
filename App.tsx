@@ -171,53 +171,55 @@ function App() {
         onClose={() => setIsTermsOpen(false)} 
       />
 
-      {/* Hero Section Revamped & Fixed Spacing */}
-      <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden pt-20 pb-16">
-        {/* Background Image with Fixed Effect */}
+      {/* Hero Section Revamped for Cleanliness */}
+      <section className="relative min-h-screen md:min-h-[90vh] flex items-center justify-center overflow-hidden pt-24 pb-20">
+        
+        {/* Background Image */}
         <div className="absolute inset-0 z-0">
           <img 
             src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=2000&auto=format&fit=crop" 
             alt="Gunung Slamet Peak" 
             className="w-full h-full object-cover"
           />
-          {/* Complex Gradient Overlay */}
-          <div className="absolute inset-0 bg-gradient-to-b from-gray-900/80 via-gray-900/50 to-gray-50"></div>
-          <div className="absolute inset-0 bg-gradient-to-r from-black/60 to-transparent"></div>
+          {/* Enhanced Gradient for Better Text Contrast */}
+          <div className="absolute inset-0 bg-gradient-to-b from-gray-900/80 via-gray-900/60 to-gray-50/5"></div>
+          <div className="absolute inset-0 bg-black/30"></div>
           {/* Texture Overlay */}
           <div className="absolute inset-0 opacity-[0.03]" style={{backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '30px 30px'}}></div>
         </div>
 
-        {/* Wrapper Content utama, dibuat relative agar z-index bekerja */}
+        {/* Main Content Container */}
         <div className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex flex-col justify-center items-center">
           
-          {/* Floating Elements (Dipindahkan keluar dari container text agar tidak menumpuk) */}
-          {/* Hanya tampil di layar XL (desktop besar) agar aman */}
-          <div className="hidden xl:block absolute left-8 top-1/4 animate-slide-in-right" style={{animationDelay: '0.2s'}}>
-            <div className="bg-white/10 backdrop-blur-md border border-white/20 p-4 rounded-2xl shadow-xl flex items-center gap-3 w-64 text-left hover:scale-105 transition duration-300 transform -rotate-2 hover:rotate-0">
-               <div className="bg-green-500/20 p-2.5 rounded-xl text-green-400">
-                 <School size={28} />
+          {/* Floating Cards - ONLY VISIBLE ON EXTRA LARGE SCREENS (2xl) to prevent overlap on laptops */}
+          {/* Left Card */}
+          <div className="hidden 2xl:block absolute left-12 top-1/3 animate-slide-in-right" style={{animationDelay: '0.2s'}}>
+            <div className="bg-white/10 backdrop-blur-md border border-white/20 p-4 rounded-2xl shadow-2xl flex items-center gap-4 w-72 text-left hover:scale-105 transition duration-300 -rotate-2 hover:rotate-0">
+               <div className="bg-green-500/20 p-3 rounded-xl text-green-400 shadow-inner">
+                 <School size={32} />
                </div>
                <div>
-                 <p className="text-white font-bold text-base">Diskon Mahasiswa</p>
-                 <p className="text-gray-300 text-xs font-medium">UNSOED, UMP, & Lainnya</p>
+                 <p className="text-white font-bold text-lg leading-tight">Diskon Mahasiswa</p>
+                 <p className="text-gray-300 text-sm font-medium mt-1">UNSOED, UMP, & Lainnya</p>
                </div>
             </div>
           </div>
 
-          <div className="hidden xl:block absolute right-8 bottom-1/3 animate-slide-in-right" style={{animationDelay: '0.4s'}}>
-            <div className="bg-white/10 backdrop-blur-md border border-white/20 p-4 rounded-2xl shadow-xl flex items-center gap-3 w-64 text-left hover:scale-105 transition duration-300 transform rotate-2 hover:rotate-0">
-               <div className="bg-orange-500/20 p-2.5 rounded-xl text-orange-400">
-                 <ShieldCheck size={28} />
+          {/* Right Card */}
+          <div className="hidden 2xl:block absolute right-12 bottom-1/3 animate-slide-in-right" style={{animationDelay: '0.4s'}}>
+            <div className="bg-white/10 backdrop-blur-md border border-white/20 p-4 rounded-2xl shadow-2xl flex items-center gap-4 w-72 text-left hover:scale-105 transition duration-300 rotate-2 hover:rotate-0">
+               <div className="bg-orange-500/20 p-3 rounded-xl text-orange-400 shadow-inner">
+                 <ShieldCheck size={32} />
                </div>
                <div>
-                 <p className="text-white font-bold text-base">Alat Terawat</p>
-                 <p className="text-gray-300 text-xs font-medium">Bersih, Wangi, No Bocor</p>
+                 <p className="text-white font-bold text-lg leading-tight">Alat Terawat</p>
+                 <p className="text-gray-300 text-sm font-medium mt-1">Bersih, Wangi, No Bocor</p>
                </div>
             </div>
           </div>
 
-          {/* Main Text Content */}
-          <div className="text-center max-w-4xl mx-auto relative z-20 px-4">
+          {/* Center Content */}
+          <div className="text-center max-w-4xl mx-auto relative z-20 px-4 flex flex-col items-center">
             
             {/* Badge */}
             <div className="inline-flex items-center gap-2 bg-nature-600/90 backdrop-blur-md px-5 py-2 rounded-full text-white text-xs md:text-sm font-bold mb-8 border border-white/10 uppercase tracking-widest shadow-xl shadow-nature-900/50 hover:bg-nature-700 transition cursor-default">
@@ -225,22 +227,23 @@ function App() {
               <span>Basecamp Anak Gunung Purwokerto</span>
             </div>
 
-            {/* Headline - Ditambah leading-tight dan py agar tidak mepet */}
-            <h1 className="text-5xl md:text-7xl lg:text-8xl font-black text-white mb-8 leading-none md:leading-tight tracking-tight drop-shadow-2xl">
+            {/* Headline with Clean Spacing */}
+            <h1 className="text-5xl md:text-7xl xl:text-8xl font-black text-white mb-6 leading-[1.1] md:leading-tight tracking-tight drop-shadow-2xl">
               GAS TERUS<br/> 
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 pb-2 inline-block">
+              {/* Added pb-3 to prevent gradient text descenders (g,j,y) from being cut off */}
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 pb-3 inline-block">
                 TAKLUKKAN ALAM
               </span>
             </h1>
 
-            {/* Subheadline */}
-            <p className="text-lg md:text-xl text-gray-200 mb-12 max-w-2xl mx-auto font-medium leading-relaxed drop-shadow-md">
+            {/* Subheadline - Constrained width for readability */}
+            <p className="text-lg md:text-xl text-gray-200 mb-10 max-w-2xl mx-auto font-medium leading-relaxed drop-shadow-md">
               Sewa alat outdoor gak pake ribet. Gear lengkap, harga bersahabat, stok melimpah. 
               Partner resmi penakluk <span className="text-yellow-400 font-bold border-b-2 border-yellow-400/30">Slamet, Prau, & Sindoro</span>.
             </p>
 
             {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row gap-5 justify-center items-center w-full">
+            <div className="flex flex-col sm:flex-row gap-4 w-full justify-center">
               <a 
                 href="#katalog" 
                 className="w-full sm:w-auto bg-nature-600 hover:bg-nature-700 text-white px-8 py-4 rounded-xl font-bold text-lg transition duration-300 shadow-lg shadow-nature-600/30 flex items-center justify-center gap-2 group border border-transparent hover:border-white/20 hover:-translate-y-1"
@@ -257,25 +260,37 @@ function App() {
               </a>
             </div>
 
+            {/* Integrated Info Chips for Smaller Desktops (Visible when floating cards are hidden) */}
+            <div className="mt-12 flex flex-wrap justify-center gap-4 2xl:hidden opacity-90">
+              <div className="flex items-center gap-2 bg-black/30 backdrop-blur-sm px-4 py-2 rounded-full border border-white/10">
+                <School size={16} className="text-green-400" />
+                <span className="text-white text-sm font-bold">Diskon Mahasiswa</span>
+              </div>
+              <div className="flex items-center gap-2 bg-black/30 backdrop-blur-sm px-4 py-2 rounded-full border border-white/10">
+                <ShieldCheck size={16} className="text-orange-400" />
+                <span className="text-white text-sm font-bold">Alat Terawat & Bersih</span>
+              </div>
+            </div>
+
           </div>
         </div>
 
         {/* Bottom Trust Strip */}
-        <div className="absolute bottom-0 left-0 right-0 bg-black/20 backdrop-blur-md border-t border-white/10 py-6 hidden md:block z-20">
-           <div className="max-w-7xl mx-auto px-4 flex justify-center gap-8 md:gap-24 text-white/90">
-              <div className="text-center">
-                 <p className="text-3xl font-bold text-white tracking-tight">500+</p>
-                 <p className="text-[10px] uppercase tracking-[0.2em] text-gray-400 font-bold">Happy Hikers</p>
+        <div className="absolute bottom-0 left-0 right-0 bg-black/40 backdrop-blur-md border-t border-white/10 py-6 hidden md:block z-30">
+           <div className="max-w-7xl mx-auto px-4 flex justify-center gap-12 lg:gap-24 text-white/90">
+              <div className="text-center group cursor-default">
+                 <p className="text-3xl font-bold text-white tracking-tight group-hover:text-yellow-400 transition">500+</p>
+                 <p className="text-[10px] uppercase tracking-[0.2em] text-gray-400 font-bold group-hover:text-white transition">Happy Hikers</p>
               </div>
               <div className="w-px bg-white/10 h-10 my-auto"></div>
-              <div className="text-center">
-                 <p className="text-3xl font-bold text-white tracking-tight">50+</p>
-                 <p className="text-[10px] uppercase tracking-[0.2em] text-gray-400 font-bold">Jenis Gear</p>
+              <div className="text-center group cursor-default">
+                 <p className="text-3xl font-bold text-white tracking-tight group-hover:text-yellow-400 transition">50+</p>
+                 <p className="text-[10px] uppercase tracking-[0.2em] text-gray-400 font-bold group-hover:text-white transition">Jenis Gear</p>
               </div>
               <div className="w-px bg-white/10 h-10 my-auto"></div>
-              <div className="text-center">
-                 <p className="text-3xl font-bold text-white tracking-tight">24h</p>
-                 <p className="text-[10px] uppercase tracking-[0.2em] text-gray-400 font-bold">Support</p>
+              <div className="text-center group cursor-default">
+                 <p className="text-3xl font-bold text-white tracking-tight group-hover:text-yellow-400 transition">24h</p>
+                 <p className="text-[10px] uppercase tracking-[0.2em] text-gray-400 font-bold group-hover:text-white transition">Support</p>
               </div>
            </div>
         </div>
