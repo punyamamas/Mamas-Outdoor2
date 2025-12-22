@@ -171,8 +171,8 @@ function App() {
         onClose={() => setIsTermsOpen(false)} 
       />
 
-      {/* Hero Section Revamped */}
-      <section className="relative min-h-[85vh] flex items-center justify-center overflow-hidden">
+      {/* Hero Section Revamped & Fixed Spacing */}
+      <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden pt-20 pb-16">
         {/* Background Image with Fixed Effect */}
         <div className="absolute inset-0 z-0">
           <img 
@@ -181,74 +181,76 @@ function App() {
             className="w-full h-full object-cover"
           />
           {/* Complex Gradient Overlay */}
-          <div className="absolute inset-0 bg-gradient-to-b from-gray-900/70 via-gray-900/40 to-gray-50"></div>
-          <div className="absolute inset-0 bg-gradient-to-r from-black/50 to-transparent"></div>
+          <div className="absolute inset-0 bg-gradient-to-b from-gray-900/80 via-gray-900/50 to-gray-50"></div>
+          <div className="absolute inset-0 bg-gradient-to-r from-black/60 to-transparent"></div>
           {/* Texture Overlay */}
           <div className="absolute inset-0 opacity-[0.03]" style={{backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '30px 30px'}}></div>
         </div>
 
-        <div className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col items-center pt-10">
+        {/* Wrapper Content utama, dibuat relative agar z-index bekerja */}
+        <div className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex flex-col justify-center items-center">
           
-          {/* Main Content */}
-          <div className="text-center max-w-4xl mx-auto relative">
+          {/* Floating Elements (Dipindahkan keluar dari container text agar tidak menumpuk) */}
+          {/* Hanya tampil di layar XL (desktop besar) agar aman */}
+          <div className="hidden xl:block absolute left-8 top-1/4 animate-slide-in-right" style={{animationDelay: '0.2s'}}>
+            <div className="bg-white/10 backdrop-blur-md border border-white/20 p-4 rounded-2xl shadow-xl flex items-center gap-3 w-64 text-left hover:scale-105 transition duration-300 transform -rotate-2 hover:rotate-0">
+               <div className="bg-green-500/20 p-2.5 rounded-xl text-green-400">
+                 <School size={28} />
+               </div>
+               <div>
+                 <p className="text-white font-bold text-base">Diskon Mahasiswa</p>
+                 <p className="text-gray-300 text-xs font-medium">UNSOED, UMP, & Lainnya</p>
+               </div>
+            </div>
+          </div>
+
+          <div className="hidden xl:block absolute right-8 bottom-1/3 animate-slide-in-right" style={{animationDelay: '0.4s'}}>
+            <div className="bg-white/10 backdrop-blur-md border border-white/20 p-4 rounded-2xl shadow-xl flex items-center gap-3 w-64 text-left hover:scale-105 transition duration-300 transform rotate-2 hover:rotate-0">
+               <div className="bg-orange-500/20 p-2.5 rounded-xl text-orange-400">
+                 <ShieldCheck size={28} />
+               </div>
+               <div>
+                 <p className="text-white font-bold text-base">Alat Terawat</p>
+                 <p className="text-gray-300 text-xs font-medium">Bersih, Wangi, No Bocor</p>
+               </div>
+            </div>
+          </div>
+
+          {/* Main Text Content */}
+          <div className="text-center max-w-4xl mx-auto relative z-20 px-4">
             
-            {/* Floating Elements (Hidden on Mobile) */}
-            <div className="hidden lg:block absolute -left-32 top-10 animate-slide-in-right" style={{animationDelay: '0.2s'}}>
-              <div className="bg-white/10 backdrop-blur-md border border-white/20 p-4 rounded-2xl shadow-xl flex items-center gap-3 w-64 text-left hover:scale-105 transition duration-300">
-                 <div className="bg-green-500/20 p-2 rounded-lg text-green-400">
-                   <School size={24} />
-                 </div>
-                 <div>
-                   <p className="text-white font-bold text-sm">Diskon Mahasiswa</p>
-                   <p className="text-gray-300 text-xs">UNSOED, UMP, & Lainnya</p>
-                 </div>
-              </div>
-            </div>
-
-            <div className="hidden lg:block absolute -right-32 bottom-20 animate-slide-in-right" style={{animationDelay: '0.4s'}}>
-              <div className="bg-white/10 backdrop-blur-md border border-white/20 p-4 rounded-2xl shadow-xl flex items-center gap-3 w-64 text-left hover:scale-105 transition duration-300">
-                 <div className="bg-orange-500/20 p-2 rounded-lg text-orange-400">
-                   <ShieldCheck size={24} />
-                 </div>
-                 <div>
-                   <p className="text-white font-bold text-sm">Alat Terawat</p>
-                   <p className="text-gray-300 text-xs">Bersih, Wangi, No Bocor</p>
-                 </div>
-              </div>
-            </div>
-
             {/* Badge */}
-            <div className="inline-flex items-center gap-2 bg-nature-600/90 backdrop-blur-md px-4 py-1.5 rounded-full text-white text-xs md:text-sm font-bold mb-6 border border-white/10 uppercase tracking-widest shadow-xl shadow-nature-900/50 hover:bg-nature-700 transition cursor-default">
-              <Flame size={14} className="text-yellow-400 fill-current animate-pulse" />
+            <div className="inline-flex items-center gap-2 bg-nature-600/90 backdrop-blur-md px-5 py-2 rounded-full text-white text-xs md:text-sm font-bold mb-8 border border-white/10 uppercase tracking-widest shadow-xl shadow-nature-900/50 hover:bg-nature-700 transition cursor-default">
+              <Flame size={16} className="text-yellow-400 fill-current animate-pulse" />
               <span>Basecamp Anak Gunung Purwokerto</span>
             </div>
 
-            {/* Headline */}
-            <h1 className="text-5xl md:text-7xl lg:text-8xl font-black text-white mb-6 leading-tight tracking-tight drop-shadow-lg">
+            {/* Headline - Ditambah leading-tight dan py agar tidak mepet */}
+            <h1 className="text-5xl md:text-7xl lg:text-8xl font-black text-white mb-8 leading-none md:leading-tight tracking-tight drop-shadow-2xl">
               GAS TERUS<br/> 
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500">
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 pb-2 inline-block">
                 TAKLUKKAN ALAM
               </span>
             </h1>
 
             {/* Subheadline */}
-            <p className="text-lg md:text-xl text-gray-200 mb-10 max-w-2xl mx-auto font-medium leading-relaxed drop-shadow-md">
+            <p className="text-lg md:text-xl text-gray-200 mb-12 max-w-2xl mx-auto font-medium leading-relaxed drop-shadow-md">
               Sewa alat outdoor gak pake ribet. Gear lengkap, harga bersahabat, stok melimpah. 
-              Partner resmi penakluk <span className="text-yellow-400 font-bold">Slamet, Prau, & Sindoro</span>.
+              Partner resmi penakluk <span className="text-yellow-400 font-bold border-b-2 border-yellow-400/30">Slamet, Prau, & Sindoro</span>.
             </p>
 
             {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+            <div className="flex flex-col sm:flex-row gap-5 justify-center items-center w-full">
               <a 
                 href="#katalog" 
-                className="w-full sm:w-auto bg-nature-600 hover:bg-nature-700 text-white px-8 py-4 rounded-xl font-bold text-lg transition shadow-lg shadow-nature-600/30 flex items-center justify-center gap-2 group border border-transparent hover:border-white/20"
+                className="w-full sm:w-auto bg-nature-600 hover:bg-nature-700 text-white px-8 py-4 rounded-xl font-bold text-lg transition duration-300 shadow-lg shadow-nature-600/30 flex items-center justify-center gap-2 group border border-transparent hover:border-white/20 hover:-translate-y-1"
               >
                 Gasken Sewa
                 <ArrowRight className="group-hover:translate-x-1 transition" size={20} />
               </a>
               <a 
                 href="#ai-guide" 
-                className="w-full sm:w-auto bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/20 px-8 py-4 rounded-xl font-bold text-lg transition shadow-lg flex items-center justify-center gap-2 group"
+                className="w-full sm:w-auto bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/20 px-8 py-4 rounded-xl font-bold text-lg transition duration-300 shadow-lg flex items-center justify-center gap-2 group hover:-translate-y-1"
               >
                 <Zap size={20} className="text-yellow-400 group-hover:text-yellow-300" />
                 Tanya AI Dulu
@@ -259,25 +261,27 @@ function App() {
         </div>
 
         {/* Bottom Trust Strip */}
-        <div className="absolute bottom-0 left-0 right-0 bg-white/5 backdrop-blur-md border-t border-white/10 py-6 hidden md:block">
-           <div className="max-w-7xl mx-auto px-4 flex justify-center gap-16 text-white/80">
+        <div className="absolute bottom-0 left-0 right-0 bg-black/20 backdrop-blur-md border-t border-white/10 py-6 hidden md:block z-20">
+           <div className="max-w-7xl mx-auto px-4 flex justify-center gap-8 md:gap-24 text-white/90">
               <div className="text-center">
-                 <p className="text-2xl font-bold text-white">500+</p>
-                 <p className="text-xs uppercase tracking-wider text-gray-400">Happy Hikers</p>
+                 <p className="text-3xl font-bold text-white tracking-tight">500+</p>
+                 <p className="text-[10px] uppercase tracking-[0.2em] text-gray-400 font-bold">Happy Hikers</p>
               </div>
+              <div className="w-px bg-white/10 h-10 my-auto"></div>
               <div className="text-center">
-                 <p className="text-2xl font-bold text-white">50+</p>
-                 <p className="text-xs uppercase tracking-wider text-gray-400">Jenis Gear</p>
+                 <p className="text-3xl font-bold text-white tracking-tight">50+</p>
+                 <p className="text-[10px] uppercase tracking-[0.2em] text-gray-400 font-bold">Jenis Gear</p>
               </div>
+              <div className="w-px bg-white/10 h-10 my-auto"></div>
               <div className="text-center">
-                 <p className="text-2xl font-bold text-white">24h</p>
-                 <p className="text-xs uppercase tracking-wider text-gray-400">Support</p>
+                 <p className="text-3xl font-bold text-white tracking-tight">24h</p>
+                 <p className="text-[10px] uppercase tracking-[0.2em] text-gray-400 font-bold">Support</p>
               </div>
            </div>
         </div>
         
         {/* Scroll Indicator */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 text-white/50 animate-bounce md:hidden">
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 text-white/60 animate-bounce md:hidden z-20">
           <span className="text-[10px] font-bold uppercase tracking-widest">Scroll</span>
           <ChevronDown size={20} />
         </div>
