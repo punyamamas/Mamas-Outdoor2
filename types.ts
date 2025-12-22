@@ -2,7 +2,13 @@ export interface Product {
   id: string;
   name: string;
   category: 'Tenda' | 'Carrier' | 'Tidur' | 'Masak' | 'Aksesoris';
-  price: number; // Harga sewa per 24 jam
+  // Mengganti single price dengan tiered pricing
+  price2Days: number; // Minimal sewa
+  price3Days: number;
+  price4Days: number;
+  price5Days: number;
+  price6Days: number;
+  price7Days: number; // Weekly limit
   image: string;
   description: string;
   stock: number;
@@ -17,7 +23,7 @@ export interface UserDetails {
   whatsapp: string;
   campus: string; // Universitas Jenderal Soedirman, UMP, etc.
   rentalDate: string;
-  duration: number; // Hari
+  duration: number; // Hari (Min 2)
 }
 
 export interface Transaction {

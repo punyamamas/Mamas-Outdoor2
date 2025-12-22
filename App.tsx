@@ -372,8 +372,9 @@ function App() {
                     
                     <div className="flex items-center justify-between mt-auto pt-4 border-t border-gray-50">
                       <div>
-                        <span className="text-xl font-extrabold text-gray-900">Rp{product.price.toLocaleString('id-ID')}</span>
-                        <span className="text-xs text-gray-400 font-medium">/24jam</span>
+                        {/* Display Price for Min 2 Days */}
+                        <span className="text-xl font-extrabold text-gray-900">Rp{product.price2Days.toLocaleString('id-ID')}</span>
+                        <span className="text-xs text-gray-400 font-medium">/2hari</span>
                       </div>
                       <button 
                         onClick={() => addToCart(product)}

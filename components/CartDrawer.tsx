@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Trash2, Calendar, Phone, User, School, ArrowRight } from 'lucide-react';
+import { X, Trash2, Calendar, Phone, User, School, ArrowRight, AlertCircle } from 'lucide-react';
 import { CartItem, UserDetails, Transaction } from '../types';
 import { WA_NUMBER } from '../constants';
 
@@ -19,11 +19,30 @@ const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, cartItems, onU
     whatsapp: '',
     campus: '',
     rentalDate: new Date().toISOString().split('T')[0],
-    duration: 1
+    duration: 2 // Minimal 2 hari
   });
 
-  const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const total = subtotal * userDetails.duration;
+  // Fungsi helper hitung harga item berdasarkan durasi
+  const getItemPriceForDuration = (item: CartItem, days: number): number => {
+    let unitPrice = 0;
+    if (days <= 2) unitPrice = item.price2Days;
+    else if (days === 3) unitPrice = item.price3Days;
+    else if (days === 4) unitPrice = item.price4Days;
+    else if (days === 5) unitPrice = item.price5Days;
+    else if (days === 6) unitPrice = item.price6Days;
+    else unitPrice = item.price7Days + ((days - 7) * (item.price2Days * 0.4)); // Fallback logis jika > 7 hari
+
+    return unitPrice;
+  };
+
+  const calculateTotal = () => {
+    return cartItems.reduce((sum, item) => {
+      const itemPriceTotal = getItemPriceForDuration(item, userDetails.duration) * item.quantity;
+      return sum + itemPriceTotal;
+    }, 0);
+  };
+
+  const total = calculateTotal();
 
   const handleCheckout = () => {
     // 1. Save Transaction to Local History
@@ -45,7 +64,12 @@ const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, cartItems, onU
     // 2. Construct WhatsApp Message
     const header = `*Halo Mamas Outdoor! Saya mau sewa dong.*\n\n`;
     const buyerInfo = `*Data Penyewa:*\nNama: ${userDetails.name}\nKampus: ${userDetails.campus}\nWA: ${userDetails.whatsapp}\nTanggal Ambil: ${userDetails.rentalDate}\nLama Sewa: ${userDetails.duration} Hari\n\n`;
-    const itemsList = cartItems.map((item, idx) => `${idx + 1}. ${item.name} (${item.quantity}x) - Rp${(item.price * item.quantity).toLocaleString('id-ID')}`).join('\n');
+    
+    const itemsList = cartItems.map((item, idx) => {
+      const priceForDuration = getItemPriceForDuration(item, userDetails.duration);
+      return `${idx + 1}. ${item.name} (${item.quantity}x)\n   @ Rp${priceForDuration.toLocaleString('id-ID')} (Paket ${userDetails.duration} Hari)`;
+    }).join('\n');
+
     const footer = `\n\n*Total Estimasi: Rp${total.toLocaleString('id-ID')}*`;
     
     const fullMessage = encodeURIComponent(header + buyerInfo + "*List Alat:*\n" + itemsList + footer);
@@ -57,6 +81,12 @@ const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, cartItems, onU
     onClearCart();
     setStep('cart');
     onClose();
+  };
+
+  const handleDurationChange = (val: number) => {
+    // Enforce minimal 2 hari
+    const newDuration = val < 2 ? 2 : val;
+    setUserDetails(prev => ({ ...prev, duration: newDuration }));
   };
 
   if (!isOpen) return null;
@@ -100,7 +130,7 @@ const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, cartItems, onU
                         <div className="flex-1">
                           <h3 className="font-semibold text-gray-800 text-sm">{item.name}</h3>
                           <p className="text-adventure-600 font-bold text-sm mt-1">
-                            Rp{item.price.toLocaleString('id-ID')}<span className="text-gray-400 text-xs font-normal">/hari</span>
+                            Rp{item.price2Days.toLocaleString('id-ID')}<span className="text-gray-400 text-xs font-normal"> /2hari</span>
                           </p>
                           
                           <div className="flex items-center justify-between mt-3">
@@ -127,6 +157,14 @@ const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, cartItems, onU
               </>
             ) : (
               <div className="space-y-4">
+                <div className="bg-yellow-50 border border-yellow-200 p-3 rounded-lg flex items-start gap-3">
+                  <AlertCircle size={18} className="text-yellow-600 mt-0.5" />
+                  <div className="text-xs text-yellow-800">
+                    <p className="font-bold">Info Durasi</p>
+                    <p>Minimal sewa adalah <strong>2 Hari</strong> (Contoh: Ambil Sabtu, Kembali Minggu).</p>
+                  </div>
+                </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Nama Lengkap</label>
                   <div className="relative">
@@ -186,25 +224,29 @@ const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, cartItems, onU
                     <label className="block text-sm font-medium text-gray-700 mb-1">Durasi (Hari)</label>
                     <input 
                       type="number" 
-                      min="1"
-                      className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-nature-500 focus:border-transparent outline-none transition"
+                      min="2"
+                      className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-nature-500 focus:border-transparent outline-none transition font-bold text-center"
                       value={userDetails.duration}
-                      onChange={e => setUserDetails({...userDetails, duration: parseInt(e.target.value) || 1})}
+                      onChange={e => handleDurationChange(parseInt(e.target.value) || 2)}
                     />
                   </div>
                 </div>
 
                 <div className="bg-blue-50 p-4 rounded-lg mt-6">
-                  <h4 className="font-semibold text-blue-800 text-sm mb-2">Ringkasan Biaya</h4>
-                  <div className="flex justify-between text-sm text-blue-600 mb-1">
-                    <span>Subtotal Alat (per hari)</span>
-                    <span>Rp{subtotal.toLocaleString('id-ID')}</span>
+                  <h4 className="font-semibold text-blue-800 text-sm mb-2">Rincian Harga Paket</h4>
+                  <div className="space-y-1 mb-3">
+                    {cartItems.map(item => (
+                       <div key={item.id} className="flex justify-between text-xs text-blue-600">
+                         <span>{item.name} x{item.quantity}</span>
+                         <span>Rp{(getItemPriceForDuration(item, userDetails.duration) * item.quantity).toLocaleString('id-ID')}</span>
+                       </div>
+                    ))}
                   </div>
-                  <div className="flex justify-between text-sm text-blue-600 mb-2 pb-2 border-b border-blue-100">
+                  <div className="flex justify-between text-sm text-blue-800 font-medium pt-2 border-t border-blue-200">
                     <span>Durasi Sewa</span>
                     <span>{userDetails.duration} Hari</span>
                   </div>
-                  <div className="flex justify-between font-bold text-blue-900 text-lg">
+                  <div className="flex justify-between font-bold text-blue-900 text-lg mt-1">
                     <span>Total Bayar</span>
                     <span>Rp{total.toLocaleString('id-ID')}</span>
                   </div>
@@ -218,8 +260,11 @@ const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, cartItems, onU
              {step === 'cart' ? (
                <>
                  <div className="flex justify-between mb-4">
-                    <span className="text-gray-600">Total (Estimasi 1 Hari)</span>
-                    <span className="font-bold text-xl text-gray-900">Rp{subtotal.toLocaleString('id-ID')}</span>
+                    <span className="text-gray-600 text-sm">Estimasi (Paket Min. 2 Hari)</span>
+                    <span className="font-bold text-xl text-gray-900">
+                      {/* Show estimate based on min 2 days */}
+                      Rp{cartItems.reduce((acc, item) => acc + (item.price2Days * item.quantity), 0).toLocaleString('id-ID')}
+                    </span>
                  </div>
                  <button 
                   onClick={() => setStep('details')}

@@ -39,7 +39,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [formData, setFormData] = useState<Partial<Product>>({
     name: '',
     category: 'Tenda',
-    price: 0,
+    price2Days: 0,
+    price3Days: 0,
+    price4Days: 0,
+    price5Days: 0,
+    price6Days: 0,
+    price7Days: 0,
     stock: 0,
     description: '',
     image: ''
@@ -64,7 +69,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         id: Date.now().toString(),
         name: '',
         category: 'Tenda',
-        price: 0,
+        price2Days: 0,
+        price3Days: 0,
+        price4Days: 0,
+        price5Days: 0,
+        price6Days: 0,
+        price7Days: 0,
         stock: 0,
         description: '',
         image: 'https://picsum.photos/400/300'
@@ -104,7 +114,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // Stats
   const lowStockCount = products.filter(p => p.stock < 3).length;
-  const totalValue = products.reduce((acc, curr) => acc + (curr.price * curr.stock), 0);
+  // Use Base Price (2 Days) for asset calculation approximation
+  const totalValue = products.reduce((acc, curr) => acc + (curr.price2Days * curr.stock), 0);
 
   if (!isAuthenticated) {
     return (
@@ -226,7 +237,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <DollarSign size={24} />
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500 font-medium">Estimasi Aset</p>
+                    <p className="text-sm text-gray-500 font-medium">Estimasi Aset (Min 2 Hari)</p>
                     <h3 className="text-2xl font-bold text-gray-900">Rp{totalValue.toLocaleString('id-ID')}</h3>
                   </div>
                 </div>
@@ -261,7 +272,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <tr>
                       <th className="px-6 py-4">Produk</th>
                       <th className="px-6 py-4">Kategori</th>
-                      <th className="px-6 py-4">Harga / 24 Jam</th>
+                      <th className="px-6 py-4">Harga Min. (2 Hari)</th>
                       <th className="px-6 py-4">Stok</th>
                       <th className="px-6 py-4 text-center">Aksi</th>
                     </tr>
@@ -281,7 +292,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           </span>
                         </td>
                         <td className="px-6 py-4 font-medium text-nature-600">
-                          Rp{product.price.toLocaleString('id-ID')}
+                          Rp{product.price2Days.toLocaleString('id-ID')}
                         </td>
                         <td className="px-6 py-4">
                            <span className={`font-bold ${product.stock < 3 ? 'text-red-600' : 'text-green-600'}`}>
@@ -320,8 +331,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}></div>
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg relative z-10 overflow-hidden animate-slide-in-right">
-            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg relative z-10 overflow-hidden animate-slide-in-right max-h-[90vh] flex flex-col">
+            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 flex-shrink-0">
               <h3 className="font-bold text-lg text-gray-900">
                 {editingProduct ? 'Edit Produk' : 'Tambah Produk Baru'}
               </h3>
@@ -330,7 +341,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </button>
             </div>
             
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Nama Produk</label>
                 <input 
@@ -369,18 +380,71 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
               </div>
 
-              <div>
-                 <label className="block text-sm font-medium text-gray-700 mb-1">Harga Sewa (per 24 jam)</label>
-                 <div className="relative">
-                   <span className="absolute left-3 top-2 text-gray-500 font-bold">Rp</span>
-                   <input 
-                    type="number" 
-                    required
-                    min="0"
-                    className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-nature-500 outline-none"
-                    value={formData.price}
-                    onChange={e => setFormData({...formData, price: parseInt(e.target.value)})}
-                  />
+              <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                 <h4 className="text-sm font-bold text-blue-800 mb-3 flex items-center gap-2">
+                   <DollarSign size={16} /> Atur Harga Paket (Rupiah)
+                 </h4>
+                 <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-600 mb-1">2 Hari (Minimal)</label>
+                      <input 
+                        type="number" 
+                        required min="0"
+                        className="w-full px-3 py-1.5 bg-white border border-gray-200 rounded focus:ring-1 focus:ring-nature-500 outline-none text-sm"
+                        value={formData.price2Days}
+                        onChange={e => setFormData({...formData, price2Days: parseInt(e.target.value)})}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-600 mb-1">3 Hari</label>
+                      <input 
+                        type="number" 
+                        required min="0"
+                        className="w-full px-3 py-1.5 bg-white border border-gray-200 rounded focus:ring-1 focus:ring-nature-500 outline-none text-sm"
+                        value={formData.price3Days}
+                        onChange={e => setFormData({...formData, price3Days: parseInt(e.target.value)})}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-600 mb-1">4 Hari</label>
+                      <input 
+                        type="number" 
+                        required min="0"
+                        className="w-full px-3 py-1.5 bg-white border border-gray-200 rounded focus:ring-1 focus:ring-nature-500 outline-none text-sm"
+                        value={formData.price4Days}
+                        onChange={e => setFormData({...formData, price4Days: parseInt(e.target.value)})}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-600 mb-1">5 Hari</label>
+                      <input 
+                        type="number" 
+                        required min="0"
+                        className="w-full px-3 py-1.5 bg-white border border-gray-200 rounded focus:ring-1 focus:ring-nature-500 outline-none text-sm"
+                        value={formData.price5Days}
+                        onChange={e => setFormData({...formData, price5Days: parseInt(e.target.value)})}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-600 mb-1">6 Hari</label>
+                      <input 
+                        type="number" 
+                        required min="0"
+                        className="w-full px-3 py-1.5 bg-white border border-gray-200 rounded focus:ring-1 focus:ring-nature-500 outline-none text-sm"
+                        value={formData.price6Days}
+                        onChange={e => setFormData({...formData, price6Days: parseInt(e.target.value)})}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-600 mb-1">7 Hari</label>
+                      <input 
+                        type="number" 
+                        required min="0"
+                        className="w-full px-3 py-1.5 bg-white border border-gray-200 rounded focus:ring-1 focus:ring-nature-500 outline-none text-sm"
+                        value={formData.price7Days}
+                        onChange={e => setFormData({...formData, price7Days: parseInt(e.target.value)})}
+                      />
+                    </div>
                  </div>
               </div>
 
