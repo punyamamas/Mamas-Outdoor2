@@ -114,8 +114,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // Stats
   const lowStockCount = products.filter(p => p.stock < 3).length;
-  // Use Base Price (2 Days) for asset calculation approximation
-  const totalValue = products.reduce((acc, curr) => acc + (curr.price2Days * curr.stock), 0);
+  // Use Base Price (2 Days) for asset calculation approximation, with safety check
+  const totalValue = products.reduce((acc, curr) => acc + ((curr.price2Days || 0) * curr.stock), 0);
 
   if (!isAuthenticated) {
     return (
@@ -292,7 +292,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           </span>
                         </td>
                         <td className="px-6 py-4 font-medium text-nature-600">
-                          Rp{product.price2Days.toLocaleString('id-ID')}
+                          {/* SAFETY RENDER: Check undefined */}
+                          Rp{(product.price2Days || 0).toLocaleString('id-ID')}
                         </td>
                         <td className="px-6 py-4">
                            <span className={`font-bold ${product.stock < 3 ? 'text-red-600' : 'text-green-600'}`}>

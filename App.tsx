@@ -41,11 +41,24 @@ function App() {
     fetchProducts();
   }, []);
 
-  // Cart Management
+  // Cart Management with Safety Check for Old Schema
   useEffect(() => {
     const savedCart = localStorage.getItem('mamasCart');
     if (savedCart) {
-      setCartItems(JSON.parse(savedCart));
+      try {
+        const parsed = JSON.parse(savedCart);
+        // Cek apakah data keranjang masih pakai format lama (tidak ada price2Days)
+        if (parsed.length > 0 && parsed[0].price2Days === undefined) {
+          console.warn("Mendeteksi format keranjang lama. Mereset keranjang untuk mencegah error.");
+          setCartItems([]);
+          localStorage.removeItem('mamasCart');
+        } else {
+          setCartItems(parsed);
+        }
+      } catch (e) {
+        console.error("Error parsing cart", e);
+        setCartItems([]);
+      }
     }
   }, []);
 
@@ -350,6 +363,9 @@ function App() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
             {filteredProducts.map(product => {
               const inCart = cartItems.find(i => i.id === product.id);
+              // SAFETY: Use fallback if price2Days is undefined/null from DB
+              const displayPrice = product.price2Days || 0;
+              
               return (
                 <div key={product.id} className="bg-white rounded-2xl shadow-sm hover:shadow-2xl hover:shadow-nature-900/10 hover:-translate-y-2 transition duration-300 overflow-hidden border border-gray-100 group">
                   <div className="relative h-56 overflow-hidden">
@@ -372,8 +388,8 @@ function App() {
                     
                     <div className="flex items-center justify-between mt-auto pt-4 border-t border-gray-50">
                       <div>
-                        {/* Display Price for Min 2 Days */}
-                        <span className="text-xl font-extrabold text-gray-900">Rp{product.price2Days.toLocaleString('id-ID')}</span>
+                        {/* Safe Rendering for Price */}
+                        <span className="text-xl font-extrabold text-gray-900">Rp{displayPrice.toLocaleString('id-ID')}</span>
                         <span className="text-xs text-gray-400 font-medium">/2hari</span>
                       </div>
                       <button 

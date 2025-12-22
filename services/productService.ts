@@ -21,12 +21,25 @@ export const getProducts = async (): Promise<Product[]> => {
     }
 
     if (!data || data.length === 0) {
-      // Jangan return PRODUCTS mock jika database kosong tapi koneksi sukses
-      // Biarkan return array kosong agar admin tau database benar-benar kosong
       return []; 
     }
     
-    return data as Product[];
+    // SAFETY CHECK: Mapping data untuk mencegah crash jika kolom database belum diupdate
+    // Jika kolom price2Days tidak ada, kita gunakan logika fallback
+    const sanitizedData = data.map((item: any) => {
+      const basePrice = item.price2Days || item.price || 0;
+      return {
+        ...item,
+        price2Days: basePrice,
+        price3Days: item.price3Days || Math.floor(basePrice * 1.4),
+        price4Days: item.price4Days || Math.floor(basePrice * 1.8),
+        price5Days: item.price5Days || Math.floor(basePrice * 2.2),
+        price6Days: item.price6Days || Math.floor(basePrice * 2.5),
+        price7Days: item.price7Days || Math.floor(basePrice * 3.0),
+      };
+    });
+
+    return sanitizedData as Product[];
     
   } catch (err) {
     console.error('Unexpected error fetching products:', err);
@@ -35,16 +48,11 @@ export const getProducts = async (): Promise<Product[]> => {
 };
 
 export const addProduct = async (product: Product): Promise<Product | null> => {
-  if (!supabase) return product; // Mock mode
+  if (!supabase) return product; 
 
-  // Hapus ID jika itu digenerate oleh client (timestamp) agar Supabase yang mengurus ID
-  // Kita buat object baru tanpa ID agar Auto-Increment database bekerja (jika disetting demikian)
-  // Atau gunakan ID yang dikirim jika table anda settingannya manual input ID.
   const { id, ...productData } = product;
   
-  // Jika ID-nya angka panjang (timestamp dari Date.now()), kita asumsikan itu temporary
-  // dan biarkan Supabase generate ID baru.
-  // Jika table Supabase anda butuh ID manual, kirimkan `product` utuh.
+  // Handle temporary IDs
   const payload = id.length > 10 ? productData : product;
 
   const { data, error } = await supabase
@@ -67,7 +75,7 @@ export const addProduct = async (product: Product): Promise<Product | null> => {
 };
 
 export const updateProduct = async (product: Product): Promise<Product | null> => {
-  if (!supabase) return product; // Mock mode
+  if (!supabase) return product;
 
   const { data, error } = await supabase
     .from('products')
@@ -90,7 +98,7 @@ export const updateProduct = async (product: Product): Promise<Product | null> =
 };
 
 export const deleteProduct = async (id: string): Promise<boolean> => {
-  if (!supabase) return true; // Mock mode
+  if (!supabase) return true;
 
   const { error } = await supabase
     .from('products')
@@ -99,7 +107,6 @@ export const deleteProduct = async (id: string): Promise<boolean> => {
 
   if (error) {
     console.error('Error deleting product:', error);
-    // Error code 42501 adalah Permission Denied (RLS)
     if (error.code === '42501') {
         alert('Gagal Menghapus: Izin Ditolak. Pastikan RLS Policy untuk DELETE sudah aktif di Supabase.');
     } else {

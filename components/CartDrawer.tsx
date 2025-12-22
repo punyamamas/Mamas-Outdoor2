@@ -24,13 +24,22 @@ const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, cartItems, onU
 
   // Fungsi helper hitung harga item berdasarkan durasi
   const getItemPriceForDuration = (item: CartItem, days: number): number => {
+    // Safety check: jika item format lama, gunakan default 0
+    // Pastikan semua properti ada atau berikan default
+    const p2 = item.price2Days || 0;
+    const p3 = item.price3Days || 0;
+    const p4 = item.price4Days || 0;
+    const p5 = item.price5Days || 0;
+    const p6 = item.price6Days || 0;
+    const p7 = item.price7Days || 0;
+
     let unitPrice = 0;
-    if (days <= 2) unitPrice = item.price2Days;
-    else if (days === 3) unitPrice = item.price3Days;
-    else if (days === 4) unitPrice = item.price4Days;
-    else if (days === 5) unitPrice = item.price5Days;
-    else if (days === 6) unitPrice = item.price6Days;
-    else unitPrice = item.price7Days + ((days - 7) * (item.price2Days * 0.4)); // Fallback logis jika > 7 hari
+    if (days <= 2) unitPrice = p2;
+    else if (days === 3) unitPrice = p3;
+    else if (days === 4) unitPrice = p4;
+    else if (days === 5) unitPrice = p5;
+    else if (days === 6) unitPrice = p6;
+    else unitPrice = p7 + ((days - 7) * (p2 * 0.4)); // Fallback logis jika > 7 hari
 
     return unitPrice;
   };
@@ -124,34 +133,38 @@ const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, cartItems, onU
                   </div>
                 ) : (
                   <div className="space-y-6">
-                    {cartItems.map(item => (
-                      <div key={item.id} className="flex gap-4">
-                        <img src={item.image} alt={item.name} className="w-20 h-20 object-cover rounded-lg bg-gray-100" />
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-gray-800 text-sm">{item.name}</h3>
-                          <p className="text-adventure-600 font-bold text-sm mt-1">
-                            Rp{item.price2Days.toLocaleString('id-ID')}<span className="text-gray-400 text-xs font-normal"> /2hari</span>
-                          </p>
-                          
-                          <div className="flex items-center justify-between mt-3">
-                            <div className="flex items-center gap-3 bg-gray-50 rounded-lg px-2 py-1 border border-gray-200">
-                              <button 
-                                onClick={() => onUpdateQuantity(item.id, -1)}
-                                className="w-6 h-6 flex items-center justify-center bg-white rounded shadow-sm text-gray-600 hover:text-nature-600 text-xs"
-                              >-</button>
-                              <span className="text-sm font-medium w-4 text-center">{item.quantity}</span>
-                              <button 
-                                onClick={() => onUpdateQuantity(item.id, 1)}
-                                className="w-6 h-6 flex items-center justify-center bg-white rounded shadow-sm text-gray-600 hover:text-nature-600 text-xs"
-                              >+</button>
+                    {cartItems.map(item => {
+                      // Gunakan fallback untuk display
+                      const displayPrice = item.price2Days || 0;
+                      return (
+                        <div key={item.id} className="flex gap-4">
+                          <img src={item.image} alt={item.name} className="w-20 h-20 object-cover rounded-lg bg-gray-100" />
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-gray-800 text-sm">{item.name}</h3>
+                            <p className="text-adventure-600 font-bold text-sm mt-1">
+                              Rp{displayPrice.toLocaleString('id-ID')}<span className="text-gray-400 text-xs font-normal"> /2hari</span>
+                            </p>
+                            
+                            <div className="flex items-center justify-between mt-3">
+                              <div className="flex items-center gap-3 bg-gray-50 rounded-lg px-2 py-1 border border-gray-200">
+                                <button 
+                                  onClick={() => onUpdateQuantity(item.id, -1)}
+                                  className="w-6 h-6 flex items-center justify-center bg-white rounded shadow-sm text-gray-600 hover:text-nature-600 text-xs"
+                                >-</button>
+                                <span className="text-sm font-medium w-4 text-center">{item.quantity}</span>
+                                <button 
+                                  onClick={() => onUpdateQuantity(item.id, 1)}
+                                  className="w-6 h-6 flex items-center justify-center bg-white rounded shadow-sm text-gray-600 hover:text-nature-600 text-xs"
+                                >+</button>
+                              </div>
+                              <button onClick={() => onRemoveItem(item.id)} className="text-red-400 hover:text-red-600 p-1">
+                                <Trash2 size={18} />
+                              </button>
                             </div>
-                            <button onClick={() => onRemoveItem(item.id)} className="text-red-400 hover:text-red-600 p-1">
-                              <Trash2 size={18} />
-                            </button>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </>
@@ -263,7 +276,7 @@ const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, cartItems, onU
                     <span className="text-gray-600 text-sm">Estimasi (Paket Min. 2 Hari)</span>
                     <span className="font-bold text-xl text-gray-900">
                       {/* Show estimate based on min 2 days */}
-                      Rp{cartItems.reduce((acc, item) => acc + (item.price2Days * item.quantity), 0).toLocaleString('id-ID')}
+                      Rp{cartItems.reduce((acc, item) => acc + ((item.price2Days || 0) * item.quantity), 0).toLocaleString('id-ID')}
                     </span>
                  </div>
                  <button 
