@@ -21,21 +21,24 @@ function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('Semua');
 
-  // Load products
+  // Define fetchProducts outside to make it reusable
+  const fetchProducts = async () => {
+    // Only set loading true if it's the initial load to avoid flashing
+    if (products.length === 0) setIsLoading(true);
+    try {
+      const data = await getProducts();
+      setProducts(data);
+    } catch (error) {
+      console.error("Failed to load products", error);
+      setProducts(PRODUCTS); 
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Load products on mount
   useEffect(() => {
-    const initProducts = async () => {
-      setIsLoading(true);
-      try {
-        const data = await getProducts();
-        setProducts(data);
-      } catch (error) {
-        console.error("Failed to load products", error);
-        setProducts(PRODUCTS); 
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    initProducts();
+    fetchProducts();
   }, []);
 
   // Cart Management
@@ -100,6 +103,7 @@ function App() {
     } else {
        // Revert if failed (optional, simplified here)
        alert("Gagal menyimpan ke database. Data hanya tampil sementara.");
+       fetchProducts(); // Refresh to sync
     }
   };
 
@@ -115,8 +119,7 @@ function App() {
         setProducts(prev => prev.filter(p => p.id !== id));
       } else {
         // Jika gagal, refresh data dari server untuk memastikan konsistensi
-        const data = await getProducts();
-        setProducts(data);
+        fetchProducts();
       }
     }
   };
@@ -129,6 +132,7 @@ function App() {
         onAddProduct={handleAddProduct}
         onUpdateProduct={handleUpdateProduct}
         onDeleteProduct={handleDeleteProduct}
+        onRefresh={fetchProducts}
       />
     );
   }

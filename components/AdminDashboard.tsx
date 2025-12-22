@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { 
   LayoutDashboard, Package, LogOut, Plus, Search, 
   Edit, Trash2, Save, X, Image as ImageIcon,
-  AlertTriangle, TrendingUp, DollarSign
+  AlertTriangle, DollarSign, Loader2, RotateCcw
 } from 'lucide-react';
 import { Product } from '../types';
 import { CATEGORIES } from '../constants';
@@ -10,9 +10,10 @@ import { CATEGORIES } from '../constants';
 interface AdminDashboardProps {
   products: Product[];
   onBackToHome: () => void;
-  onAddProduct: (product: Product) => void;
-  onUpdateProduct: (product: Product) => void;
-  onDeleteProduct: (id: string) => void;
+  onAddProduct: (product: Product) => Promise<void>;
+  onUpdateProduct: (product: Product) => Promise<void>;
+  onDeleteProduct: (id: string) => Promise<void>;
+  onRefresh: () => Promise<void>;
 }
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ 
@@ -20,15 +21,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onBackToHome,
   onAddProduct,
   onUpdateProduct,
-  onDeleteProduct
+  onDeleteProduct,
+  onRefresh
 }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
   const [activeTab, setActiveTab] = useState<'dashboard' | 'products'>('dashboard');
   const [searchTerm, setSearchTerm] = useState('');
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   
   // Form State
@@ -69,14 +73,28 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setIsModalOpen(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingProduct) {
-      onUpdateProduct(formData as Product);
-    } else {
-      onAddProduct(formData as Product);
+    setIsSubmitting(true);
+    try {
+      if (editingProduct) {
+        await onUpdateProduct(formData as Product);
+      } else {
+        await onAddProduct(formData as Product);
+      }
+      setIsModalOpen(false);
+    } catch (error) {
+      console.error("Error submitting form", error);
+      alert("Terjadi kesalahan saat menyimpan data.");
+    } finally {
+      setIsSubmitting(false);
     }
-    setIsModalOpen(false);
+  };
+
+  const handleRefreshData = async () => {
+    setIsRefreshing(true);
+    await onRefresh();
+    setTimeout(() => setIsRefreshing(false), 500); // Visual delay minimal
   };
 
   const filteredProducts = products.filter(p => 
@@ -161,9 +179,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       <main className="flex-1 overflow-y-auto max-h-screen">
         <header className="bg-white border-b border-gray-200 px-8 py-5 flex justify-between items-center sticky top-0 z-30">
           <h1 className="text-2xl font-bold text-gray-800 capitalize">{activeTab} Overview</h1>
-          <div className="flex items-center gap-3">
-             <div className="w-8 h-8 rounded-full bg-nature-100 text-nature-600 flex items-center justify-center font-bold">A</div>
-             <span className="text-sm font-medium text-gray-600">Admin</span>
+          <div className="flex items-center gap-4">
+             <button 
+                onClick={handleRefreshData}
+                disabled={isRefreshing}
+                className="p-2 text-gray-500 hover:text-nature-600 hover:bg-gray-100 rounded-lg transition disabled:animate-spin"
+                title="Refresh Data"
+             >
+                <RotateCcw size={20} />
+             </button>
+             <div className="flex items-center gap-3">
+               <div className="w-8 h-8 rounded-full bg-nature-100 text-nature-600 flex items-center justify-center font-bold">A</div>
+               <span className="text-sm font-medium text-gray-600">Admin</span>
+             </div>
           </div>
         </header>
 
@@ -390,15 +418,25 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <button 
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition"
+                  disabled={isSubmitting}
+                  className="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition disabled:opacity-50"
                 >
                   Batal
                 </button>
                 <button 
                   type="submit"
-                  className="flex-1 px-4 py-2.5 bg-nature-600 hover:bg-nature-700 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition shadow-lg shadow-nature-200"
+                  disabled={isSubmitting}
+                  className="flex-1 px-4 py-2.5 bg-nature-600 hover:bg-nature-700 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition shadow-lg shadow-nature-200 disabled:opacity-70 disabled:cursor-not-allowed"
                 >
-                  <Save size={18} /> Simpan
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 size={18} className="animate-spin" /> Menyimpan...
+                    </>
+                  ) : (
+                    <>
+                      <Save size={18} /> Simpan
+                    </>
+                  )}
                 </button>
               </div>
             </form>
