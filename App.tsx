@@ -267,6 +267,7 @@ function App() {
         isOpen={!!viewingProduct}
         onClose={() => setViewingProduct(null)}
         product={viewingProduct}
+        allProducts={products}
         onAddToCart={addToCart}
         isInCart={viewingProduct ? !!cartItems.find(i => i.id === viewingProduct.id) : false}
       />

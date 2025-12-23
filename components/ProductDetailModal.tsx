@@ -6,6 +6,7 @@ interface ProductDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   product: Product | null;
+  allProducts: Product[]; // Prop baru untuk lookup nama produk
   onAddToCart: (product: Product) => void;
   isInCart: boolean;
 }
@@ -14,6 +15,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   isOpen, 
   onClose, 
   product, 
+  allProducts = [], // Default empty array
   onAddToCart,
   isInCart
 }) => {
@@ -132,12 +134,18 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     <Box className="text-purple-600" size={16} /> Isi Lootbox Ini
                   </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {product.packageItems?.map((item, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-purple-50 border border-purple-100 text-purple-900 text-sm">
-                        <span className="font-bold truncate">Item #{item.productId.substring(0,6)}...</span>
-                        <span className="bg-white px-2 py-1 rounded-md text-xs font-black shadow-sm text-purple-700">x{item.quantity}</span>
-                      </div>
-                    ))}
+                    {product.packageItems?.map((item, idx) => {
+                      // FIX: Lookup nama produk berdasarkan ID
+                      const realProduct = allProducts.find(p => p.id === item.productId);
+                      const displayName = realProduct ? realProduct.name : `Item ID: ${item.productId.substring(0,6)}...`;
+                      
+                      return (
+                        <div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-purple-50 border border-purple-100 text-purple-900 text-sm">
+                          <span className="font-bold truncate" title={displayName}>{displayName}</span>
+                          <span className="bg-white px-2 py-1 rounded-md text-xs font-black shadow-sm text-purple-700 flex-shrink-0">x{item.quantity}</span>
+                        </div>
+                      );
+                    })}
                   </div>
                   <p className="text-[10px] text-purple-400 mt-2 italic">*Otomatis potong stok masing-masing item saat disewa.</p>
                 </div>
