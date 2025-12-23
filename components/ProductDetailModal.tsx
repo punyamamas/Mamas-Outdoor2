@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, ShoppingCart, Check, Layers, Clock, AlertCircle } from 'lucide-react';
+import { X, ShoppingCart, Check, Layers, Clock, Sparkles, Tag, ShieldCheck, Zap, Box } from 'lucide-react';
 import { Product } from '../types';
 
 interface ProductDetailModalProps {
@@ -24,112 +24,153 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
   // Daftar harga sewa
   const prices = [
-    { day: 2, price: product.price2Days, label: 'Minimal' },
-    { day: 3, price: product.price3Days },
-    { day: 4, price: product.price4Days },
-    { day: 5, price: product.price5Days },
-    { day: 6, price: product.price6Days },
-    { day: 7, price: product.price7Days, label: 'Seminggu' },
+    { day: 2, price: product.price2Days, label: 'Min. 2 Hari' },
+    { day: 3, price: product.price3Days, label: '3 Hari' },
+    { day: 4, price: product.price4Days, label: '4 Hari' },
+    { day: 5, price: product.price5Days, label: '5 Hari' },
+    { day: 6, price: product.price6Days, label: '6 Hari' },
+    { day: 7, price: product.price7Days, label: 'Seminggu (Hemat)' },
   ];
 
+  const isPackage = product.packageItems && product.packageItems.length > 0;
+
   return (
-    <div className="fixed inset-0 z-[80] overflow-y-auto">
+    <div className="fixed inset-0 z-[80] overflow-y-auto font-sans">
       <div className="flex min-h-screen items-center justify-center p-4 sm:p-6 text-center">
         
-        {/* Backdrop */}
+        {/* Backdrop dengan blur lebih kuat */}
         <div 
-          className="fixed inset-0 bg-black/70 backdrop-blur-sm transition-opacity" 
+          className="fixed inset-0 bg-gray-900/80 backdrop-blur-md transition-opacity" 
           onClick={onClose}
         ></div>
 
         {/* Modal Panel */}
-        <div className="relative w-full max-w-4xl transform overflow-hidden rounded-3xl bg-white text-left shadow-2xl transition-all animate-slide-in-right md:animate-none md:scale-100 flex flex-col md:flex-row max-h-[90vh]">
+        <div className="relative w-full max-w-5xl transform overflow-hidden rounded-[2rem] bg-white text-left shadow-2xl transition-all animate-slide-in-right md:animate-none md:scale-100 flex flex-col md:flex-row max-h-[90vh]">
           
           {/* Close Button (Mobile Absolute) */}
           <button 
             onClick={onClose}
-            className="absolute top-4 right-4 z-10 p-2 bg-black/20 hover:bg-black/40 text-white rounded-full backdrop-blur-md transition md:hidden"
+            className="absolute top-4 right-4 z-20 p-2 bg-black/30 hover:bg-black/50 text-white rounded-full backdrop-blur-md transition md:hidden"
           >
             <X size={20} />
           </button>
 
-          {/* Left Side: Image */}
-          <div className="w-full md:w-1/2 bg-gray-100 relative h-64 md:h-auto">
+          {/* Left Side: Image Area */}
+          <div className="w-full md:w-5/12 bg-gray-100 relative h-72 md:h-auto group">
              <img 
                src={product.image} 
                alt={product.name} 
-               className="w-full h-full object-cover"
+               className="w-full h-full object-cover transition duration-700 group-hover:scale-105"
              />
-             <div className="absolute top-4 left-4">
-                <span className="bg-nature-600/90 backdrop-blur-md text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-lg uppercase tracking-wide">
-                  {product.category}
+             {/* Gradient Overlay */}
+             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-80"></div>
+             
+             {/* Floating Badges */}
+             <div className="absolute top-4 left-4 flex flex-col items-start gap-2">
+                <span className="bg-white/20 backdrop-blur-md border border-white/20 text-white px-4 py-1.5 rounded-full text-xs font-bold shadow-lg tracking-wide uppercase flex items-center gap-2">
+                  <Tag size={12} /> {product.category}
                 </span>
+                {isPackage && (
+                  <span className="bg-purple-500/90 text-white px-4 py-1.5 rounded-full text-xs font-bold shadow-lg flex items-center gap-2">
+                    <Layers size={12} /> Paket Hemat
+                  </span>
+                )}
+             </div>
+
+             <div className="absolute bottom-6 left-6 text-white">
+                <p className="text-xs font-medium opacity-80 mb-1">Status Barang</p>
+                <div className="flex items-center gap-2">
+                  <div className={`w-2.5 h-2.5 rounded-full ${product.stock > 0 ? 'bg-green-400 animate-pulse' : 'bg-red-500'}`}></div>
+                  <span className="font-bold text-sm tracking-wide">
+                    {product.stock > 0 ? `Ready ${product.stock} Unit` : 'Yah, Habis Bro!'}
+                  </span>
+                </div>
              </div>
           </div>
 
-          {/* Right Side: Details */}
-          <div className="w-full md:w-1/2 flex flex-col bg-white overflow-y-auto">
-            <div className="p-6 md:p-8 flex-1">
-              <div className="hidden md:flex justify-end mb-2">
-                 <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition">
+          {/* Right Side: Details Area */}
+          <div className="w-full md:w-7/12 flex flex-col bg-white overflow-y-auto custom-scrollbar">
+            <div className="p-6 md:p-10 flex-1">
+              {/* Desktop Close Button */}
+              <div className="hidden md:flex justify-end mb-4">
+                 <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-full transition">
                    <X size={24} />
                  </button>
               </div>
 
-              <h2 className="text-2xl md:text-3xl font-black text-gray-900 mb-2 leading-tight">
+              {/* Title Header */}
+              <h2 className="text-3xl md:text-4xl font-black text-gray-900 mb-3 leading-tight tracking-tight">
                 {product.name}
               </h2>
               
-              <div className="flex items-center gap-3 mb-6">
-                 <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold border ${
-                   product.stock > 0 
-                    ? 'bg-green-50 text-green-700 border-green-200' 
-                    : 'bg-red-50 text-red-700 border-red-200'
-                 }`}>
-                    {product.stock > 0 ? <Check size={12} strokeWidth={3} /> : <X size={12} strokeWidth={3} />}
-                    {product.stock > 0 ? `Stok Tersedia: ${product.stock}` : 'Stok Habis'}
-                 </div>
+              <div className="flex flex-wrap gap-2 mb-8">
+                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-nature-50 text-nature-700 text-xs font-bold border border-nature-100">
+                    <ShieldCheck size={14} /> Terawat
+                 </span>
+                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-blue-50 text-blue-700 text-xs font-bold border border-blue-100">
+                    <Zap size={14} /> Best Seller
+                 </span>
               </div>
 
-              <div className="prose prose-sm text-gray-600 mb-8">
-                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide mb-2">Deskripsi Produk</h3>
-                <p className="leading-relaxed whitespace-pre-line">{product.description}</p>
+              {/* Cerita Alat (Description) */}
+              <div className="bg-gray-50 p-5 rounded-2xl border border-gray-100 mb-8 relative overflow-hidden group hover:border-nature-200 transition">
+                <div className="absolute -right-4 -top-4 text-gray-200 opacity-50 transform rotate-12 group-hover:rotate-0 transition duration-500">
+                   <Sparkles size={80} strokeWidth={1} />
+                </div>
+                <h3 className="relative z-10 flex items-center gap-2 text-sm font-black text-gray-900 uppercase tracking-widest mb-3">
+                   <Sparkles className="text-adventure-500" size={16} /> Cerita Alat
+                </h3>
+                <p className="relative z-10 text-gray-600 leading-relaxed text-sm md:text-base font-medium whitespace-pre-line">
+                  {product.description}
+                </p>
               </div>
 
-              {/* Package Items List (If applicable) */}
-              {product.packageItems && product.packageItems.length > 0 && (
-                <div className="mb-8 bg-purple-50 p-4 rounded-xl border border-purple-100">
-                  <h3 className="text-sm font-bold text-purple-900 uppercase tracking-wide mb-3 flex items-center gap-2">
-                    <Layers size={16} /> Isi Paket Ini:
+              {/* Package Loot (If applicable) */}
+              {isPackage && (
+                <div className="mb-8">
+                   <h3 className="flex items-center gap-2 text-sm font-black text-purple-900 uppercase tracking-widest mb-4">
+                    <Box className="text-purple-600" size={16} /> Isi Lootbox Ini
                   </h3>
-                  <ul className="space-y-2">
-                    {product.packageItems.map((item, idx) => (
-                      <li key={idx} className="flex items-center justify-between text-sm text-purple-800 bg-white/50 px-3 py-2 rounded-lg">
-                        <span className="font-medium">Item ID: {item.productId}</span> 
-                        {/* Note: Idealnya kita lookup nama produk dari ID, tapi di komponen ini kita hanya terima data product itu sendiri. 
-                            Untuk MVP ini cukup menampilkan ID atau jumlahnya. */}
-                        <span className="font-bold">x{item.quantity}</span>
-                      </li>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {product.packageItems?.map((item, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-purple-50 border border-purple-100 text-purple-900 text-sm">
+                        <span className="font-bold truncate">Item #{item.productId.substring(0,6)}...</span>
+                        <span className="bg-white px-2 py-1 rounded-md text-xs font-black shadow-sm text-purple-700">x{item.quantity}</span>
+                      </div>
                     ))}
-                  </ul>
-                  <p className="text-[10px] text-purple-600 mt-2 flex items-center gap-1">
-                    <AlertCircle size={10} /> Stok item di atas akan berkurang otomatis saat paket disewa.
-                  </p>
+                  </div>
+                  <p className="text-[10px] text-purple-400 mt-2 italic">*Otomatis potong stok masing-masing item saat disewa.</p>
                 </div>
               )}
 
-              {/* Pricing Table */}
-              <div className="mb-8">
-                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide mb-3 flex items-center gap-2">
-                  <Clock size={16} /> Daftar Harga Sewa
+              {/* Pricing Grid */}
+              <div className="mb-6">
+                <h3 className="flex items-center gap-2 text-sm font-black text-gray-900 uppercase tracking-widest mb-4">
+                  <Clock className="text-nature-600" size={16} /> Durasi & Mahar
                 </h3>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {prices.map((p) => (
-                    <div key={p.day} className={`p-2 rounded-lg text-center border ${p.day === 2 ? 'bg-nature-50 border-nature-200' : 'bg-gray-50 border-gray-100'}`}>
-                      <div className="text-[10px] text-gray-500 uppercase font-bold mb-0.5">{p.day} Hari {p.label && `(${p.label})`}</div>
-                      <div className={`font-bold ${p.day === 2 ? 'text-nature-700' : 'text-gray-700'}`}>
+                    <div 
+                      key={p.day} 
+                      className={`
+                        relative flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all duration-300
+                        ${p.day === 2 
+                          ? 'bg-nature-600 border-nature-600 text-white shadow-lg shadow-nature-200 transform scale-105 z-10' 
+                          : 'bg-white border-gray-100 text-gray-600 hover:border-gray-300'
+                        }
+                      `}
+                    >
+                      {p.day === 2 && (
+                         <span className="absolute -top-3 bg-adventure-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wide">
+                           Paling Laris
+                         </span>
+                      )}
+                      <span className={`text-[10px] uppercase font-bold mb-1 ${p.day === 2 ? 'text-nature-100' : 'text-gray-400'}`}>
+                        {p.label}
+                      </span>
+                      <span className={`text-sm md:text-base font-black ${p.day === 2 ? 'text-white' : 'text-gray-800'}`}>
                         {fmt(p.price || 0)}
-                      </div>
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -137,31 +178,31 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             </div>
 
             {/* Footer Action */}
-            <div className="p-6 border-t border-gray-100 bg-gray-50 md:rounded-br-3xl">
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex flex-col">
-                  <span className="text-xs text-gray-500 font-bold uppercase">Harga Mulai</span>
-                  <span className="text-2xl font-black text-nature-600">{fmt(product.price2Days || 0)}</span>
+            <div className="p-6 md:p-8 border-t border-gray-100 bg-gray-50/50 md:rounded-br-[2rem] backdrop-blur-sm">
+              <div className="flex items-center justify-between gap-6">
+                <div className="hidden sm:flex flex-col">
+                  <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Mulai Dari</span>
+                  <span className="text-3xl font-black text-gray-900 tracking-tight">{fmt(product.price2Days || 0)}</span>
                 </div>
                 <button 
                   onClick={() => {
                     onAddToCart(product);
-                    // Optional: Close modal after adding? 
-                    // onClose(); 
                   }}
-                  className={`flex-1 py-3.5 px-6 rounded-xl font-bold text-white shadow-lg transition transform active:scale-95 flex items-center justify-center gap-2 ${
-                    isInCart 
+                  className={`
+                    flex-1 py-4 px-8 rounded-2xl font-bold text-white shadow-xl transition-all duration-300 transform active:scale-95 flex items-center justify-center gap-3 text-lg
+                    ${isInCart 
                       ? 'bg-green-600 hover:bg-green-700 shadow-green-200' 
-                      : 'bg-nature-600 hover:bg-nature-700 shadow-nature-200'
-                  }`}
+                      : 'bg-gradient-to-r from-nature-600 to-nature-700 hover:from-nature-500 hover:to-nature-600 shadow-nature-200 hover:shadow-2xl hover:-translate-y-1'
+                    }
+                  `}
                 >
                   {isInCart ? (
                     <>
-                      <Check size={20} /> Ditambahkan
+                      <Check size={24} strokeWidth={3} /> Masuk Tas!
                     </>
                   ) : (
                     <>
-                      <ShoppingCart size={20} /> Sewa Sekarang
+                      <ShoppingCart size={24} strokeWidth={3} /> Bungkus Gan
                     </>
                   )}
                 </button>
