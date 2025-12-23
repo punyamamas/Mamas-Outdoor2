@@ -5,6 +5,7 @@ import HistoryDrawer from './components/HistoryDrawer';
 import GeminiAdvisor from './components/GeminiAdvisor';
 import TermsModal from './components/TermsModal';
 import AdminDashboard from './components/AdminDashboard';
+import ProductDetailModal from './components/ProductDetailModal'; // Import Baru
 import { PRODUCTS, CATEGORIES as CONSTANT_CATEGORIES } from './constants'; 
 import { CartItem, Product, Category } from './types';
 import { getProducts, addProduct, updateProduct, deleteProduct } from './services/productService';
@@ -25,6 +26,9 @@ function App() {
   
   // State untuk sorting
   const [sortBy, setSortBy] = useState<'default' | 'price_low' | 'price_high' | 'name'>('default');
+  
+  // State untuk detail modal
+  const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
 
   // Define fetch data functions
   const fetchData = async () => {
@@ -259,6 +263,14 @@ function App() {
         onClose={() => setIsTermsOpen(false)} 
       />
 
+      <ProductDetailModal 
+        isOpen={!!viewingProduct}
+        onClose={() => setViewingProduct(null)}
+        product={viewingProduct}
+        onAddToCart={addToCart}
+        isInCart={viewingProduct ? !!cartItems.find(i => i.id === viewingProduct.id) : false}
+      />
+
       {/* Hero Section */}
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden py-32 group/hero">
         <div className="absolute inset-0 z-0 overflow-hidden">
@@ -430,7 +442,11 @@ function App() {
               const displayPrice = product.price2Days || 0;
               
               return (
-                <div key={product.id} className="group relative bg-white rounded-3xl border border-gray-100 overflow-hidden hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)] transition-all duration-500 hover:-translate-y-2 flex flex-col h-full">
+                <div 
+                  key={product.id} 
+                  onClick={() => setViewingProduct(product)}
+                  className="group relative bg-white rounded-3xl border border-gray-100 overflow-hidden hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)] transition-all duration-500 hover:-translate-y-2 flex flex-col h-full cursor-pointer"
+                >
                   <div className="relative h-64 overflow-hidden bg-gray-100">
                     <img 
                       src={product.image} 
@@ -485,9 +501,12 @@ function App() {
                         </div>
 
                         <button 
-                          onClick={() => addToCart(product)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            addToCart(product);
+                          }}
                           className={`
-                            h-12 w-12 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg
+                            h-12 w-12 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg z-10
                             ${inCart 
                               ? 'bg-green-100 text-green-600 hover:bg-green-200' 
                               : 'bg-nature-600 text-white hover:bg-nature-700 hover:scale-110 active:scale-95 shadow-nature-200'
