@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 import { PRODUCTS } from '../constants';
-import { Product, CartItem } from '../types';
+import { Product, CartItem, ProductVariant } from '../types';
 
 export const getProducts = async (): Promise<Product[]> => {
   // Jika Supabase belum dikonfigurasi, gunakan data mock
@@ -37,8 +37,10 @@ export const getProducts = async (): Promise<Product[]> => {
         price6Days: item.price6Days || Math.floor(basePrice * 2.5),
         price7Days: item.price7Days || Math.floor(basePrice * 3.0),
         packageItems: item.package_items || [], // Map kolom DB snake_case ke camelCase
-        sizes: item.sizes || {}, // Pastikan sizes ada
-        colors: item.colors || [] // Pastikan colors ada
+        sizes: item.sizes || {}, 
+        colors: item.colors || [],
+        variants: item.variants || [], // New
+        colorImages: item.color_images || [] // New (snake_case from DB)
       };
     });
 
@@ -54,20 +56,19 @@ export const addProduct = async (product: Product): Promise<Product | null> => {
   if (!supabase) return product; 
 
   // FIX: Pisahkan 'packageItems' (camelCase) dari object agar tidak dikirim mentah ke DB
-  // karena DB tidak punya kolom 'packageItems', adanya 'package_items'
-  const { packageItems, sizes, colors, ...restProductData } = product;
+  const { packageItems, sizes, colors, variants, colorImages, ...restProductData } = product;
   
   // Handle temporary IDs (timestamp-based from frontend)
-  // If ID is long (timestamp), exclude it so DB generates one
   const payload: any = {
     ...restProductData,
     price: product.price2Days,
-    package_items: packageItems, // Map camelCase ke snake_case DB
-    sizes: sizes || {}, // Ensure sizes is sent (requires 'sizes' column type JSONB in DB)
-    colors: colors || [] // Ensure colors is sent (requires 'colors' column type JSONB in DB)
+    package_items: packageItems,
+    sizes: sizes || {}, 
+    colors: colors || [],
+    variants: variants || [],
+    color_images: colorImages || []
   };
 
-  // Hapus ID jika itu adalah temporary ID (timestamp) agar DB yang membuat ID serial
   if (payload.id && payload.id.length > 10) {
     delete payload.id;
   }
@@ -82,12 +83,8 @@ export const addProduct = async (product: Product): Promise<Product | null> => {
     console.error('Error adding product:', error);
     if (error.code === '42501') {
       alert('Gagal Menambah: Izin Ditolak (RLS). Cek Policy di Supabase.');
-    } else if (error.message.includes('sizes')) {
-      alert('Error Database: Kolom "sizes" belum ada. Jalankan SQL: ALTER TABLE products ADD COLUMN sizes jsonb;');
-    } else if (error.message.includes('colors')) {
-      alert('Error Database: Kolom "colors" belum ada. Jalankan SQL: ALTER TABLE products ADD COLUMN colors jsonb DEFAULT \'[]\'::jsonb;');
-    } else if (error.message.includes('null value in column "price"')) {
-      alert('Error Database: Kolom "price" wajib diisi.');
+    } else if (error.message.includes('variants')) {
+      alert('Error Database: Kolom "variants" belum ada. Jalankan SQL: ALTER TABLE products ADD COLUMN variants jsonb DEFAULT \'[]\'::jsonb;');
     } else {
       alert('Gagal menambah produk: ' + error.message);
     }
@@ -96,23 +93,24 @@ export const addProduct = async (product: Product): Promise<Product | null> => {
 
   return {
     ...data,
-    packageItems: data.package_items
+    packageItems: data.package_items,
+    colorImages: data.color_images
   } as Product;
 };
 
 export const updateProduct = async (product: Product): Promise<Product | null> => {
   if (!supabase) return product;
 
-  // FIX: Pisahkan 'packageItems' dan 'sizes'
-  const { packageItems, sizes, colors, ...restProductData } = product;
+  const { packageItems, sizes, colors, variants, colorImages, ...restProductData } = product;
 
-  // Update legacy 'price' column as well to keep data consistent
   const payload = {
     ...restProductData,
     price: product.price2Days,
-    package_items: packageItems, // Map ke snake_case
-    sizes: sizes || {}, // Ensure sizes is sent
-    colors: colors || []
+    package_items: packageItems,
+    sizes: sizes || {},
+    colors: colors || [],
+    variants: variants || [],
+    color_images: colorImages || []
   };
 
   const { data, error } = await supabase
@@ -124,19 +122,14 @@ export const updateProduct = async (product: Product): Promise<Product | null> =
 
   if (error) {
     console.error('Error updating product:', error);
-    if (error.code === '42501') {
-      alert('Gagal Update: Izin Ditolak (RLS). Cek Policy di Supabase.');
-    } else if (error.message.includes('sizes') || error.message.includes('colors')) {
-      alert('Error Database: Pastikan kolom "sizes" dan "colors" sudah ada di database.');
-    } else {
-      alert('Gagal update produk: ' + error.message);
-    }
+    alert('Gagal update produk: ' + error.message);
     return null;
   }
 
   return {
     ...data,
-    packageItems: data.package_items
+    packageItems: data.package_items,
+    colorImages: data.color_images
   } as Product;
 };
 
@@ -150,32 +143,25 @@ export const deleteProduct = async (id: string): Promise<boolean> => {
 
   if (error) {
     console.error('Error deleting product:', error);
-    if (error.code === '42501') {
-        alert('Gagal Menghapus: Izin Ditolak. Pastikan RLS Policy untuk DELETE sudah aktif di Supabase.');
-    } else {
-        alert('Gagal menghapus produk: ' + error.message);
-    }
     return false;
   }
 
   return true;
 };
 
-// --- FUNGSI BARU UNTUK PENGURANGAN STOK PAKET ---
+// --- FUNGSI BARU UNTUK PENGURANGAN STOK PAKET & VARIAN ---
 
 export const processStockReduction = async (cartItems: CartItem[]): Promise<void> => {
   if (!supabase) return;
 
   try {
-    // 1. Ambil data produk terbaru dari DB untuk memastikan kita punya data packageItems yang valid
+    // 1. Ambil data produk terbaru
     const { data: allProducts, error } = await supabase
       .from('products')
-      .select('id, stock, package_items, sizes');
+      .select('id, stock, package_items, sizes, variants');
 
     if (error || !allProducts) throw new Error("Gagal mengambil data stok terbaru");
 
-    // Map untuk memudahkan akses
-    // Explicitly using Map<string, any> to avoid 'unknown' type issues with supabase response
     const productMap = new Map<string, any>(allProducts.map((p: any) => [p.id.toString(), p]));
 
     // 2. Loop setiap item di keranjang
@@ -183,48 +169,64 @@ export const processStockReduction = async (cartItems: CartItem[]): Promise<void
       const dbProduct = productMap.get(item.id);
       if (!dbProduct) continue;
 
-      // A. Jika produk punya SIZE (Pakaian/Sepatu), kurangi stok spesifik size tersebut
-      if (item.selectedSize && dbProduct.sizes) {
+      // A. Jika produk punya VARIAN KOMPLEKS (Warna + Size + Stok spesifik)
+      if (item.selectedSize && item.selectedColor && dbProduct.variants && dbProduct.variants.length > 0) {
+        const variants: ProductVariant[] = dbProduct.variants;
+        
+        // Cari varian yang cocok
+        const variantIndex = variants.findIndex(v => v.color === item.selectedColor && v.size === item.selectedSize);
+        
+        if (variantIndex !== -1) {
+          // Kurangi stok varian
+          const currentVariantStock = variants[variantIndex].stock;
+          const newVariantStock = Math.max(0, currentVariantStock - item.quantity);
+          
+          variants[variantIndex].stock = newVariantStock;
+          
+          // Hitung ulang total stok master
+          const newTotalStock = variants.reduce((acc, v) => acc + v.stock, 0);
+
+          await supabase.from('products').update({
+            variants: variants,
+            stock: newTotalStock
+          }).eq('id', item.id);
+          
+          continue; // Lanjut ke item berikutnya
+        }
+      }
+
+      // B. Jika produk punya SIZE SIMPLE (Legacy, hanya key size)
+      if (item.selectedSize && dbProduct.sizes && (!dbProduct.variants || dbProduct.variants.length === 0)) {
          const currentSizes = dbProduct.sizes || {};
          const currentSizeStock = currentSizes[item.selectedSize] || 0;
          const newSizeStock = Math.max(0, currentSizeStock - item.quantity);
          
-         // Update object sizes
          const newSizes = { ...currentSizes, [item.selectedSize]: newSizeStock };
-         
-         // Hitung ulang total stok
          const newTotalStock = Object.values(newSizes).reduce((a: any, b: any) => a + b, 0);
 
-         // Update ke DB
          await supabase.from('products').update({ 
            sizes: newSizes,
            stock: newTotalStock 
          }).eq('id', item.id);
          
-         continue; // Lanjut ke item berikutnya, skip logika paket/biasa di bawah
+         continue;
       }
 
-      // B. Kurangi stok item utama (paket itu sendiri atau produk biasa tanpa size)
-      // Note: Untuk warna, kita tidak mengurangi stok spesifik per warna karena struktur DB sederhana.
-      // Kita hanya mengurangi stok global item tersebut.
+      // C. Kurangi stok item utama (tanpa varian)
       const currentStock = typeof dbProduct.stock === 'number' ? dbProduct.stock : 0;
       const newStock = Math.max(0, currentStock - item.quantity);
       await supabase.from('products').update({ stock: newStock }).eq('id', item.id);
 
-      // C. Jika item ini adalah PAKET, kurangi stok komponen di dalamnya
+      // D. Jika item ini adalah PAKET
       if (dbProduct.package_items && Array.isArray(dbProduct.package_items)) {
         for (const subItem of dbProduct.package_items) {
           const childProduct = productMap.get(subItem.productId);
-          
           if (childProduct) {
-            // Jumlah pengurangan = Jumlah Paket yang dibeli * Jumlah item per paket
             const deductionAmount = item.quantity * subItem.quantity;
             const childCurrentStock = typeof childProduct.stock === 'number' ? childProduct.stock : 0;
             const newChildStock = Math.max(0, childCurrentStock - deductionAmount);
             
-            // Update stok anak
             await supabase.from('products').update({ stock: newChildStock }).eq('id', subItem.productId);
-            console.log(`Updated stock for child item ${subItem.productId}: ${childProduct.stock} -> ${newChildStock}`);
           }
         }
       }

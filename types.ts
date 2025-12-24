@@ -9,6 +9,17 @@ export interface PackageItem {
   quantity: number;
 }
 
+export interface ProductVariant {
+  color: string;
+  size: string;
+  stock: number;
+}
+
+export interface ColorImage {
+  color: string;
+  url: string;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -24,8 +35,10 @@ export interface Product {
   description: string;
   stock: number;
   packageItems?: PackageItem[]; // Optional: Hanya untuk kategori paket
-  sizes?: { [key: string]: number }; // Optional: Key (S, M, L...) Value (Stock count)
-  colors?: string[]; // Optional: Array warna yang tersedia
+  sizes?: { [key: string]: number }; // Legacy: Simple Key (S, M, L...) Value (Stock count)
+  colors?: string[]; // Legacy: Array warna simpel
+  variants?: ProductVariant[]; // New: Detailed combinatorics (Color + Size + Stock)
+  colorImages?: ColorImage[]; // New: Specific image for a color
 }
 
 export interface CartItem extends Product {
