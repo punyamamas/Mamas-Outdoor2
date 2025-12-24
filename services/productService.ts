@@ -37,6 +37,7 @@ export const getProducts = async (): Promise<Product[]> => {
         price6Days: item.price6Days || Math.floor(basePrice * 2.5),
         price7Days: item.price7Days || Math.floor(basePrice * 3.0),
         packageItems: item.package_items || [], // Map kolom DB snake_case ke camelCase
+        sizes: item.sizes || {} // Pastikan sizes ada
       };
     });
 
@@ -53,14 +54,15 @@ export const addProduct = async (product: Product): Promise<Product | null> => {
 
   // FIX: Pisahkan 'packageItems' (camelCase) dari object agar tidak dikirim mentah ke DB
   // karena DB tidak punya kolom 'packageItems', adanya 'package_items'
-  const { packageItems, ...restProductData } = product;
+  const { packageItems, sizes, ...restProductData } = product;
   
   // Handle temporary IDs (timestamp-based from frontend)
   // If ID is long (timestamp), exclude it so DB generates one
   const payload: any = {
     ...restProductData,
     price: product.price2Days,
-    package_items: packageItems // Map camelCase ke snake_case DB
+    package_items: packageItems, // Map camelCase ke snake_case DB
+    sizes: sizes || {} // Ensure sizes is sent (requires 'sizes' column type JSONB in DB)
   };
 
   // Hapus ID jika itu adalah temporary ID (timestamp) agar DB yang membuat ID serial
@@ -78,6 +80,8 @@ export const addProduct = async (product: Product): Promise<Product | null> => {
     console.error('Error adding product:', error);
     if (error.code === '42501') {
       alert('Gagal Menambah: Izin Ditolak (RLS). Cek Policy di Supabase.');
+    } else if (error.message.includes('sizes')) {
+      alert('Error Database: Kolom "sizes" belum ada. Jalankan SQL: ALTER TABLE products ADD COLUMN sizes jsonb;');
     } else if (error.message.includes('null value in column "price"')) {
       alert('Error Database: Kolom "price" wajib diisi.');
     } else {
@@ -95,14 +99,15 @@ export const addProduct = async (product: Product): Promise<Product | null> => {
 export const updateProduct = async (product: Product): Promise<Product | null> => {
   if (!supabase) return product;
 
-  // FIX: Pisahkan 'packageItems' (camelCase)
-  const { packageItems, ...restProductData } = product;
+  // FIX: Pisahkan 'packageItems' dan 'sizes'
+  const { packageItems, sizes, ...restProductData } = product;
 
   // Update legacy 'price' column as well to keep data consistent
   const payload = {
     ...restProductData,
     price: product.price2Days,
-    package_items: packageItems // Map ke snake_case
+    package_items: packageItems, // Map ke snake_case
+    sizes: sizes || {} // Ensure sizes is sent
   };
 
   const { data, error } = await supabase
@@ -116,6 +121,8 @@ export const updateProduct = async (product: Product): Promise<Product | null> =
     console.error('Error updating product:', error);
     if (error.code === '42501') {
       alert('Gagal Update: Izin Ditolak (RLS). Cek Policy di Supabase.');
+    } else if (error.message.includes('sizes')) {
+      alert('Error Database: Kolom "sizes" belum ada. Jalankan SQL: ALTER TABLE products ADD COLUMN sizes jsonb;');
     } else {
       alert('Gagal update produk: ' + error.message);
     }
@@ -158,7 +165,7 @@ export const processStockReduction = async (cartItems: CartItem[]): Promise<void
     // 1. Ambil data produk terbaru dari DB untuk memastikan kita punya data packageItems yang valid
     const { data: allProducts, error } = await supabase
       .from('products')
-      .select('id, stock, package_items');
+      .select('id, stock, package_items, sizes');
 
     if (error || !allProducts) throw new Error("Gagal mengambil data stok terbaru");
 
@@ -171,12 +178,33 @@ export const processStockReduction = async (cartItems: CartItem[]): Promise<void
       const dbProduct = productMap.get(item.id);
       if (!dbProduct) continue;
 
-      // A. Kurangi stok item utama (paket itu sendiri atau produk biasa)
+      // A. Jika produk punya SIZE (Pakaian/Sepatu), kurangi stok spesifik size tersebut
+      if (item.selectedSize && dbProduct.sizes) {
+         const currentSizes = dbProduct.sizes || {};
+         const currentSizeStock = currentSizes[item.selectedSize] || 0;
+         const newSizeStock = Math.max(0, currentSizeStock - item.quantity);
+         
+         // Update object sizes
+         const newSizes = { ...currentSizes, [item.selectedSize]: newSizeStock };
+         
+         // Hitung ulang total stok
+         const newTotalStock = Object.values(newSizes).reduce((a: any, b: any) => a + b, 0);
+
+         // Update ke DB
+         await supabase.from('products').update({ 
+           sizes: newSizes,
+           stock: newTotalStock 
+         }).eq('id', item.id);
+         
+         continue; // Lanjut ke item berikutnya, skip logika paket/biasa di bawah
+      }
+
+      // B. Kurangi stok item utama (paket itu sendiri atau produk biasa tanpa size)
       const currentStock = typeof dbProduct.stock === 'number' ? dbProduct.stock : 0;
       const newStock = Math.max(0, currentStock - item.quantity);
       await supabase.from('products').update({ stock: newStock }).eq('id', item.id);
 
-      // B. Jika item ini adalah PAKET, kurangi stok komponen di dalamnya
+      // C. Jika item ini adalah PAKET, kurangi stok komponen di dalamnya
       if (dbProduct.package_items && Array.isArray(dbProduct.package_items)) {
         for (const subItem of dbProduct.package_items) {
           const childProduct = productMap.get(subItem.productId);
