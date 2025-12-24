@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, ShoppingCart, Check, Layers, Clock, Sparkles, Tag, ShieldCheck, Zap, Box, Scissors } from 'lucide-react';
+import { X, ShoppingCart, Check, Layers, Clock, Sparkles, Tag, ShieldCheck, Zap, Box, Scissors, Footprints } from 'lucide-react';
 import { Product } from '../types';
 
 interface ProductDetailModalProps {
@@ -45,8 +45,34 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const hasSizes = product.sizes && Object.keys(product.sizes).length > 0;
 
   // Cek apakah tombol add to cart valid
-  // Valid jika: Tidak punya size ATAU (Punya size DAN sudah pilih size)
   const canAddToCart = !hasSizes || (hasSizes && selectedSize !== null);
+
+  // Sorting Logic for Sizes
+  const getSortedSizes = () => {
+    if (!product.sizes) return [];
+    
+    const keys = Object.keys(product.sizes);
+    
+    // Check if numeric (Shoes)
+    const isNumeric = keys.some(k => !isNaN(parseInt(k)));
+    
+    if (isNumeric) {
+      return keys.sort((a, b) => parseInt(a) - parseInt(b));
+    } else {
+      // Clothing S-XXL sort
+      const order = ['S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
+      return keys.sort((a, b) => {
+         const idxA = order.indexOf(a);
+         const idxB = order.indexOf(b);
+         if (idxA === -1) return 1;
+         if (idxB === -1) return -1;
+         return idxA - idxB;
+      });
+    }
+  };
+
+  const sortedSizeKeys = getSortedSizes();
+  const isShoes = sortedSizeKeys.some(k => !isNaN(parseInt(k)));
 
   return (
     <div className="fixed inset-0 z-[80] overflow-y-auto font-sans">
@@ -143,10 +169,12 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               {hasSizes && (
                 <div className="mb-8">
                   <h3 className="flex items-center gap-2 text-sm font-black text-gray-900 uppercase tracking-widest mb-4">
-                    <Scissors className="text-nature-600" size={16} /> Pilih Ukuran
+                    {isShoes ? <Footprints className="text-nature-600" size={16} /> : <Scissors className="text-nature-600" size={16} />} 
+                    Pilih Ukuran
                   </h3>
                   <div className="flex flex-wrap gap-3">
-                    {Object.entries(product.sizes || {}).map(([size, qty]) => {
+                    {sortedSizeKeys.map((size) => {
+                      const qty = product.sizes![size];
                       const isAvailable = (qty as number) > 0;
                       const isSelected = selectedSize === size;
                       

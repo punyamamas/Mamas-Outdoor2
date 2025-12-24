@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Package, LogOut, Plus, Search, 
   Edit, Trash2, Save, X, Image as ImageIcon,
   AlertTriangle, DollarSign, Loader2, RotateCcw,
-  Database, Wifi, WifiOff, Tags, CheckSquare, Layers, Scissors
+  Database, Wifi, WifiOff, Tags, CheckSquare, Layers, Scissors, Footprints
 } from 'lucide-react';
 import { Product, Category, PackageItem } from '../types';
 import { supabase } from '../services/supabase';
@@ -64,12 +64,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     sizes: {}
   });
 
+  // Size Mode State (Clothing or Shoes)
+  const [sizeType, setSizeType] = useState<'clothing' | 'shoes'>('clothing');
+
+  const CLOTHING_SIZES = ['S', 'M', 'L', 'XL', 'XXL'];
+  const SHOE_SIZES = Array.from({length: 12}, (_, i) => (i + 36).toString()); // 36 to 47
+
   // State for Categories Management
   const [newCategoryName, setNewCategoryName] = useState('');
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [editCategoryName, setEditCategoryName] = useState('');
-
-  const CLOTHING_SIZES = ['S', 'M', 'L', 'XL', 'XXL'];
 
   useEffect(() => {
     setIsConnected(!!supabase);
@@ -92,6 +96,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         packageItems: product.packageItems || [],
         sizes: product.sizes || {}
       });
+
+      // Detect Size Type based on existing keys
+      const keys = Object.keys(product.sizes || {});
+      const hasNumber = keys.some(k => !isNaN(parseInt(k)));
+      setSizeType(hasNumber ? 'shoes' : 'clothing');
+
     } else {
       setEditingProduct(null);
       setProductFormData({
@@ -110,6 +120,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         packageItems: [],
         sizes: {}
       });
+      setSizeType('clothing'); // Default
     }
     setIsProductModalOpen(true);
   };
@@ -174,6 +185,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         stock: totalStock > 0 ? totalStock : (prev.stock || 0) // Update main stock if sizes exist
       };
     });
+  };
+
+  // Clear sizes when switching type to avoid mixing S and 42
+  const handleSizeTypeChange = (type: 'clothing' | 'shoes') => {
+    setSizeType(type);
+    setProductFormData(prev => ({
+       ...prev,
+       sizes: {}, // Reset sizes
+       stock: 0   // Reset stock since it depends on sizes
+    }));
   };
 
   const handleCategoryAdd = async (e: React.FormEvent) => {
@@ -603,13 +624,35 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
               </div>
 
-              {/* SECTION SIZE MANAGEMENT: For Pakaian/Jaket/Celana */}
+              {/* SECTION SIZE MANAGEMENT: For Pakaian/Jaket/Celana/Sepatu */}
               <div className="bg-orange-50 p-4 rounded-xl border border-orange-100">
-                 <h4 className="text-sm font-bold text-orange-800 mb-3 flex items-center gap-2">
-                   <Scissors size={16} /> Stok per Ukuran (Pakaian/Sepatu)
-                 </h4>
+                 <div className="flex justify-between items-center mb-3">
+                    <h4 className="text-sm font-bold text-orange-800 flex items-center gap-2">
+                      {sizeType === 'clothing' ? <Scissors size={16} /> : <Footprints size={16} />}
+                      Stok Varian
+                    </h4>
+                    
+                    {/* Size Type Toggle */}
+                    <div className="flex bg-orange-200/50 rounded-lg p-0.5">
+                      <button 
+                        type="button"
+                        onClick={() => handleSizeTypeChange('clothing')}
+                        className={`px-3 py-1 rounded-md text-[10px] font-bold transition ${sizeType === 'clothing' ? 'bg-white text-orange-700 shadow-sm' : 'text-orange-800 hover:bg-white/50'}`}
+                      >
+                        Pakaian
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => handleSizeTypeChange('shoes')}
+                        className={`px-3 py-1 rounded-md text-[10px] font-bold transition ${sizeType === 'shoes' ? 'bg-white text-orange-700 shadow-sm' : 'text-orange-800 hover:bg-white/50'}`}
+                      >
+                        Sepatu
+                      </button>
+                    </div>
+                 </div>
+
                  <div className="grid grid-cols-5 gap-2">
-                   {CLOTHING_SIZES.map(size => (
+                   {(sizeType === 'clothing' ? CLOTHING_SIZES : SHOE_SIZES).map(size => (
                      <div key={size} className="text-center">
                        <label className="block text-xs font-bold text-gray-500 mb-1">{size}</label>
                        <input 
@@ -624,7 +667,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                    ))}
                  </div>
                  <p className="text-[10px] text-orange-600 mt-2">
-                   *Mengisi stok ukuran akan otomatis mengupdate Stok Total. Kosongkan jika bukan produk pakaian.
+                   *Mengisi stok ukuran akan otomatis mengupdate Stok Total.
                  </p>
               </div>
 
