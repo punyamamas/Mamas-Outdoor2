@@ -24,10 +24,12 @@ export interface Product {
   description: string;
   stock: number;
   packageItems?: PackageItem[]; // Optional: Hanya untuk kategori paket
+  sizes?: { [key: string]: number }; // Optional: Key (S, M, L...) Value (Stock count)
 }
 
 export interface CartItem extends Product {
   quantity: number;
+  selectedSize?: string; // Menyimpan ukuran yang dipilih user
 }
 
 export interface UserDetails {

@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Package, LogOut, Plus, Search, 
   Edit, Trash2, Save, X, Image as ImageIcon,
   AlertTriangle, DollarSign, Loader2, RotateCcw,
-  Database, Wifi, WifiOff, Tags, CheckSquare, Layers
+  Database, Wifi, WifiOff, Tags, CheckSquare, Layers, Scissors
 } from 'lucide-react';
 import { Product, Category, PackageItem } from '../types';
 import { supabase } from '../services/supabase';
@@ -60,13 +60,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     stock: 0,
     description: '',
     image: '',
-    packageItems: []
+    packageItems: [],
+    sizes: {}
   });
 
   // State for Categories Management
   const [newCategoryName, setNewCategoryName] = useState('');
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [editCategoryName, setEditCategoryName] = useState('');
+
+  const CLOTHING_SIZES = ['S', 'M', 'L', 'XL', 'XXL'];
 
   useEffect(() => {
     setIsConnected(!!supabase);
@@ -86,7 +89,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setEditingProduct(product);
       setProductFormData({
         ...product,
-        packageItems: product.packageItems || []
+        packageItems: product.packageItems || [],
+        sizes: product.sizes || {}
       });
     } else {
       setEditingProduct(null);
@@ -103,7 +107,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         stock: 0,
         description: '',
         image: 'https://picsum.photos/400/300',
-        packageItems: []
+        packageItems: [],
+        sizes: {}
       });
     }
     setIsProductModalOpen(true);
@@ -147,6 +152,27 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const newItems = [...(prev.packageItems || [])];
       newItems[index] = { ...newItems[index], [field]: value };
       return { ...prev, packageItems: newItems };
+    });
+  };
+
+  // Helper untuk Size Management
+  const updateSizeStock = (size: string, count: number) => {
+    setProductFormData(prev => {
+      const newSizes: Record<string, number> = { ...(prev.sizes || {}) };
+      if (count > 0) {
+        newSizes[size] = count;
+      } else {
+        delete newSizes[size];
+      }
+      
+      // Hitung total stok otomatis
+      const totalStock = Object.values(newSizes).reduce((a: number, b: number) => a + b, 0);
+
+      return { 
+        ...prev, 
+        sizes: newSizes,
+        stock: totalStock > 0 ? totalStock : (prev.stock || 0) // Update main stock if sizes exist
+      };
     });
   };
 
@@ -392,6 +418,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                   <Layers size={10} /> {product.packageItems.length} Komponen
                                 </span>
                               )}
+                              {product.sizes && Object.keys(product.sizes).length > 0 && (
+                                <span className="text-xs text-blue-600 flex items-center gap-1">
+                                  <Scissors size={10} /> {Object.keys(product.sizes).join(', ')}
+                                </span>
+                              )}
                             </div>
                           </div>
                         </td>
@@ -556,16 +587,45 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </select>
                 </div>
                 <div>
-                   <label className="block text-sm font-medium text-gray-700 mb-1">Stok (Paket/Unit)</label>
+                   <label className="block text-sm font-medium text-gray-700 mb-1">
+                     Stok Total {Object.keys(productFormData.sizes || {}).length > 0 && '(Otomatis)'}
+                   </label>
                    <input 
                     type="number" 
                     required
                     min="0"
-                    className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-nature-500 outline-none"
+                    // Disable manual stock input if sizes are defined
+                    readOnly={Object.keys(productFormData.sizes || {}).length > 0}
+                    className={`w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-nature-500 outline-none ${Object.keys(productFormData.sizes || {}).length > 0 ? 'bg-gray-100 text-gray-500' : 'bg-gray-50'}`}
                     value={productFormData.stock}
                     onChange={e => setProductFormData({...productFormData, stock: parseInt(e.target.value)})}
                   />
                 </div>
+              </div>
+
+              {/* SECTION SIZE MANAGEMENT: For Pakaian/Jaket/Celana */}
+              <div className="bg-orange-50 p-4 rounded-xl border border-orange-100">
+                 <h4 className="text-sm font-bold text-orange-800 mb-3 flex items-center gap-2">
+                   <Scissors size={16} /> Stok per Ukuran (Pakaian/Sepatu)
+                 </h4>
+                 <div className="grid grid-cols-5 gap-2">
+                   {CLOTHING_SIZES.map(size => (
+                     <div key={size} className="text-center">
+                       <label className="block text-xs font-bold text-gray-500 mb-1">{size}</label>
+                       <input 
+                         type="number"
+                         min="0"
+                         placeholder="0"
+                         className="w-full px-1 py-1 text-center bg-white border border-orange-200 rounded focus:ring-1 focus:ring-orange-500 outline-none text-sm"
+                         value={productFormData.sizes?.[size] || ''}
+                         onChange={(e) => updateSizeStock(size, parseInt(e.target.value) || 0)}
+                       />
+                     </div>
+                   ))}
+                 </div>
+                 <p className="text-[10px] text-orange-600 mt-2">
+                   *Mengisi stok ukuran akan otomatis mengupdate Stok Total. Kosongkan jika bukan produk pakaian.
+                 </p>
               </div>
 
               {/* SECTION PACKAGE ITEMS: Only show if category contains 'Paketan' or similar logic */}

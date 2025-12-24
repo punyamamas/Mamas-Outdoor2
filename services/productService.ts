@@ -163,7 +163,8 @@ export const processStockReduction = async (cartItems: CartItem[]): Promise<void
     if (error || !allProducts) throw new Error("Gagal mengambil data stok terbaru");
 
     // Map untuk memudahkan akses
-    const productMap = new Map(allProducts.map((p: any) => [p.id.toString(), p]));
+    // Explicitly using Map<string, any> to avoid 'unknown' type issues with supabase response
+    const productMap = new Map<string, any>(allProducts.map((p: any) => [p.id.toString(), p]));
 
     // 2. Loop setiap item di keranjang
     for (const item of cartItems) {
@@ -171,7 +172,8 @@ export const processStockReduction = async (cartItems: CartItem[]): Promise<void
       if (!dbProduct) continue;
 
       // A. Kurangi stok item utama (paket itu sendiri atau produk biasa)
-      const newStock = Math.max(0, dbProduct.stock - item.quantity);
+      const currentStock = typeof dbProduct.stock === 'number' ? dbProduct.stock : 0;
+      const newStock = Math.max(0, currentStock - item.quantity);
       await supabase.from('products').update({ stock: newStock }).eq('id', item.id);
 
       // B. Jika item ini adalah PAKET, kurangi stok komponen di dalamnya
@@ -182,7 +184,8 @@ export const processStockReduction = async (cartItems: CartItem[]): Promise<void
           if (childProduct) {
             // Jumlah pengurangan = Jumlah Paket yang dibeli * Jumlah item per paket
             const deductionAmount = item.quantity * subItem.quantity;
-            const newChildStock = Math.max(0, childProduct.stock - deductionAmount);
+            const childCurrentStock = typeof childProduct.stock === 'number' ? childProduct.stock : 0;
+            const newChildStock = Math.max(0, childCurrentStock - deductionAmount);
             
             // Update stok anak
             await supabase.from('products').update({ stock: newChildStock }).eq('id', subItem.productId);

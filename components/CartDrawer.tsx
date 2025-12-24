@@ -8,8 +8,8 @@ interface CartDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   cartItems: CartItem[];
-  onUpdateQuantity: (id: string, delta: number) => void;
-  onRemoveItem: (id: string) => void;
+  onUpdateQuantity: (id: string, delta: number, size?: string) => void;
+  onRemoveItem: (id: string, size?: string) => void;
   onClearCart: () => void;
 }
 
@@ -83,7 +83,8 @@ const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, cartItems, onU
     
     const itemsList = cartItems.map((item, idx) => {
       const priceForDuration = getItemPriceForDuration(item, userDetails.duration);
-      return `${idx + 1}. ${item.name} (${item.quantity}x)\n   @ Rp${priceForDuration.toLocaleString('id-ID')} (Paket ${userDetails.duration} Hari)`;
+      const sizeLabel = item.selectedSize ? ` [Size: ${item.selectedSize}]` : '';
+      return `${idx + 1}. ${item.name}${sizeLabel} (${item.quantity}x)\n   @ Rp${priceForDuration.toLocaleString('id-ID')} (Paket ${userDetails.duration} Hari)`;
     }).join('\n');
 
     const footer = `\n\n*Total Estimasi: Rp${total.toLocaleString('id-ID')}*`;
@@ -145,11 +146,17 @@ const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, cartItems, onU
                     {cartItems.map(item => {
                       // Gunakan fallback untuk display
                       const displayPrice = item.price2Days || 0;
+                      // Unique key combining ID and Size
+                      const itemKey = `${item.id}-${item.selectedSize || 'default'}`;
+
                       return (
-                        <div key={item.id} className="flex gap-4">
+                        <div key={itemKey} className="flex gap-4">
                           <img src={item.image} alt={item.name} className="w-20 h-20 object-cover rounded-lg bg-gray-100" />
                           <div className="flex-1">
                             <h3 className="font-semibold text-gray-800 text-sm">{item.name}</h3>
+                            {item.selectedSize && (
+                               <span className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded font-bold uppercase">Size: {item.selectedSize}</span>
+                            )}
                             <p className="text-adventure-600 font-bold text-sm mt-1">
                               Rp{displayPrice.toLocaleString('id-ID')}<span className="text-gray-400 text-xs font-normal"> /2hari</span>
                             </p>
@@ -157,16 +164,16 @@ const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, cartItems, onU
                             <div className="flex items-center justify-between mt-3">
                               <div className="flex items-center gap-3 bg-gray-50 rounded-lg px-2 py-1 border border-gray-200">
                                 <button 
-                                  onClick={() => onUpdateQuantity(item.id, -1)}
+                                  onClick={() => onUpdateQuantity(item.id, -1, item.selectedSize)}
                                   className="w-6 h-6 flex items-center justify-center bg-white rounded shadow-sm text-gray-600 hover:text-nature-600 text-xs"
                                 >-</button>
                                 <span className="text-sm font-medium w-4 text-center">{item.quantity}</span>
                                 <button 
-                                  onClick={() => onUpdateQuantity(item.id, 1)}
+                                  onClick={() => onUpdateQuantity(item.id, 1, item.selectedSize)}
                                   className="w-6 h-6 flex items-center justify-center bg-white rounded shadow-sm text-gray-600 hover:text-nature-600 text-xs"
                                 >+</button>
                               </div>
-                              <button onClick={() => onRemoveItem(item.id)} className="text-red-400 hover:text-red-600 p-1">
+                              <button onClick={() => onRemoveItem(item.id, item.selectedSize)} className="text-red-400 hover:text-red-600 p-1">
                                 <Trash2 size={18} />
                               </button>
                             </div>
@@ -257,9 +264,13 @@ const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, cartItems, onU
                 <div className="bg-blue-50 p-4 rounded-lg mt-6">
                   <h4 className="font-semibold text-blue-800 text-sm mb-2">Rincian Harga Paket</h4>
                   <div className="space-y-1 mb-3">
-                    {cartItems.map(item => (
-                       <div key={item.id} className="flex justify-between text-xs text-blue-600">
-                         <span>{item.name} x{item.quantity}</span>
+                    {cartItems.map((item, idx) => (
+                       <div key={idx} className="flex justify-between text-xs text-blue-600">
+                         <span>
+                            {item.name} 
+                            {item.selectedSize && ` (${item.selectedSize})`} 
+                            x{item.quantity}
+                         </span>
                          <span>Rp{(getItemPriceForDuration(item, userDetails.duration) * item.quantity).toLocaleString('id-ID')}</span>
                        </div>
                     ))}

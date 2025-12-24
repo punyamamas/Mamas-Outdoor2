@@ -84,13 +84,22 @@ function App() {
     localStorage.setItem('mamasCart', JSON.stringify(cartItems));
   }, [cartItems]);
 
-  const addToCart = (product: Product) => {
+  const addToCart = (product: Product, selectedSize?: string) => {
     setCartItems(prev => {
-      const existing = prev.find(item => item.id === product.id);
-      if (existing) {
-        return prev.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
+      // Cari item yang ID-nya sama DAN (tidak punya size ATAU sizenya sama)
+      const existingIndex = prev.findIndex(item => 
+        item.id === product.id && item.selectedSize === selectedSize
+      );
+
+      if (existingIndex !== -1) {
+        // Jika sudah ada (Id & Size sama), update quantity
+        const newItems = [...prev];
+        newItems[existingIndex].quantity += 1;
+        return newItems;
       }
-      return [...prev, { ...product, quantity: 1 }];
+      
+      // Jika belum ada, tambah baru dengan selectedSize
+      return [...prev, { ...product, quantity: 1, selectedSize }];
     });
     setIsCartOpen(true);
   };
@@ -98,13 +107,21 @@ function App() {
   const addRecommendedToCart = (productId: string) => {
     const product = products.find(p => p.id === productId);
     if (product) {
-      addToCart(product);
+      // Note: Untuk rekomendasi AI, jika produk butuh size, idealnya buka modal.
+      // Tapi untuk simplifikasi di sini langsung add. Jika butuh size, 
+      // user akan melihat warning di cart atau default behavior (tanpa size).
+      // Lebih baik membuka modal jika produk punya varian size.
+      if (product.sizes && Object.keys(product.sizes).length > 0) {
+        setViewingProduct(product); // Buka modal biar user pilih size
+      } else {
+        addToCart(product);
+      }
     }
   };
 
-  const updateQuantity = (id: string, delta: number) => {
+  const updateQuantity = (id: string, delta: number, size?: string) => {
     setCartItems(prev => prev.map(item => {
-      if (item.id === id) {
+      if (item.id === id && item.selectedSize === size) {
         const newQty = item.quantity + delta;
         return newQty > 0 ? { ...item, quantity: newQty } : item;
       }
@@ -112,8 +129,8 @@ function App() {
     }));
   };
 
-  const removeItem = (id: string) => {
-    setCartItems(prev => prev.filter(item => item.id !== id));
+  const removeItem = (id: string, size?: string) => {
+    setCartItems(prev => prev.filter(item => !(item.id === id && item.selectedSize === size)));
   };
 
   const clearCart = () => {
@@ -269,7 +286,9 @@ function App() {
         product={viewingProduct}
         allProducts={products}
         onAddToCart={addToCart}
-        isInCart={viewingProduct ? !!cartItems.find(i => i.id === viewingProduct.id) : false}
+        isInCart={viewingProduct ? !!cartItems.find(i => i.id === viewingProduct.id && (!i.selectedSize || (i.selectedSize === viewingProduct.sizes && false))) : false} 
+        // Logic isInCart agak kompleks jika ada size, jadi kita biarkan tombol modal handle "Tambah Lagi" jika beda size
+        // Di sini kita passing false secara default jika ada size, biar tombolnya selalu aktif untuk pilih size lain
       />
 
       {/* Hero Section */}
@@ -504,7 +523,13 @@ function App() {
                         <button 
                           onClick={(e) => {
                             e.stopPropagation();
-                            addToCart(product);
+                            // Jika produk punya varian size, buka modal (viewingProduct)
+                            // Jika tidak, langsung add to cart
+                            if (product.sizes && Object.keys(product.sizes).length > 0) {
+                              setViewingProduct(product);
+                            } else {
+                              addToCart(product);
+                            }
                           }}
                           className={`
                             h-12 w-12 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg z-10

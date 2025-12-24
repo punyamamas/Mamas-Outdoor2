@@ -1,5 +1,5 @@
-import React from 'react';
-import { X, ShoppingCart, Check, Layers, Clock, Sparkles, Tag, ShieldCheck, Zap, Box } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, ShoppingCart, Check, Layers, Clock, Sparkles, Tag, ShieldCheck, Zap, Box, Scissors } from 'lucide-react';
 import { Product } from '../types';
 
 interface ProductDetailModalProps {
@@ -7,7 +7,7 @@ interface ProductDetailModalProps {
   onClose: () => void;
   product: Product | null;
   allProducts: Product[]; // Prop baru untuk lookup nama produk
-  onAddToCart: (product: Product) => void;
+  onAddToCart: (product: Product, size?: string) => void;
   isInCart: boolean;
 }
 
@@ -19,6 +19,13 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   onAddToCart,
   isInCart
 }) => {
+  const [selectedSize, setSelectedSize] = useState<string | null>(null);
+
+  // Reset selected size when modal opens/product changes
+  useEffect(() => {
+    setSelectedSize(null);
+  }, [product]);
+
   if (!isOpen || !product) return null;
 
   // Helper untuk format harga
@@ -35,6 +42,11 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   ];
 
   const isPackage = product.packageItems && product.packageItems.length > 0;
+  const hasSizes = product.sizes && Object.keys(product.sizes).length > 0;
+
+  // Cek apakah tombol add to cart valid
+  // Valid jika: Tidak punya size ATAU (Punya size DAN sudah pilih size)
+  const canAddToCart = !hasSizes || (hasSizes && selectedSize !== null);
 
   return (
     <div className="fixed inset-0 z-[80] overflow-y-auto font-sans">
@@ -127,6 +139,50 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 </p>
               </div>
 
+              {/* Size Selector */}
+              {hasSizes && (
+                <div className="mb-8">
+                  <h3 className="flex items-center gap-2 text-sm font-black text-gray-900 uppercase tracking-widest mb-4">
+                    <Scissors className="text-nature-600" size={16} /> Pilih Ukuran
+                  </h3>
+                  <div className="flex flex-wrap gap-3">
+                    {Object.entries(product.sizes || {}).map(([size, qty]) => {
+                      const isAvailable = (qty as number) > 0;
+                      const isSelected = selectedSize === size;
+                      
+                      return (
+                        <button
+                          key={size}
+                          disabled={!isAvailable}
+                          onClick={() => setSelectedSize(size)}
+                          className={`
+                            min-w-[50px] px-4 py-2 rounded-xl font-bold border-2 transition-all relative overflow-hidden
+                            ${!isAvailable 
+                              ? 'bg-gray-100 text-gray-300 border-gray-200 cursor-not-allowed decoration-slice' 
+                              : isSelected
+                                ? 'bg-nature-600 border-nature-600 text-white shadow-lg scale-110'
+                                : 'bg-white border-gray-200 text-gray-700 hover:border-nature-400 hover:text-nature-600'
+                            }
+                          `}
+                        >
+                          {size}
+                          {!isAvailable && (
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <div className="w-full h-0.5 bg-gray-300 -rotate-45"></div>
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {selectedSize && (
+                    <p className="text-xs text-nature-600 mt-2 font-medium animate-pulse">
+                      Stok tersedia: {product.sizes![selectedSize]} unit
+                    </p>
+                  )}
+                </div>
+              )}
+
               {/* Package Loot (If applicable) */}
               {isPackage && (
                 <div className="mb-8">
@@ -135,7 +191,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {product.packageItems?.map((item, idx) => {
-                      // FIX: Lookup nama produk berdasarkan ID
+                      // Lookup nama produk berdasarkan ID
                       const realProduct = allProducts.find(p => p.id === item.productId);
                       const displayName = realProduct ? realProduct.name : `Item ID: ${item.productId.substring(0,6)}...`;
                       
@@ -193,18 +249,21 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   <span className="text-3xl font-black text-gray-900 tracking-tight">{fmt(product.price2Days || 0)}</span>
                 </div>
                 <button 
+                  disabled={!canAddToCart}
                   onClick={() => {
-                    onAddToCart(product);
+                    onAddToCart(product, selectedSize || undefined);
                   }}
                   className={`
-                    flex-1 py-4 px-8 rounded-2xl font-bold text-white shadow-xl transition-all duration-300 transform active:scale-95 flex items-center justify-center gap-3 text-lg
-                    ${isInCart 
+                    flex-1 py-4 px-8 rounded-2xl font-bold text-white shadow-xl transition-all duration-300 transform active:scale-95 flex items-center justify-center gap-3 text-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none
+                    ${isInCart && !hasSizes // Hanya tampilkan hijau jika sudah di cart dan BUKAN produk bersize (karena produk bersize bisa tambah lagi dengan size beda)
                       ? 'bg-green-600 hover:bg-green-700 shadow-green-200' 
                       : 'bg-gradient-to-r from-nature-600 to-nature-700 hover:from-nature-500 hover:to-nature-600 shadow-nature-200 hover:shadow-2xl hover:-translate-y-1'
                     }
                   `}
                 >
-                  {isInCart ? (
+                  {!canAddToCart ? (
+                    <>Pilih Ukuran Dulu Bro!</>
+                  ) : isInCart && !hasSizes ? (
                     <>
                       <Check size={24} strokeWidth={3} /> Masuk Tas!
                     </>
