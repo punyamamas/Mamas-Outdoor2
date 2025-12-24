@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, ShoppingCart, Check, Layers, Clock, Sparkles, Tag, ShieldCheck, Zap, Box, Scissors, Footprints } from 'lucide-react';
+import { X, ShoppingCart, Check, Layers, Clock, Sparkles, Tag, ShieldCheck, Zap, Box, Scissors, Footprints, Palette } from 'lucide-react';
 import { Product } from '../types';
 
 interface ProductDetailModalProps {
@@ -7,7 +7,7 @@ interface ProductDetailModalProps {
   onClose: () => void;
   product: Product | null;
   allProducts: Product[]; // Prop baru untuk lookup nama produk
-  onAddToCart: (product: Product, size?: string) => void;
+  onAddToCart: (product: Product, size?: string, color?: string) => void;
   isInCart: boolean;
 }
 
@@ -20,10 +20,12 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   isInCart
 }) => {
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
+  const [selectedColor, setSelectedColor] = useState<string | null>(null);
 
-  // Reset selected size when modal opens/product changes
+  // Reset selections when modal opens/product changes
   useEffect(() => {
     setSelectedSize(null);
+    setSelectedColor(null);
   }, [product]);
 
   if (!isOpen || !product) return null;
@@ -43,9 +45,14 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
   const isPackage = product.packageItems && product.packageItems.length > 0;
   const hasSizes = product.sizes && Object.keys(product.sizes).length > 0;
+  const hasColors = product.colors && product.colors.length > 0;
 
   // Cek apakah tombol add to cart valid
-  const canAddToCart = !hasSizes || (hasSizes && selectedSize !== null);
+  // Harus pilih Size jika produk punya size
+  // Harus pilih Color jika produk punya color
+  const canAddToCart = 
+    (!hasSizes || (hasSizes && selectedSize !== null)) && 
+    (!hasColors || (hasColors && selectedColor !== null));
 
   // Sorting Logic for Sizes
   const getSortedSizes = () => {
@@ -165,6 +172,35 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 </p>
               </div>
 
+              {/* Color Selector */}
+              {hasColors && (
+                <div className="mb-6">
+                  <h3 className="flex items-center gap-2 text-sm font-black text-gray-900 uppercase tracking-widest mb-4">
+                    <Palette className="text-nature-600" size={16} /> Pilih Warna
+                  </h3>
+                  <div className="flex flex-wrap gap-3">
+                    {product.colors!.map((color) => {
+                      const isSelected = selectedColor === color;
+                      return (
+                        <button
+                          key={color}
+                          onClick={() => setSelectedColor(color)}
+                          className={`
+                            px-4 py-2 rounded-full font-bold border-2 transition-all relative
+                            ${isSelected
+                                ? 'bg-gray-800 border-gray-800 text-white shadow-lg transform scale-105'
+                                : 'bg-white border-gray-200 text-gray-700 hover:border-nature-400 hover:text-nature-600'
+                            }
+                          `}
+                        >
+                          {color}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {/* Size Selector */}
               {hasSizes && (
                 <div className="mb-8">
@@ -279,19 +315,19 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 <button 
                   disabled={!canAddToCart}
                   onClick={() => {
-                    onAddToCart(product, selectedSize || undefined);
+                    onAddToCart(product, selectedSize || undefined, selectedColor || undefined);
                   }}
                   className={`
                     flex-1 py-4 px-8 rounded-2xl font-bold text-white shadow-xl transition-all duration-300 transform active:scale-95 flex items-center justify-center gap-3 text-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none
-                    ${isInCart && !hasSizes // Hanya tampilkan hijau jika sudah di cart dan BUKAN produk bersize (karena produk bersize bisa tambah lagi dengan size beda)
+                    ${isInCart && !hasSizes && !hasColors // Hanya tampilkan hijau jika sudah di cart dan BUKAN produk bersize/color (karena bisa tambah variasi)
                       ? 'bg-green-600 hover:bg-green-700 shadow-green-200' 
                       : 'bg-gradient-to-r from-nature-600 to-nature-700 hover:from-nature-500 hover:to-nature-600 shadow-nature-200 hover:shadow-2xl hover:-translate-y-1'
                     }
                   `}
                 >
                   {!canAddToCart ? (
-                    <>Pilih Ukuran Dulu Bro!</>
-                  ) : isInCart && !hasSizes ? (
+                    <>Pilih Varian Dulu Bro!</>
+                  ) : isInCart && !hasSizes && !hasColors ? (
                     <>
                       <Check size={24} strokeWidth={3} /> Masuk Tas!
                     </>

@@ -8,8 +8,8 @@ interface CartDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   cartItems: CartItem[];
-  onUpdateQuantity: (id: string, delta: number, size?: string) => void;
-  onRemoveItem: (id: string, size?: string) => void;
+  onUpdateQuantity: (id: string, delta: number, size?: string, color?: string) => void;
+  onRemoveItem: (id: string, size?: string, color?: string) => void;
   onClearCart: () => void;
 }
 
@@ -84,7 +84,8 @@ const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, cartItems, onU
     const itemsList = cartItems.map((item, idx) => {
       const priceForDuration = getItemPriceForDuration(item, userDetails.duration);
       const sizeLabel = item.selectedSize ? ` [Size: ${item.selectedSize}]` : '';
-      return `${idx + 1}. ${item.name}${sizeLabel} (${item.quantity}x)\n   @ Rp${priceForDuration.toLocaleString('id-ID')} (Paket ${userDetails.duration} Hari)`;
+      const colorLabel = item.selectedColor ? ` [Warna: ${item.selectedColor}]` : '';
+      return `${idx + 1}. ${item.name}${sizeLabel}${colorLabel} (${item.quantity}x)\n   @ Rp${priceForDuration.toLocaleString('id-ID')} (Paket ${userDetails.duration} Hari)`;
     }).join('\n');
 
     const footer = `\n\n*Total Estimasi: Rp${total.toLocaleString('id-ID')}*`;
@@ -146,17 +147,22 @@ const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, cartItems, onU
                     {cartItems.map(item => {
                       // Gunakan fallback untuk display
                       const displayPrice = item.price2Days || 0;
-                      // Unique key combining ID and Size
-                      const itemKey = `${item.id}-${item.selectedSize || 'default'}`;
+                      // Unique key combining ID, Size, and Color
+                      const itemKey = `${item.id}-${item.selectedSize || 'default'}-${item.selectedColor || 'default'}`;
 
                       return (
                         <div key={itemKey} className="flex gap-4">
                           <img src={item.image} alt={item.name} className="w-20 h-20 object-cover rounded-lg bg-gray-100" />
                           <div className="flex-1">
                             <h3 className="font-semibold text-gray-800 text-sm">{item.name}</h3>
-                            {item.selectedSize && (
-                               <span className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded font-bold uppercase">Size: {item.selectedSize}</span>
-                            )}
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {item.selectedSize && (
+                                <span className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded font-bold uppercase">Size: {item.selectedSize}</span>
+                              )}
+                              {item.selectedColor && (
+                                <span className="text-[10px] bg-purple-50 text-purple-600 px-1.5 py-0.5 rounded font-bold uppercase">Warna: {item.selectedColor}</span>
+                              )}
+                            </div>
                             <p className="text-adventure-600 font-bold text-sm mt-1">
                               Rp{displayPrice.toLocaleString('id-ID')}<span className="text-gray-400 text-xs font-normal"> /2hari</span>
                             </p>
@@ -164,16 +170,16 @@ const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, cartItems, onU
                             <div className="flex items-center justify-between mt-3">
                               <div className="flex items-center gap-3 bg-gray-50 rounded-lg px-2 py-1 border border-gray-200">
                                 <button 
-                                  onClick={() => onUpdateQuantity(item.id, -1, item.selectedSize)}
+                                  onClick={() => onUpdateQuantity(item.id, -1, item.selectedSize, item.selectedColor)}
                                   className="w-6 h-6 flex items-center justify-center bg-white rounded shadow-sm text-gray-600 hover:text-nature-600 text-xs"
                                 >-</button>
                                 <span className="text-sm font-medium w-4 text-center">{item.quantity}</span>
                                 <button 
-                                  onClick={() => onUpdateQuantity(item.id, 1, item.selectedSize)}
+                                  onClick={() => onUpdateQuantity(item.id, 1, item.selectedSize, item.selectedColor)}
                                   className="w-6 h-6 flex items-center justify-center bg-white rounded shadow-sm text-gray-600 hover:text-nature-600 text-xs"
                                 >+</button>
                               </div>
-                              <button onClick={() => onRemoveItem(item.id, item.selectedSize)} className="text-red-400 hover:text-red-600 p-1">
+                              <button onClick={() => onRemoveItem(item.id, item.selectedSize, item.selectedColor)} className="text-red-400 hover:text-red-600 p-1">
                                 <Trash2 size={18} />
                               </button>
                             </div>
@@ -269,6 +275,7 @@ const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, cartItems, onU
                          <span>
                             {item.name} 
                             {item.selectedSize && ` (${item.selectedSize})`} 
+                            {item.selectedColor && ` (${item.selectedColor})`}
                             x{item.quantity}
                          </span>
                          <span>Rp{(getItemPriceForDuration(item, userDetails.duration) * item.quantity).toLocaleString('id-ID')}</span>

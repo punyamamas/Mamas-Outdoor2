@@ -37,7 +37,8 @@ export const getProducts = async (): Promise<Product[]> => {
         price6Days: item.price6Days || Math.floor(basePrice * 2.5),
         price7Days: item.price7Days || Math.floor(basePrice * 3.0),
         packageItems: item.package_items || [], // Map kolom DB snake_case ke camelCase
-        sizes: item.sizes || {} // Pastikan sizes ada
+        sizes: item.sizes || {}, // Pastikan sizes ada
+        colors: item.colors || [] // Pastikan colors ada
       };
     });
 
@@ -54,7 +55,7 @@ export const addProduct = async (product: Product): Promise<Product | null> => {
 
   // FIX: Pisahkan 'packageItems' (camelCase) dari object agar tidak dikirim mentah ke DB
   // karena DB tidak punya kolom 'packageItems', adanya 'package_items'
-  const { packageItems, sizes, ...restProductData } = product;
+  const { packageItems, sizes, colors, ...restProductData } = product;
   
   // Handle temporary IDs (timestamp-based from frontend)
   // If ID is long (timestamp), exclude it so DB generates one
@@ -62,7 +63,8 @@ export const addProduct = async (product: Product): Promise<Product | null> => {
     ...restProductData,
     price: product.price2Days,
     package_items: packageItems, // Map camelCase ke snake_case DB
-    sizes: sizes || {} // Ensure sizes is sent (requires 'sizes' column type JSONB in DB)
+    sizes: sizes || {}, // Ensure sizes is sent (requires 'sizes' column type JSONB in DB)
+    colors: colors || [] // Ensure colors is sent (requires 'colors' column type JSONB in DB)
   };
 
   // Hapus ID jika itu adalah temporary ID (timestamp) agar DB yang membuat ID serial
@@ -82,6 +84,8 @@ export const addProduct = async (product: Product): Promise<Product | null> => {
       alert('Gagal Menambah: Izin Ditolak (RLS). Cek Policy di Supabase.');
     } else if (error.message.includes('sizes')) {
       alert('Error Database: Kolom "sizes" belum ada. Jalankan SQL: ALTER TABLE products ADD COLUMN sizes jsonb;');
+    } else if (error.message.includes('colors')) {
+      alert('Error Database: Kolom "colors" belum ada. Jalankan SQL: ALTER TABLE products ADD COLUMN colors jsonb DEFAULT \'[]\'::jsonb;');
     } else if (error.message.includes('null value in column "price"')) {
       alert('Error Database: Kolom "price" wajib diisi.');
     } else {
@@ -100,14 +104,15 @@ export const updateProduct = async (product: Product): Promise<Product | null> =
   if (!supabase) return product;
 
   // FIX: Pisahkan 'packageItems' dan 'sizes'
-  const { packageItems, sizes, ...restProductData } = product;
+  const { packageItems, sizes, colors, ...restProductData } = product;
 
   // Update legacy 'price' column as well to keep data consistent
   const payload = {
     ...restProductData,
     price: product.price2Days,
     package_items: packageItems, // Map ke snake_case
-    sizes: sizes || {} // Ensure sizes is sent
+    sizes: sizes || {}, // Ensure sizes is sent
+    colors: colors || []
   };
 
   const { data, error } = await supabase
@@ -121,8 +126,8 @@ export const updateProduct = async (product: Product): Promise<Product | null> =
     console.error('Error updating product:', error);
     if (error.code === '42501') {
       alert('Gagal Update: Izin Ditolak (RLS). Cek Policy di Supabase.');
-    } else if (error.message.includes('sizes')) {
-      alert('Error Database: Kolom "sizes" belum ada. Jalankan SQL: ALTER TABLE products ADD COLUMN sizes jsonb;');
+    } else if (error.message.includes('sizes') || error.message.includes('colors')) {
+      alert('Error Database: Pastikan kolom "sizes" dan "colors" sudah ada di database.');
     } else {
       alert('Gagal update produk: ' + error.message);
     }
@@ -200,6 +205,8 @@ export const processStockReduction = async (cartItems: CartItem[]): Promise<void
       }
 
       // B. Kurangi stok item utama (paket itu sendiri atau produk biasa tanpa size)
+      // Note: Untuk warna, kita tidak mengurangi stok spesifik per warna karena struktur DB sederhana.
+      // Kita hanya mengurangi stok global item tersebut.
       const currentStock = typeof dbProduct.stock === 'number' ? dbProduct.stock : 0;
       const newStock = Math.max(0, currentStock - item.quantity);
       await supabase.from('products').update({ stock: newStock }).eq('id', item.id);

@@ -25,11 +25,13 @@ export interface Product {
   stock: number;
   packageItems?: PackageItem[]; // Optional: Hanya untuk kategori paket
   sizes?: { [key: string]: number }; // Optional: Key (S, M, L...) Value (Stock count)
+  colors?: string[]; // Optional: Array warna yang tersedia
 }
 
 export interface CartItem extends Product {
   quantity: number;
   selectedSize?: string; // Menyimpan ukuran yang dipilih user
+  selectedColor?: string; // Menyimpan warna yang dipilih user
 }
 
 export interface UserDetails {

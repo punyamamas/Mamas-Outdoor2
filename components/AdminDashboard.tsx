@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Package, LogOut, Plus, Search, 
   Edit, Trash2, Save, X, Image as ImageIcon,
   AlertTriangle, DollarSign, Loader2, RotateCcw,
-  Database, Wifi, WifiOff, Tags, CheckSquare, Layers, Scissors, Footprints
+  Database, Wifi, WifiOff, Tags, CheckSquare, Layers, Scissors, Footprints, Palette
 } from 'lucide-react';
 import { Product, Category, PackageItem } from '../types';
 import { supabase } from '../services/supabase';
@@ -61,8 +61,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     description: '',
     image: '',
     packageItems: [],
-    sizes: {}
+    sizes: {},
+    colors: []
   });
+
+  // State khusus untuk input warna (comma separated string)
+  const [colorsInput, setColorsInput] = useState('');
 
   // Size Mode State (Clothing or Shoes)
   const [sizeType, setSizeType] = useState<'clothing' | 'shoes'>('clothing');
@@ -94,8 +98,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setProductFormData({
         ...product,
         packageItems: product.packageItems || [],
-        sizes: product.sizes || {}
+        sizes: product.sizes || {},
+        colors: product.colors || []
       });
+      setColorsInput((product.colors || []).join(', '));
 
       // Detect Size Type based on existing keys
       const keys = Object.keys(product.sizes || {});
@@ -118,8 +124,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         description: '',
         image: 'https://picsum.photos/400/300',
         packageItems: [],
-        sizes: {}
+        sizes: {},
+        colors: []
       });
+      setColorsInput('');
       setSizeType('clothing'); // Default
     }
     setIsProductModalOpen(true);
@@ -128,11 +136,23 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleProductSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+
+    // Process Colors Input
+    const processedColors = colorsInput
+      .split(',')
+      .map(c => c.trim())
+      .filter(c => c.length > 0);
+
+    const finalProductData = {
+      ...productFormData,
+      colors: processedColors
+    } as Product;
+
     try {
       if (editingProduct) {
-        await onUpdateProduct(productFormData as Product);
+        await onUpdateProduct(finalProductData);
       } else {
-        await onAddProduct(productFormData as Product);
+        await onAddProduct(finalProductData);
       }
       setIsProductModalOpen(false);
     } catch (error) {
@@ -444,6 +464,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                   <Scissors size={10} /> {Object.keys(product.sizes).join(', ')}
                                 </span>
                               )}
+                              {product.colors && product.colors.length > 0 && (
+                                <span className="text-xs text-purple-600 flex items-center gap-1">
+                                  <Palette size={10} /> {product.colors.join(', ')}
+                                </span>
+                              )}
                             </div>
                           </div>
                         </td>
@@ -624,12 +649,25 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
               </div>
 
+              {/* SECTION COLORS: For Jaket etc */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Warna Tersedia (Opsional)</label>
+                <input 
+                  type="text" 
+                  placeholder="Contoh: Merah, Biru Navy, Hitam (Pisahkan dengan koma)"
+                  className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-nature-500 outline-none"
+                  value={colorsInput}
+                  onChange={e => setColorsInput(e.target.value)}
+                />
+                <p className="text-[10px] text-gray-500 mt-1">*Kosongkan jika produk tidak memiliki varian warna.</p>
+              </div>
+
               {/* SECTION SIZE MANAGEMENT: For Pakaian/Jaket/Celana/Sepatu */}
               <div className="bg-orange-50 p-4 rounded-xl border border-orange-100">
                  <div className="flex justify-between items-center mb-3">
                     <h4 className="text-sm font-bold text-orange-800 flex items-center gap-2">
                       {sizeType === 'clothing' ? <Scissors size={16} /> : <Footprints size={16} />}
-                      Stok Varian
+                      Stok Varian Ukuran
                     </h4>
                     
                     {/* Size Type Toggle */}
