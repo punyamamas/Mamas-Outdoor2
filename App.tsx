@@ -92,19 +92,45 @@ function App() {
     setToast({ show: true, message });
   };
 
-  const addToCart = (product: Product, selectedSize?: string, selectedColor?: string) => {
-    setCartItems(prev => {
-      // Cari item yang ID-nya sama DAN (Size sama ATAU undefined) DAN (Color sama ATAU undefined)
-      const existingIndex = prev.findIndex(item => 
-        item.id === product.id && 
-        item.selectedSize === selectedSize &&
-        item.selectedColor === selectedColor
-      );
+  // Helper untuk mendapatkan stok yang tersedia berdasarkan konfigurasi (Varian/Size/Base)
+  const getAvailableStock = (product: Product, size?: string, color?: string): number => {
+    // 1. Advanced Variants (Color + Size)
+    if (product.variants && product.variants.length > 0 && size && color) {
+      const variant = product.variants.find(v => v.size === size && v.color === color);
+      return variant ? variant.stock : 0;
+    }
+    // 2. Simple Sizes (Legacy)
+    if (product.sizes && size && Object.keys(product.sizes).length > 0) {
+       return product.sizes[size] || 0;
+    }
+    // 3. Base Stock (Standard)
+    return product.stock || 0;
+  };
 
-      if (existingIndex !== -1) {
+  const addToCart = (product: Product, selectedSize?: string, selectedColor?: string) => {
+    const maxStock = getAvailableStock(product, selectedSize, selectedColor);
+
+    // Cek item yang sudah ada di keranjang dengan varian yang sama
+    const existingItem = cartItems.find(item => 
+      item.id === product.id && 
+      item.selectedSize === selectedSize &&
+      item.selectedColor === selectedColor
+    );
+
+    const currentQtyInCart = existingItem ? existingItem.quantity : 0;
+
+    // VALIDASI STOK
+    if (currentQtyInCart + 1 > maxStock) {
+      showToast(`Ups! Stok hanya tersedia ${maxStock} unit.`);
+      return;
+    }
+
+    setCartItems(prev => {
+      if (existingItem) {
         // Jika sudah ada (Id & Size & Color sama), update quantity
         const newItems = [...prev];
-        newItems[existingIndex].quantity += 1;
+        const index = prev.indexOf(existingItem);
+        newItems[index] = { ...existingItem, quantity: existingItem.quantity + 1 };
         return newItems;
       }
       
@@ -112,8 +138,7 @@ function App() {
       return [...prev, { ...product, quantity: 1, selectedSize, selectedColor }];
     });
     
-    // UX Update: Jangan buka drawer, tapi tampilkan notifikasi agar user bisa lanjut belanja
-    // setIsCartOpen(true); 
+    // UX Update: Tampilkan notifikasi
     const variantInfo = [];
     if (selectedSize) variantInfo.push(selectedSize);
     if (selectedColor) variantInfo.push(selectedColor);
@@ -139,6 +164,18 @@ function App() {
   };
 
   const updateQuantity = (id: string, delta: number, size?: string, color?: string) => {
+    // Jika menambah quantity, cek stok dulu
+    if (delta > 0) {
+      const itemInCart = cartItems.find(i => i.id === id && i.selectedSize === size && i.selectedColor === color);
+      if (itemInCart) {
+        const maxStock = getAvailableStock(itemInCart, size, color);
+        if (itemInCart.quantity + delta > maxStock) {
+          showToast(`Maksimal stok tercapai (${maxStock} unit)`);
+          return;
+        }
+      }
+    }
+
     setCartItems(prev => prev.map(item => {
       if (item.id === id && item.selectedSize === size && item.selectedColor === color) {
         const newQty = item.quantity + delta;

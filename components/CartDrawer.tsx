@@ -45,6 +45,18 @@ const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, cartItems, onU
     return unitPrice;
   };
 
+  // Helper untuk mendapatkan max stok item di cart (Duplikasi logic dari App.tsx agar UI responsif)
+  const getAvailableStock = (item: CartItem): number => {
+    if (item.variants && item.variants.length > 0 && item.selectedSize && item.selectedColor) {
+      const variant = item.variants.find(v => v.size === item.selectedSize && v.color === item.selectedColor);
+      return variant ? variant.stock : 0;
+    }
+    if (item.sizes && item.selectedSize && Object.keys(item.sizes).length > 0) {
+       return item.sizes[item.selectedSize] || 0;
+    }
+    return item.stock || 0;
+  };
+
   const calculateTotal = () => {
     return cartItems.reduce((sum, item) => {
       const itemPriceTotal = getItemPriceForDuration(item, userDetails.duration) * item.quantity;
@@ -149,6 +161,9 @@ const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, cartItems, onU
                       const displayPrice = item.price2Days || 0;
                       // Unique key combining ID, Size, and Color
                       const itemKey = `${item.id}-${item.selectedSize || 'default'}-${item.selectedColor || 'default'}`;
+                      
+                      const maxStock = getAvailableStock(item);
+                      const isMaxStock = item.quantity >= maxStock;
 
                       return (
                         <div key={itemKey} className="flex gap-4">
@@ -176,13 +191,19 @@ const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, cartItems, onU
                                 <span className="text-sm font-medium w-4 text-center">{item.quantity}</span>
                                 <button 
                                   onClick={() => onUpdateQuantity(item.id, 1, item.selectedSize, item.selectedColor)}
-                                  className="w-6 h-6 flex items-center justify-center bg-white rounded shadow-sm text-gray-600 hover:text-nature-600 text-xs"
+                                  disabled={isMaxStock}
+                                  className={`w-6 h-6 flex items-center justify-center bg-white rounded shadow-sm text-xs transition ${
+                                    isMaxStock ? 'text-gray-300 cursor-not-allowed' : 'text-gray-600 hover:text-nature-600'
+                                  }`}
                                 >+</button>
                               </div>
                               <button onClick={() => onRemoveItem(item.id, item.selectedSize, item.selectedColor)} className="text-red-400 hover:text-red-600 p-1">
                                 <Trash2 size={18} />
                               </button>
                             </div>
+                            {isMaxStock && (
+                              <p className="text-[10px] text-red-500 mt-1 italic">Stok maksimal</p>
+                            )}
                           </div>
                         </div>
                       );
