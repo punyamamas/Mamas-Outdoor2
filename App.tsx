@@ -5,7 +5,8 @@ import HistoryDrawer from './components/HistoryDrawer';
 import GeminiAdvisor from './components/GeminiAdvisor';
 import TermsModal from './components/TermsModal';
 import AdminDashboard from './components/AdminDashboard';
-import ProductDetailModal from './components/ProductDetailModal'; // Import Baru
+import ProductDetailModal from './components/ProductDetailModal';
+import Toast from './components/Toast'; // Import Toast
 import { PRODUCTS, CATEGORIES as CONSTANT_CATEGORIES } from './constants'; 
 import { CartItem, Product, Category } from './types';
 import { getProducts, addProduct, updateProduct, deleteProduct } from './services/productService';
@@ -29,6 +30,9 @@ function App() {
   
   // State untuk detail modal
   const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
+
+  // State untuk Toast Notification
+  const [toast, setToast] = useState<{ show: boolean; message: string }>({ show: false, message: '' });
 
   // Define fetch data functions
   const fetchData = async () => {
@@ -84,6 +88,10 @@ function App() {
     localStorage.setItem('mamasCart', JSON.stringify(cartItems));
   }, [cartItems]);
 
+  const showToast = (message: string) => {
+    setToast({ show: true, message });
+  };
+
   const addToCart = (product: Product, selectedSize?: string, selectedColor?: string) => {
     setCartItems(prev => {
       // Cari item yang ID-nya sama DAN (Size sama ATAU undefined) DAN (Color sama ATAU undefined)
@@ -103,7 +111,15 @@ function App() {
       // Jika belum ada, tambah baru dengan selectedSize & selectedColor
       return [...prev, { ...product, quantity: 1, selectedSize, selectedColor }];
     });
-    setIsCartOpen(true);
+    
+    // UX Update: Jangan buka drawer, tapi tampilkan notifikasi agar user bisa lanjut belanja
+    // setIsCartOpen(true); 
+    const variantInfo = [];
+    if (selectedSize) variantInfo.push(selectedSize);
+    if (selectedColor) variantInfo.push(selectedColor);
+    const infoStr = variantInfo.length > 0 ? ` (${variantInfo.join(', ')})` : '';
+    
+    showToast(`${product.name}${infoStr} berhasil masuk keranjang!`);
   };
 
   const addRecommendedToCart = (productId: string) => {
@@ -112,8 +128,9 @@ function App() {
       // Note: Untuk rekomendasi AI, jika produk butuh size/warna, idealnya buka modal.
       const hasSize = product.sizes && Object.keys(product.sizes).length > 0;
       const hasColor = product.colors && product.colors.length > 0;
+      const hasVariants = product.variants && product.variants.length > 0;
       
-      if (hasSize || hasColor) {
+      if (hasSize || hasColor || hasVariants) {
         setViewingProduct(product); // Buka modal biar user pilih varian
       } else {
         addToCart(product);
@@ -256,6 +273,13 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gray-50 pt-16">
+      {/* Toast Notification */}
+      <Toast 
+        message={toast.message} 
+        isVisible={toast.show} 
+        onClose={() => setToast({ ...toast, show: false })} 
+      />
+
       <Navbar 
         cartCount={cartItems.reduce((acc, item) => acc + item.quantity, 0)} 
         onOpenCart={() => setIsCartOpen(true)}
@@ -529,7 +553,7 @@ function App() {
                           onClick={(e) => {
                             e.stopPropagation();
                             // Jika produk punya varian size/warna, buka modal (viewingProduct)
-                            const hasVariant = (product.sizes && Object.keys(product.sizes).length > 0) || (product.colors && product.colors.length > 0);
+                            const hasVariant = (product.sizes && Object.keys(product.sizes).length > 0) || (product.colors && product.colors.length > 0) || (product.variants && product.variants.length > 0);
                             
                             if (hasVariant) {
                               setViewingProduct(product);
