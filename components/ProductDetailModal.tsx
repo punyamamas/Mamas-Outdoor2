@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, ShoppingCart, Check, Layers, Clock, Sparkles, Tag, ShieldCheck, Zap, Box, Scissors, Footprints, Palette } from 'lucide-react';
 import { Product } from '../types';
+import ImageLoader from './ImageLoader';
 
 interface ProductDetailModalProps {
   isOpen: boolean;
@@ -152,7 +153,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
           {/* Left Side: Image Area */}
           <div className="w-full md:w-5/12 bg-gray-100 relative h-72 md:h-auto group">
-             <img 
+             <ImageLoader 
                src={displayImage} 
                alt={product.name} 
                className="w-full h-full object-cover transition-all duration-500 group-hover:scale-105"

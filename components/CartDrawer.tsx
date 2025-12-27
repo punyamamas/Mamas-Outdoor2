@@ -3,6 +3,7 @@ import { X, Trash2, Calendar, Phone, User, School, ArrowRight, AlertCircle, Load
 import { CartItem, UserDetails, Transaction } from '../types';
 import { WA_NUMBER } from '../constants';
 import { processStockReduction } from '../services/productService';
+import ImageLoader from './ImageLoader';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -167,7 +168,14 @@ const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, cartItems, onU
 
                       return (
                         <div key={itemKey} className="flex gap-4">
-                          <img src={item.image} alt={item.name} className="w-20 h-20 object-cover rounded-lg bg-gray-100" />
+                          <div className="w-20 h-20 relative flex-shrink-0">
+                            <ImageLoader 
+                              src={item.image} 
+                              alt={item.name} 
+                              className="w-full h-full object-cover rounded-lg"
+                              containerClassName="rounded-lg"
+                            />
+                          </div>
                           <div className="flex-1">
                             <h3 className="font-semibold text-gray-800 text-sm">{item.name}</h3>
                             <div className="flex flex-wrap gap-1 mt-1">

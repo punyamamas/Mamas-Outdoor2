@@ -7,6 +7,7 @@ import TermsModal from './components/TermsModal';
 import AdminDashboard from './components/AdminDashboard';
 import ProductDetailModal from './components/ProductDetailModal';
 import Toast from './components/Toast'; // Import Toast
+import ImageLoader from './components/ImageLoader'; // Import ImageLoader
 import { PRODUCTS, CATEGORIES as CONSTANT_CATEGORIES } from './constants'; 
 import { CartItem, Product, Category } from './types';
 import { getProducts, addProduct, updateProduct, deleteProduct } from './services/productService';
@@ -351,10 +352,7 @@ function App() {
         product={viewingProduct}
         allProducts={products}
         onAddToCart={addToCart}
-        isInCart={viewingProduct ? !!cartItems.find(i => 
-          i.id === viewingProduct.id && 
-          (!i.selectedSize || (i.selectedSize === viewingProduct.sizes && false)) // Simplification for cart check
-        ) : false} 
+        isInCart={viewingProduct ? !!cartItems.find(i => i.id === viewingProduct.id) : false} 
       />
 
       {/* Hero Section */}
@@ -534,14 +532,16 @@ function App() {
                   className="group relative bg-white rounded-3xl border border-gray-100 overflow-hidden hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)] transition-all duration-500 hover:-translate-y-2 flex flex-col h-full cursor-pointer"
                 >
                   <div className="relative h-64 overflow-hidden bg-gray-100">
-                    <img 
+                    {/* Menggunakan ImageLoader untuk Lazy Loading & UX */}
+                    <ImageLoader 
                       src={product.image} 
                       alt={product.name} 
                       className="w-full h-full object-cover group-hover:scale-110 transition duration-700 ease-in-out" 
                     />
+                    
                     <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition duration-300"></div>
 
-                    <div className="absolute top-4 right-4 flex flex-col gap-2 items-end">
+                    <div className="absolute top-4 right-4 flex flex-col gap-2 items-end z-20">
                        {product.stock < 3 && product.stock > 0 && (
                          <span className="bg-adventure-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-full shadow-lg animate-pulse uppercase tracking-wider flex items-center gap-1">
                            <Zap size={10} fill="currentColor" /> Terbatas!
@@ -554,7 +554,7 @@ function App() {
                        </span>
                     </div>
 
-                    <div className="absolute top-4 left-4">
+                    <div className="absolute top-4 left-4 z-20">
                       <span className="bg-white/20 backdrop-blur-md border border-white/30 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm">
                         {product.category}
                       </span>
@@ -642,6 +642,8 @@ function App() {
               <img 
                 src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=800&auto=format&fit=crop" 
                 alt="Gunung Slamet" 
+                loading="lazy"
+                decoding="async"
                 className="w-full h-full object-cover group-hover:scale-105 transition duration-700"
               />
               <div className="absolute top-4 left-4 bg-white/90 backdrop-blur px-4 py-2 rounded-lg text-center shadow-lg">
@@ -674,6 +676,8 @@ function App() {
               <img 
                 src="https://images.unsplash.com/photo-1533240332313-0db49b459ad6?q=80&w=800&auto=format&fit=crop" 
                 alt="Camping Ceria" 
+                loading="lazy"
+                decoding="async"
                 className="w-full h-full object-cover group-hover:scale-105 transition duration-700"
               />
               <div className="absolute top-4 left-4 bg-white/90 backdrop-blur px-4 py-2 rounded-lg text-center shadow-lg">
