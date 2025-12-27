@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Package, LogOut, Plus, Search, 
   Edit, Trash2, Save, X, Image as ImageIcon,
   AlertTriangle, DollarSign, Loader2, RotateCcw,
-  Database, Wifi, WifiOff, Tags, CheckSquare, Layers, Scissors, Footprints, Palette, ChevronDown, ChevronUp
+  Database, Wifi, WifiOff, Tags, CheckSquare, Layers, Scissors, Footprints, Palette, ChevronDown, ChevronUp, Lock
 } from 'lucide-react';
 import { Product, Category, PackageItem, ProductVariant, ColorImage } from '../types';
 import { supabase } from '../services/supabase';
@@ -73,9 +73,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [tempVariantGroups, setTempVariantGroups] = useState<TempVariantGroup[]>([]);
   const [simpleSizes, setSimpleSizes] = useState<{ [key: string]: number }>({});
   
-  // Constants
-  const AVAILABLE_SIZES = ['S', 'M', 'L', 'XL', 'XXL', '36', '37', '38', '39', '40', '41', '42', '43', '44', '45'];
-  const CLOTHING_SIZES = ['S', 'M', 'L', 'XL', 'XXL'];
+  // Constants: Updated to include 36-48
+  const AVAILABLE_SIZES = [
+    'S', 'M', 'L', 'XL', 'XXL', 
+    '36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46', '47', '48'
+  ];
   
   // Categories State
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -286,6 +288,44 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     p.category.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // --- LOCK SCREEN LOGIC ---
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+        <div className="bg-white p-8 rounded-3xl shadow-2xl max-w-md w-full text-center">
+           <div className="w-20 h-20 bg-nature-100 rounded-full flex items-center justify-center mx-auto mb-6 text-nature-600">
+             <Lock size={40} />
+           </div>
+           <h2 className="text-2xl font-black text-gray-900 mb-2">Admin Area</h2>
+           <p className="text-gray-500 mb-6">Area terbatas khusus pasukan Mamas Outdoor.</p>
+           
+           <form onSubmit={handleLogin} className="space-y-4">
+             <input 
+               type="password" 
+               placeholder="Masukkan Password..." 
+               className="w-full px-5 py-3 rounded-xl border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-nature-500 outline-none transition"
+               value={password}
+               onChange={(e) => setPassword(e.target.value)}
+             />
+             <button 
+               type="submit"
+               className="w-full py-3 bg-nature-600 hover:bg-nature-700 text-white font-bold rounded-xl shadow-lg shadow-nature-200 transition"
+             >
+               Buka Pintu
+             </button>
+           </form>
+           
+           <button 
+             onClick={onBackToHome}
+             className="mt-6 text-gray-400 hover:text-gray-600 text-sm font-medium flex items-center justify-center gap-2 w-full"
+           >
+             <LogOut size={16} /> Kembali ke Beranda
+           </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row">
@@ -676,7 +716,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <div className="bg-gray-50 p-3 rounded-lg">
                         <p className="text-xs font-bold text-gray-500 mb-2">Stok per Ukuran untuk Warna {group.colorName || '...'}</p>
                         <div className="grid grid-cols-5 gap-2">
-                          {CLOTHING_SIZES.map(size => (
+                          {AVAILABLE_SIZES.map(size => (
                             <div key={size} className="text-center">
                               <span className="block text-[10px] text-gray-400 font-bold mb-0.5">{size}</span>
                               <input 
@@ -702,7 +742,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                      <Scissors size={16} /> Stok Sederhana (Tanpa Warna Spesifik)
                    </h4>
                    <div className="grid grid-cols-5 gap-2">
-                     {CLOTHING_SIZES.map(size => (
+                     {AVAILABLE_SIZES.map(size => (
                        <div key={size} className="text-center">
                          <label className="block text-xs font-bold text-gray-500 mb-1">{size}</label>
                          <input 
