@@ -5,7 +5,7 @@ import {
   AlertTriangle, DollarSign, Loader2, RotateCcw,
   Database, Wifi, WifiOff, Tags, CheckSquare, Layers, Scissors, Footprints, Palette, ChevronDown, ChevronUp, Lock, ShoppingBag,
   Warehouse, ClipboardList, TrendingUp, AlertCircle, MinusCircle, PlusCircle, HeartCrack, Hammer, ArrowRightLeft, FileText,
-  User, Calendar, Clock, Phone, School, Eye
+  User, Calendar, Clock, Phone, School, Eye, CreditCard, Banknote
 } from 'lucide-react';
 import { Product, Category, PackageItem, ProductVariant, ColorImage, Transaction } from '../types';
 import { supabase } from '../services/supabase';
@@ -842,6 +842,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           <p><span className="font-semibold w-24 inline-block">Durasi:</span> {selectedTransaction.duration} Hari</p>
                           <p><span className="font-semibold w-24 inline-block">Total:</span> <span className="font-bold text-nature-600">Rp{selectedTransaction.totalPrice.toLocaleString('id-ID')}</span></p>
                        </div>
+                    </div>
+
+                    {/* Kolom Pembayaran (NEW) */}
+                    <div className="col-span-1 md:col-span-2 bg-blue-50 p-4 rounded-xl border border-blue-100">
+                        <h4 className="text-xs font-bold uppercase text-blue-800 mb-2 flex items-center gap-2">
+                           {selectedTransaction.paymentMethod === 'transfer' ? <CreditCard size={14}/> : <Banknote size={14}/>} 
+                           Metode Pembayaran
+                        </h4>
+                        <p className="text-sm font-bold text-gray-800">
+                          {selectedTransaction.paymentMethod === 'transfer' ? 'TRANSFER BANK (DP)' : 'CASH DI OUTLET'}
+                        </p>
                     </div>
                  </div>
 

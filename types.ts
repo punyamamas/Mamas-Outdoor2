@@ -54,7 +54,8 @@ export interface UserDetails {
   whatsapp: string;
   campus: string; 
   rentalDate: string;
-  duration: number; 
+  duration: number;
+  paymentMethod: 'transfer' | 'cash'; // Added payment method
 }
 
 // Updated Transaction Interface
@@ -69,6 +70,7 @@ export interface Transaction {
   totalPrice: number; // Mapped from total_price
   items: CartItem[];
   status: 'pending' | 'active' | 'completed' | 'cancelled'; 
+  paymentMethod?: 'transfer' | 'cash'; // Added payment method (optional for backward compatibility)
 }
 
 export enum GeminiModel {

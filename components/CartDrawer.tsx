@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Trash2, Calendar, Phone, User, School, ArrowRight, AlertCircle, Loader2, Clock } from 'lucide-react';
+import { X, Trash2, Calendar, Phone, User, School, ArrowRight, AlertCircle, Loader2, Clock, CreditCard, Banknote } from 'lucide-react';
 import { CartItem, UserDetails, Transaction } from '../types';
 import { WA_NUMBER } from '../constants';
 import { processStockReduction } from '../services/productService';
@@ -32,7 +32,8 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
     whatsapp: '',
     campus: '',
     rentalDate: new Date().toISOString().split('T')[0],
-    duration: 2 
+    duration: 2,
+    paymentMethod: 'cash' // Default ke Cash
   });
 
   const getItemPriceForDuration = (item: CartItem, days: number): number => {
@@ -120,7 +121,8 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
         duration: userDetails.duration,
         totalPrice: total,
         items: [...cartItems],
-        status: 'pending'
+        status: 'pending',
+        paymentMethod: userDetails.paymentMethod
       };
 
       const existingHistory = localStorage.getItem('mamasHistory');
@@ -129,6 +131,7 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
       localStorage.setItem('mamasHistory', JSON.stringify(history));
 
       // 5. Construct WhatsApp Message
+      const paymentLabel = userDetails.paymentMethod === 'transfer' ? 'Transfer (DP)' : 'Cash di Outlet';
       const header = `*Halo Mamas Outdoor! Saya mau sewa dong.*\n\n`;
       const buyerInfo = `*Data Penyewa:*\nNama: ${userDetails.name}\nKampus: ${userDetails.campus}\nWA: ${userDetails.whatsapp}\n\n*Jadwal Sewa:*\nAmbil: ${userDetails.rentalDate}\nDurasi: ${userDetails.duration} Hari\nKembali: ${returnDateFormatted}\n\n`;
       
@@ -139,7 +142,7 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
         return `${idx + 1}. ${item.name}${sizeLabel}${colorLabel} (${item.quantity}x)\n   @ Rp${priceForDuration.toLocaleString('id-ID')} (Paket ${userDetails.duration} Hari)`;
       }).join('\n');
 
-      const footer = `\n\n*Total Estimasi: Rp${total.toLocaleString('id-ID')}*`;
+      const footer = `\n\n*Total Estimasi: Rp${total.toLocaleString('id-ID')}*\n*Metode Bayar: ${paymentLabel}*`;
       
       const fullMessage = encodeURIComponent(header + buyerInfo + "*List Alat:*\n" + itemsList + footer);
       
@@ -338,6 +341,48 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
                       onChange={e => handleDurationChange(parseInt(e.target.value) || 2)}
                     />
                   </div>
+                </div>
+
+                {/* Bagian Pilihan Pembayaran */}
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Metode Pembayaran</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => setUserDetails({...userDetails, paymentMethod: 'cash'})}
+                      className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all ${
+                        userDetails.paymentMethod === 'cash' 
+                          ? 'border-nature-600 bg-nature-50 text-nature-700' 
+                          : 'border-gray-200 bg-white text-gray-600 hover:border-nature-200'
+                      }`}
+                    >
+                      <Banknote size={24} className="mb-1" />
+                      <span className="text-xs font-bold">Cash di Outlet</span>
+                    </button>
+                    
+                    <button
+                      onClick={() => setUserDetails({...userDetails, paymentMethod: 'transfer'})}
+                      className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all ${
+                        userDetails.paymentMethod === 'transfer' 
+                          ? 'border-blue-600 bg-blue-50 text-blue-700' 
+                          : 'border-gray-200 bg-white text-gray-600 hover:border-blue-200'
+                      }`}
+                    >
+                      <CreditCard size={24} className="mb-1" />
+                      <span className="text-xs font-bold">Transfer (DP)</span>
+                    </button>
+                  </div>
+                  
+                  {/* Info Rekening jika pilih Transfer */}
+                  {userDetails.paymentMethod === 'transfer' && (
+                    <div className="mt-3 bg-blue-50 p-3 rounded-lg border border-blue-100 text-sm text-blue-800 animate-slide-in-right">
+                       <p className="font-bold mb-1">Rekening Pembayaran DP:</p>
+                       <ul className="list-disc pl-4 space-y-1 text-xs">
+                         <li><strong>BRI:</strong> 1234-5678-9000 (Mamas Outdoor)</li>
+                         <li><strong>BCA:</strong> 098-765-4321 (Mamas Outdoor)</li>
+                         <li><em>Harap lampirkan bukti transfer di chat WhatsApp nanti.</em></li>
+                       </ul>
+                    </div>
+                  )}
                 </div>
 
                 <div className="bg-blue-50 p-4 rounded-lg mt-6">

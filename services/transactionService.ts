@@ -18,7 +18,8 @@ export const createTransaction = async (
     duration: userDetails.duration,
     total_price: totalPrice,
     items: cartItems, // JSONB
-    status: 'pending'
+    status: 'pending',
+    payment_method: userDetails.paymentMethod // Store payment choice
   };
 
   const { data, error } = await supabase
@@ -156,6 +157,7 @@ const mapDbToTransaction = (dbItem: any): Transaction => {
     duration: dbItem.duration,
     totalPrice: dbItem.total_price,
     items: dbItem.items,
-    status: dbItem.status
+    status: dbItem.status,
+    paymentMethod: dbItem.payment_method || 'cash' // Fallback to cash if null
   };
 };
