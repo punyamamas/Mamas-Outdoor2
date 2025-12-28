@@ -53,6 +53,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   
+  // Return Modal State (Untuk pengembalian barang bervarian)
+  const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
+  const [returnProduct, setReturnProduct] = useState<Product | null>(null);
+  const [returnVariantKey, setReturnVariantKey] = useState<string>(''); // format: "Color|Size" or "Size"
+  const [returnQty, setReturnQty] = useState<number>(1);
+
   // Basic Product Data
   const [productFormData, setProductFormData] = useState<Partial<Product>>({
     name: '',
@@ -281,6 +287,20 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // 4. Barang Kembali dari Sewa (Rented -> Ready)
   const handleReturnFromRent = async (product: Product) => {
     if (!product.rented || product.rented <= 0) return;
+
+    // DETEKSI APAKAH PRODUK KOMPLEKS (Punya Varian/Size)
+    const isComplex = (product.variants && product.variants.length > 0) || (product.sizes && Object.keys(product.sizes).length > 0);
+
+    if (isComplex) {
+      // Jika kompleks, buka modal khusus untuk memilih varian mana yang kembali
+      setReturnProduct(product);
+      setReturnQty(1);
+      setReturnVariantKey(''); // Reset selection
+      setIsReturnModalOpen(true);
+      return;
+    }
+
+    // Jika produk simple (Tenda, Kompor), gunakan prompt biasa
     const qty = prompt(`Berapa unit "${product.name}" yang kembali? (Max: ${product.rented})`, "1");
     if (!qty) return;
     const val = parseInt(qty);
@@ -291,6 +311,59 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       stock: product.stock + val, 
       rented: product.rented - val 
     });
+  };
+
+  // 4b. Handler untuk Submit Pengembalian Barang Kompleks
+  const handleComplexReturnSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!returnProduct || !returnVariantKey) return;
+
+    // Copy object produk
+    const updatedProduct = { ...returnProduct };
+    const rentedCount = updatedProduct.rented || 0;
+    
+    // Validasi jumlah
+    if (returnQty > rentedCount) {
+      alert(`Jumlah kembali (${returnQty}) melebihi jumlah yang sedang disewa (${rentedCount})!`);
+      return;
+    }
+
+    // Update Global Counts
+    updatedProduct.stock = (updatedProduct.stock || 0) + returnQty;
+    updatedProduct.rented = rentedCount - returnQty;
+
+    // Update Specific Variant Stock
+    if (updatedProduct.variants && updatedProduct.variants.length > 0) {
+       // Format Key: "Warna|Size"
+       const [color, size] = returnVariantKey.split('|');
+       const updatedVariants = [...updatedProduct.variants];
+       const variantIndex = updatedVariants.findIndex(v => v.color === color && v.size === size);
+       
+       if (variantIndex !== -1) {
+         updatedVariants[variantIndex] = {
+           ...updatedVariants[variantIndex],
+           stock: updatedVariants[variantIndex].stock + returnQty
+         };
+         updatedProduct.variants = updatedVariants;
+       } else {
+         // Fallback jika varian somehow hilang, kita recreate (sangat jarang terjadi)
+         updatedVariants.push({ color, size, stock: returnQty });
+         updatedProduct.variants = updatedVariants;
+       }
+    } 
+    else if (updatedProduct.sizes) {
+      // Format Key: "Size"
+      const size = returnVariantKey;
+      const updatedSizes = { ...updatedProduct.sizes };
+      updatedSizes[size] = (updatedSizes[size] || 0) + returnQty;
+      updatedProduct.sizes = updatedSizes;
+    }
+
+    // Save to DB
+    setIsSubmitting(true);
+    await onUpdateProduct(updatedProduct);
+    setIsSubmitting(false);
+    setIsReturnModalOpen(false);
   };
 
   // 5. Barang Keluar Manual (Ready -> Rented) - Optional override
@@ -671,6 +744,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                        </thead>
                        <tbody className="divide-y divide-gray-100">
                           {warehouseProducts.map(p => {
+                            // Check if product has variants to disable some quick actions (handled separately now)
                             const isComplex = (p.variants && p.variants.length > 0) || (p.sizes && Object.keys(p.sizes).length > 0);
                             
                             return (
@@ -680,7 +754,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                        <span>{p.name}</span>
                                        <div className="flex items-center gap-2 mt-1">
                                          <span className="text-[10px] bg-gray-100 px-1.5 py-0.5 rounded text-gray-500 border border-gray-200">{p.category}</span>
-                                         {isComplex && <span className="text-[10px] text-gray-400 italic">Multi-Varian</span>}
+                                         {isComplex && <span className="text-[10px] text-purple-600 font-bold italic flex items-center gap-1"><Layers size={10} />Multi-Varian</span>}
                                        </div>
                                     </div>
                                  </td>
@@ -715,8 +789,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                        <button 
                                          onClick={() => handleRestock(p)}
                                          disabled={isComplex}
-                                         className="p-1.5 text-gray-500 hover:text-green-600 hover:bg-green-100 rounded transition"
-                                         title="Restock Baru"
+                                         className="p-1.5 text-gray-500 hover:text-green-600 hover:bg-green-100 rounded transition disabled:opacity-30 disabled:cursor-not-allowed"
+                                         title={isComplex ? "Edit Produk untuk menambah varian" : "Restock Baru"}
                                        >
                                           <PlusCircle size={18} />
                                        </button>
@@ -727,7 +801,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                        <button
                                          onClick={() => handleManualRent(p)}
                                          disabled={p.stock <= 0 || isComplex}
-                                         className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-100 rounded transition"
+                                         className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-100 rounded transition disabled:opacity-30"
                                          title="Manual Keluar (Sewa)"
                                        >
                                           <MinusCircle size={18} />
@@ -736,8 +810,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                        {/* 3. Return From Rent */}
                                        <button
                                          onClick={() => handleReturnFromRent(p)}
-                                         disabled={(p.rented || 0) <= 0 || isComplex}
-                                         className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-100 rounded transition"
+                                         disabled={(p.rented || 0) <= 0}
+                                         className={`p-1.5 rounded transition ${
+                                            (p.rented || 0) > 0 
+                                            ? 'text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200' 
+                                            : 'text-gray-400 disabled:opacity-30'
+                                         }`}
                                          title="Barang Kembali (Masuk Gudang)"
                                        >
                                           <ArrowRightLeft size={18} />
@@ -749,7 +827,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                        <button
                                          onClick={() => handleReportDamage(p)}
                                          disabled={p.stock <= 0 || isComplex}
-                                         className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-100 rounded transition"
+                                         className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-100 rounded transition disabled:opacity-30"
                                          title="Lapor Rusak"
                                        >
                                           <HeartCrack size={18} />
@@ -759,7 +837,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                        <button
                                          onClick={() => handleRepairFinish(p)}
                                          disabled={(p.damaged || 0) <= 0 || isComplex}
-                                         className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-100 rounded transition"
+                                         className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-100 rounded transition disabled:opacity-30"
                                          title="Selesai Servis"
                                        >
                                           <Hammer size={18} />
@@ -956,6 +1034,83 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           )}
         </div>
       </main>
+
+      {/* MODAL RETURN ITEM KOMPLEKS (Size/Color) */}
+      {isReturnModalOpen && returnProduct && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsReturnModalOpen(false)}></div>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md relative z-10 overflow-hidden animate-slide-in-right">
+             <div className="px-6 py-4 bg-blue-50 border-b border-blue-100 flex justify-between items-center">
+               <div>
+                  <h3 className="font-bold text-lg text-blue-900">Pengembalian Barang</h3>
+                  <p className="text-xs text-blue-600">Pilih varian yang kembali ke gudang</p>
+               </div>
+               <button onClick={() => setIsReturnModalOpen(false)} className="text-blue-400 hover:text-blue-600">
+                 <X size={24} />
+               </button>
+             </div>
+             
+             <form onSubmit={handleComplexReturnSubmit} className="p-6 space-y-4">
+                <div className="bg-gray-50 p-3 rounded-lg flex items-center gap-3">
+                   <img src={returnProduct.image} className="w-12 h-12 object-cover rounded-lg border border-gray-200" alt="" />
+                   <div>
+                      <p className="font-bold text-gray-900 text-sm">{returnProduct.name}</p>
+                      <p className="text-xs text-gray-500">Total Sewa: {returnProduct.rented} unit</p>
+                   </div>
+                </div>
+
+                <div>
+                   <label className="block text-sm font-bold text-gray-700 mb-2">Varian yang Kembali:</label>
+                   <select 
+                      required
+                      className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                      value={returnVariantKey}
+                      onChange={(e) => setReturnVariantKey(e.target.value)}
+                   >
+                      <option value="">-- Pilih Varian --</option>
+                      {returnProduct.variants && returnProduct.variants.length > 0 ? (
+                        returnProduct.variants.map((v, idx) => (
+                           <option key={`${v.color}|${v.size}`} value={`${v.color}|${v.size}`}>
+                              {v.color} - Size {v.size} (Stok Gudang: {v.stock})
+                           </option>
+                        ))
+                      ) : returnProduct.sizes ? (
+                         Object.entries(returnProduct.sizes).map(([size, stock]) => (
+                            <option key={size} value={size}>
+                              Size {size} (Stok Gudang: {stock})
+                            </option>
+                         ))
+                      ) : null}
+                   </select>
+                </div>
+
+                <div>
+                   <label className="block text-sm font-bold text-gray-700 mb-2">Jumlah Kembali:</label>
+                   <input 
+                      type="number" 
+                      min="1"
+                      max={returnProduct.rented || 1}
+                      className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                      value={returnQty}
+                      onChange={(e) => setReturnQty(parseInt(e.target.value) || 1)}
+                   />
+                   <p className="text-xs text-gray-500 mt-1 text-right">Maksimal: {returnProduct.rented}</p>
+                </div>
+
+                <div className="pt-2">
+                   <button 
+                      type="submit"
+                      disabled={isSubmitting}
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-blue-200 transition flex items-center justify-center gap-2"
+                   >
+                      {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : <RotateCcw size={20} />}
+                      Kembalikan ke Stok
+                   </button>
+                </div>
+             </form>
+          </div>
+        </div>
+      )}
 
       {/* Add/Edit Product Modal */}
       {isProductModalOpen && (
