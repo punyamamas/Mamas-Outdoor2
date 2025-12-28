@@ -3,7 +3,8 @@ import {
   LayoutDashboard, Package, LogOut, Plus, Search, 
   Edit, Trash2, Save, X, Image as ImageIcon,
   AlertTriangle, DollarSign, Loader2, RotateCcw,
-  Database, Wifi, WifiOff, Tags, CheckSquare, Layers, Scissors, Footprints, Palette, ChevronDown, ChevronUp, Lock, ShoppingBag
+  Database, Wifi, WifiOff, Tags, CheckSquare, Layers, Scissors, Footprints, Palette, ChevronDown, ChevronUp, Lock, ShoppingBag,
+  Warehouse, ClipboardList, TrendingUp, AlertCircle, MinusCircle, PlusCircle
 } from 'lucide-react';
 import { Product, Category, PackageItem, ProductVariant, ColorImage } from '../types';
 import { supabase } from '../services/supabase';
@@ -43,7 +44,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'categories'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'warehouse' | 'categories'>('dashboard');
   const [searchTerm, setSearchTerm] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
   
@@ -77,6 +78,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [isPackageMode, setIsPackageMode] = useState(false);
   const [packageSearchTerm, setPackageSearchTerm] = useState('');
   
+  // Warehouse specific state
+  const [warehouseFilter, setWarehouseFilter] = useState<'all' | 'low_stock'>('all');
+
   // Constants: Updated to include 36-48
   const AVAILABLE_SIZES = [
     'S', 'M', 'L', 'XL', 'XXL', 
@@ -235,6 +239,29 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
+  // --- Quick Stock Update for Warehouse ---
+  const handleQuickStockUpdate = async (product: Product, delta: number) => {
+    // Determine new stock
+    const newStock = Math.max(0, product.stock + delta);
+    
+    // Create optimistic update
+    const updatedProduct = { ...product, stock: newStock };
+    
+    // We only update the 'stock' field primarily here, 
+    // but the API requires the full object usually or we can use the main update function
+    // For simplicity and safety, we reuse onUpdateProduct but we must respect variants/sizes if they exist.
+    // NOTE: This simple quick update only updates the main stock counter. 
+    // If a product has complex variants, quick update might be ambiguous.
+    // For now, we will disable quick update for complex variant products or just warn.
+    
+    if ((product.variants && product.variants.length > 0) || (product.sizes && Object.keys(product.sizes).length > 0)) {
+      alert("Produk ini memiliki varian ukuran/warna. Silakan gunakan tombol Edit untuk mengubah stok per varian agar akurat.");
+      return;
+    }
+
+    await onUpdateProduct(updatedProduct);
+  };
+
   // --- Logic for Advanced Variants ---
   const addVariantGroup = () => {
     setTempVariantGroups(prev => [
@@ -335,6 +362,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     p.category.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Warehouse filtering
+  const warehouseProducts = filteredProducts.filter(p => {
+    if (warehouseFilter === 'low_stock') return p.stock <= 3;
+    return true;
+  });
+
+  // Calculate Warehouse Stats
+  const totalItems = products.reduce((acc, p) => acc + p.stock, 0);
+  const totalAssetValue = products.reduce((acc, p) => acc + (p.stock * (p.price2Days || 0)), 0);
+  const lowStockCount = products.filter(p => p.stock <= 3).length;
+
   // Search results for package builder
   const packageSearchResults = products.filter(p => 
     p.id !== productFormData.id && // Exclude self
@@ -395,6 +433,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <LayoutDashboard size={20} /> Dashboard
           </button>
           <button 
+            onClick={() => setActiveTab('warehouse')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition ${activeTab === 'warehouse' ? 'bg-white/10 text-white font-bold' : 'text-nature-200 hover:bg-white/5'}`}
+          >
+            <Warehouse size={20} /> Gudang
+          </button>
+          <button 
             onClick={() => setActiveTab('products')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition ${activeTab === 'products' ? 'bg-white/10 text-white font-bold' : 'text-nature-200 hover:bg-white/5'}`}
           >
@@ -421,7 +465,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto max-h-screen">
         <header className="bg-white border-b border-gray-200 px-8 py-5 flex justify-between items-center sticky top-0 z-30">
-          <h1 className="text-2xl font-bold text-gray-800 capitalize">{activeTab} Overview</h1>
+          <h1 className="text-2xl font-bold text-gray-800 capitalize">{activeTab === 'warehouse' ? 'Manajemen Gudang' : `${activeTab} Overview`}</h1>
           <div className="flex items-center gap-4">
              <button 
                 onClick={handleRefreshData}
@@ -444,10 +488,170 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </div>
                   <div>
                     <p className="text-sm text-gray-500 font-medium">Total Produk</p>
-                    <h3 className="text-2xl font-bold text-gray-900">{products.length} Item</h3>
+                    <h3 className="text-2xl font-bold text-gray-900">{products.length} SKU</h3>
                   </div>
                 </div>
               </div>
+              <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-green-50 text-green-600 rounded-xl">
+                    <Database size={24} />
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 font-medium">Total Aset Barang</p>
+                    <h3 className="text-2xl font-bold text-gray-900">{totalItems} Unit</h3>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-orange-50 text-orange-600 rounded-xl">
+                    <AlertCircle size={24} />
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 font-medium">Stok Menipis</p>
+                    <h3 className="text-2xl font-bold text-gray-900">{lowStockCount} Item</h3>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'warehouse' && (
+            <div className="space-y-6">
+               {/* Warehouse Stats */}
+               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                 <div className="bg-gradient-to-br from-gray-800 to-gray-900 text-white p-6 rounded-2xl shadow-lg">
+                    <div className="flex items-center gap-3 mb-2">
+                       <ClipboardList size={20} className="text-gray-400" />
+                       <span className="text-sm font-medium text-gray-300">Total Stok Fisik</span>
+                    </div>
+                    <p className="text-3xl font-black">{totalItems} <span className="text-base font-normal text-gray-400">Unit</span></p>
+                 </div>
+                 <div className="bg-white border border-gray-200 p-6 rounded-2xl shadow-sm">
+                    <div className="flex items-center gap-3 mb-2">
+                       <TrendingUp size={20} className="text-green-600" />
+                       <span className="text-sm font-medium text-gray-500">Estimasi Nilai Aset</span>
+                    </div>
+                    <p className="text-3xl font-black text-gray-900">Rp{(totalAssetValue / 1000000).toFixed(1)} <span className="text-base font-normal text-gray-400">Juta</span></p>
+                    <p className="text-xs text-gray-400 mt-1">*Berdasarkan harga sewa dasar</p>
+                 </div>
+                 <div className="bg-white border border-gray-200 p-6 rounded-2xl shadow-sm">
+                    <div className="flex items-center gap-3 mb-2">
+                       <AlertTriangle size={20} className="text-orange-500" />
+                       <span className="text-sm font-medium text-gray-500">Perlu Restock</span>
+                    </div>
+                    <p className="text-3xl font-black text-gray-900">{lowStockCount} <span className="text-base font-normal text-gray-400">Item</span></p>
+                 </div>
+               </div>
+
+               {/* Inventory Table */}
+               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                  <div className="p-5 border-b border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4">
+                     <div className="flex items-center gap-3 w-full md:w-auto">
+                        <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                           <Warehouse size={18} /> Inventaris Gudang
+                        </h3>
+                        <div className="h-6 w-px bg-gray-200 mx-2"></div>
+                        <div className="flex gap-2">
+                           <button 
+                             onClick={() => setWarehouseFilter('all')}
+                             className={`px-3 py-1 text-xs font-bold rounded-full border transition ${warehouseFilter === 'all' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'}`}
+                           >
+                             Semua
+                           </button>
+                           <button 
+                             onClick={() => setWarehouseFilter('low_stock')}
+                             className={`px-3 py-1 text-xs font-bold rounded-full border transition ${warehouseFilter === 'low_stock' ? 'bg-orange-100 text-orange-700 border-orange-200' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'}`}
+                           >
+                             Low Stock
+                           </button>
+                        </div>
+                     </div>
+                     <div className="relative w-full md:w-64">
+                       <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
+                       <input 
+                         type="text" 
+                         placeholder="Cari SKU / Nama Barang..." 
+                         className="w-full pl-9 pr-4 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:ring-1 focus:ring-nature-500 outline-none"
+                         value={searchTerm}
+                         onChange={(e) => setSearchTerm(e.target.value)}
+                       />
+                     </div>
+                  </div>
+                  
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm text-gray-600">
+                       <thead className="bg-gray-50 text-gray-700 font-bold uppercase text-xs">
+                          <tr>
+                             <th className="px-6 py-4">Nama Barang</th>
+                             <th className="px-6 py-4">Kategori</th>
+                             <th className="px-6 py-4 text-center">Status Stok</th>
+                             <th className="px-6 py-4 text-center">Quick Adjust</th>
+                          </tr>
+                       </thead>
+                       <tbody className="divide-y divide-gray-100">
+                          {warehouseProducts.map(p => {
+                            const stockPercentage = Math.min(100, (p.stock / 20) * 100); // Assume 20 is "healthy" stock
+                            const isComplex = (p.variants && p.variants.length > 0) || (p.sizes && Object.keys(p.sizes).length > 0);
+                            
+                            return (
+                              <tr key={p.id} className="hover:bg-gray-50 transition">
+                                 <td className="px-6 py-4 font-medium text-gray-900">
+                                    <div className="flex flex-col">
+                                       <span>{p.name}</span>
+                                       {isComplex && <span className="text-[10px] text-gray-400 italic">Multi-Varian</span>}
+                                    </div>
+                                 </td>
+                                 <td className="px-6 py-4">
+                                    <span className="px-2 py-1 rounded bg-gray-100 text-gray-600 text-xs border border-gray-200">{p.category}</span>
+                                 </td>
+                                 <td className="px-6 py-4">
+                                    <div className="flex flex-col gap-1 items-center">
+                                       <span className={`text-lg font-black ${p.stock <= 3 ? 'text-red-500' : 'text-gray-800'}`}>
+                                          {p.stock}
+                                       </span>
+                                       <div className="w-24 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                                          <div 
+                                            className={`h-full rounded-full ${p.stock <= 3 ? 'bg-red-500' : 'bg-green-500'}`} 
+                                            style={{ width: `${stockPercentage}%` }}
+                                          ></div>
+                                       </div>
+                                    </div>
+                                 </td>
+                                 <td className="px-6 py-4">
+                                    <div className="flex justify-center items-center gap-3">
+                                       <button 
+                                         onClick={() => handleQuickStockUpdate(p, -1)}
+                                         disabled={p.stock <= 0 || isComplex}
+                                         className="text-gray-400 hover:text-red-500 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                                       >
+                                          <MinusCircle size={20} />
+                                       </button>
+                                       <span className="text-gray-300 text-xs">|</span>
+                                       <button 
+                                         onClick={() => handleQuickStockUpdate(p, 1)}
+                                         disabled={isComplex}
+                                         className="text-gray-400 hover:text-green-500 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                                       >
+                                          <PlusCircle size={20} />
+                                       </button>
+                                    </div>
+                                 </td>
+                              </tr>
+                            );
+                          })}
+                          {warehouseProducts.length === 0 && (
+                             <tr>
+                                <td colSpan={4} className="px-6 py-8 text-center text-gray-400 italic">
+                                   Tidak ada barang yang sesuai filter.
+                                </td>
+                             </tr>
+                          )}
+                       </tbody>
+                    </table>
+                  </div>
+               </div>
             </div>
           )}
 
