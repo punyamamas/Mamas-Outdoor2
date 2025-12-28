@@ -66,9 +66,11 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
   };
 
   // Helper untuk menghitung tanggal kembali
+  // Logika Mamas Outdoor: Ambil sekarang (H), Balik besok (H+1) = 2 Hari.
+  // Rumus: Tanggal Kembali = Tanggal Ambil + (Durasi - 1)
   const getReturnDate = (startDateStr: string, duration: number): Date => {
     const date = new Date(startDateStr);
-    date.setDate(date.getDate() + duration);
+    date.setDate(date.getDate() + (duration - 1));
     return date;
   };
 
