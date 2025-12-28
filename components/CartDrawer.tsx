@@ -77,56 +77,65 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
   const total = calculateTotal();
 
   const handleCheckout = async () => {
+    if (isProcessing) return;
     setIsProcessing(true);
     
-    // 1. Process Stock Reduction (New Feature)
-    // Ini akan mengurangi stok paket DAN stok komponen di dalamnya
-    await processStockReduction(cartItems);
+    try {
+      // 1. Process Stock Reduction (Database Update)
+      // Kita tunggu proses ini selesai agar data di DB update
+      await processStockReduction(cartItems);
 
-    // 2. REFRESH DATA (CRITICAL FIX)
-    // Meminta aplikasi mengambil data terbaru dari DB agar stok di UI berkurang
-    await onRefreshData();
+      // 2. Refresh Data Global
+      // Meminta aplikasi mengambil data terbaru agar UI (Admin/Katalog) terupdate
+      await onRefreshData();
 
-    // 3. Save Transaction to Local History
-    const newTransaction: Transaction = {
-      id: Date.now().toString(),
-      date: new Date().toISOString(),
-      rentalDate: userDetails.rentalDate,
-      duration: userDetails.duration,
-      totalPrice: total,
-      items: [...cartItems],
-      status: 'pending'
-    };
+      // 3. Save Transaction to Local History
+      const newTransaction: Transaction = {
+        id: Date.now().toString(),
+        date: new Date().toISOString(),
+        rentalDate: userDetails.rentalDate,
+        duration: userDetails.duration,
+        totalPrice: total,
+        items: [...cartItems],
+        status: 'pending'
+      };
 
-    const existingHistory = localStorage.getItem('mamasHistory');
-    const history = existingHistory ? JSON.parse(existingHistory) : [];
-    history.push(newTransaction);
-    localStorage.setItem('mamasHistory', JSON.stringify(history));
+      const existingHistory = localStorage.getItem('mamasHistory');
+      const history = existingHistory ? JSON.parse(existingHistory) : [];
+      history.push(newTransaction);
+      localStorage.setItem('mamasHistory', JSON.stringify(history));
 
-    // 4. Construct WhatsApp Message
-    const header = `*Halo Mamas Outdoor! Saya mau sewa dong.*\n\n`;
-    const buyerInfo = `*Data Penyewa:*\nNama: ${userDetails.name}\nKampus: ${userDetails.campus}\nWA: ${userDetails.whatsapp}\nTanggal Ambil: ${userDetails.rentalDate}\nLama Sewa: ${userDetails.duration} Hari\n\n`;
-    
-    const itemsList = cartItems.map((item, idx) => {
-      const priceForDuration = getItemPriceForDuration(item, userDetails.duration);
-      const sizeLabel = item.selectedSize ? ` [Size: ${item.selectedSize}]` : '';
-      const colorLabel = item.selectedColor ? ` [Warna: ${item.selectedColor}]` : '';
-      return `${idx + 1}. ${item.name}${sizeLabel}${colorLabel} (${item.quantity}x)\n   @ Rp${priceForDuration.toLocaleString('id-ID')} (Paket ${userDetails.duration} Hari)`;
-    }).join('\n');
+      // 4. Construct WhatsApp Message
+      const header = `*Halo Mamas Outdoor! Saya mau sewa dong.*\n\n`;
+      const buyerInfo = `*Data Penyewa:*\nNama: ${userDetails.name}\nKampus: ${userDetails.campus}\nWA: ${userDetails.whatsapp}\nTanggal Ambil: ${userDetails.rentalDate}\nLama Sewa: ${userDetails.duration} Hari\n\n`;
+      
+      const itemsList = cartItems.map((item, idx) => {
+        const priceForDuration = getItemPriceForDuration(item, userDetails.duration);
+        const sizeLabel = item.selectedSize ? ` [Size: ${item.selectedSize}]` : '';
+        const colorLabel = item.selectedColor ? ` [Warna: ${item.selectedColor}]` : '';
+        return `${idx + 1}. ${item.name}${sizeLabel}${colorLabel} (${item.quantity}x)\n   @ Rp${priceForDuration.toLocaleString('id-ID')} (Paket ${userDetails.duration} Hari)`;
+      }).join('\n');
 
-    const footer = `\n\n*Total Estimasi: Rp${total.toLocaleString('id-ID')}*`;
-    
-    const fullMessage = encodeURIComponent(header + buyerInfo + "*List Alat:*\n" + itemsList + footer);
-    
-    setIsProcessing(false);
-    
-    // 5. Open WhatsApp
-    window.open(`https://wa.me/${WA_NUMBER}?text=${fullMessage}`, '_blank');
-    
-    // 6. Reset & Close
-    onClearCart();
-    setStep('cart');
-    onClose();
+      const footer = `\n\n*Total Estimasi: Rp${total.toLocaleString('id-ID')}*`;
+      
+      const fullMessage = encodeURIComponent(header + buyerInfo + "*List Alat:*\n" + itemsList + footer);
+      
+      // 5. Open WhatsApp (Add small delay to ensure UI updates finish)
+      setTimeout(() => {
+        window.open(`https://wa.me/${WA_NUMBER}?text=${fullMessage}`, '_blank');
+        
+        // 6. Reset & Close
+        onClearCart();
+        setStep('cart');
+        onClose();
+        setIsProcessing(false);
+      }, 500);
+
+    } catch (error) {
+      console.error("Checkout Error:", error);
+      alert("Terjadi kesalahan saat memproses pesanan. Silakan coba lagi atau hubungi admin manual.");
+      setIsProcessing(false);
+    }
   };
 
   const handleDurationChange = (val: number) => {

@@ -165,21 +165,20 @@ export const deleteProduct = async (id: string): Promise<boolean> => {
 
 export const processStockReduction = async (cartItems: CartItem[]): Promise<boolean> => {
   if (!supabase) {
-    // Mode tanpa database, langsung sukses saja
+    console.log("Mock Mode: Stock reduction skipped (No DB).");
     return true; 
   }
 
   try {
-    // 1. Ambil data produk terbaru dari DB
+    // 1. Ambil data produk terbaru dari DB untuk menghindari race condition
     const { data: allProducts, error } = await supabase
       .from('products')
       .select('id, stock, rented, package_items, sizes, variants');
 
     if (error) {
-       // Jika error karena tabel belum ada atau koneksi gagal,
-       // Kita log warning saja dan biarkan user lanjut checkout (Return TRUE)
-       console.warn("Skipping stock update (Database Error/Not Ready):", error.message);
-       return true;
+       console.error("Database Error (Fetch Stock):", error.message);
+       // Jika gagal fetch, kita biarkan user checkout tapi log error
+       return false;
     }
 
     if (!allProducts) return true;
@@ -192,7 +191,8 @@ export const processStockReduction = async (cartItems: CartItem[]): Promise<bool
       const dbProduct = productMap.get(item.id);
       if (!dbProduct) continue;
 
-      // Pakai Number() untuk memastikan tidak ada masalah tipe data string
+      // Handle Main Stock
+      // Penting: Handle jika rented null di DB (set ke 0)
       const currentStock = Number(dbProduct.stock) || 0;
       const currentRented = Number(dbProduct.rented) || 0;
       
@@ -208,12 +208,11 @@ export const processStockReduction = async (cartItems: CartItem[]): Promise<bool
       }).eq('id', item.id);
 
       if (updateError) {
-        console.warn(`Gagal update stok produk ${item.name} (Non-fatal):`, updateError.message);
-        // Lanjut ke item berikutnya, jangan stop proses
-        continue;
+        console.error(`Gagal update stok produk ${item.name}:`, updateError.message);
+        // Kemungkinan besar error RLS (Permission Denied) jika belum diset di Supabase
       }
 
-      // Handle Sub-item jika Paket (Recursively reduce stock of components)
+      // Handle Sub-item jika ini adalah Paket (Paket mengurangi stok komponennya)
       if (dbProduct.package_items && Array.isArray(dbProduct.package_items)) {
         for (const subItem of dbProduct.package_items) {
           const childProduct = productMap.get(subItem.productId);
@@ -234,7 +233,8 @@ export const processStockReduction = async (cartItems: CartItem[]): Promise<bool
         }
       }
       
-      // Update specific variants stock if needed
+      // Update Varians (JSONB)
+      // Logic: Kita update struktur JSON variants dan upload ulang
       if (item.selectedSize && item.selectedColor && dbProduct.variants && Array.isArray(dbProduct.variants)) {
         const variants: ProductVariant[] = [...dbProduct.variants];
         const variantIndex = variants.findIndex(v => v.color === item.selectedColor && v.size === item.selectedSize);
@@ -242,6 +242,7 @@ export const processStockReduction = async (cartItems: CartItem[]): Promise<bool
         if (variantIndex !== -1) {
           const currentVarStock = Number(variants[variantIndex].stock) || 0;
           variants[variantIndex].stock = Math.max(0, currentVarStock - item.quantity);
+          
           await supabase.from('products').update({ variants: variants }).eq('id', item.id);
         }
       }
@@ -257,9 +258,7 @@ export const processStockReduction = async (cartItems: CartItem[]): Promise<bool
 
     return true; // Sukses
   } catch (err) {
-    // CRITICAL FIX: Jangan alert user! Cukup log error ke console.
-    // Return true agar WhatsApp tetap terbuka.
-    console.warn("Silent failure on stock update:", err);
-    return true;
+    console.error("Critical error in processStockReduction:", err);
+    return false;
   }
 };
