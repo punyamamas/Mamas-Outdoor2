@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { Product, Category, PackageItem, ProductVariant, ColorImage, Transaction } from '../types';
 import { supabase } from '../services/supabase';
-import { getTransactions, updateTransactionStatus } from '../services/transactionService';
+import { getTransactions, updateTransactionStatus, deleteTransaction } from '../services/transactionService';
 
 interface AdminDashboardProps {
   products: Product[];
@@ -32,7 +32,7 @@ interface TempVariantGroup {
   sizes: { [size: string]: number }; // e.g., { 'XL': 2, 'L': 1 }
 }
 
-const AdminDashboard: React.FC<AdminDashboardProps> = ({ 
+export const AdminDashboard: React.FC<AdminDashboardProps> = ({ 
   products, 
   categories,
   onBackToHome,
@@ -136,6 +136,22 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       }
     } else {
       alert("Gagal update status transaksi.");
+    }
+  };
+
+  // NEW: Handle Delete Transaction
+  const handleDeleteTransaction = async (id: string) => {
+    const confirm = window.confirm("HAPUS TRANSAKSI?\n\nJika transaksi ini dihapus, stok barang akan DIKEMBALIKAN (kecuali status sudah 'Selesai').\n\nTindakan ini tidak bisa dibatalkan.");
+    if (!confirm) return;
+
+    const success = await deleteTransaction(id);
+    if (success) {
+      // Hapus dari state local
+      setTransactions(prev => prev.filter(t => t.id !== id));
+      // Refresh global data untuk memastikan stok sinkron
+      onRefresh();
+    } else {
+      alert("Gagal menghapus transaksi.");
     }
   };
 
@@ -759,16 +775,25 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                 </span>
                               </td>
                               <td className="px-6 py-4 align-top">
-                                <select 
-                                  value={trx.status}
-                                  onChange={(e) => handleTransactionStatusUpdate(trx.id, e.target.value)}
-                                  className="text-xs border border-gray-300 rounded px-2 py-1 focus:ring-nature-500 outline-none"
-                                >
-                                  <option value="pending">Pending</option>
-                                  <option value="active">Sedang Sewa</option>
-                                  <option value="completed">Selesai (Kembali)</option>
-                                  <option value="cancelled">Batal</option>
-                                </select>
+                                <div className="flex flex-col gap-2">
+                                   <select 
+                                     value={trx.status}
+                                     onChange={(e) => handleTransactionStatusUpdate(trx.id, e.target.value)}
+                                     className="text-xs border border-gray-300 rounded px-2 py-1 focus:ring-nature-500 outline-none w-full"
+                                   >
+                                     <option value="pending">Pending</option>
+                                     <option value="active">Sedang Sewa</option>
+                                     <option value="completed">Selesai (Kembali)</option>
+                                     <option value="cancelled">Batal</option>
+                                   </select>
+                                   <button 
+                                     onClick={() => handleDeleteTransaction(trx.id)}
+                                     className="flex items-center justify-center gap-1 text-xs bg-red-50 text-red-600 border border-red-200 py-1 px-2 rounded hover:bg-red-100 transition"
+                                     title="Hapus Transaksi (Stok akan dikembalikan)"
+                                   >
+                                     <Trash2 size={12} /> Hapus
+                                   </button>
+                                </div>
                               </td>
                             </tr>
                           ))}
@@ -782,7 +807,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                </div>
              </div>
           )}
-
+          
+          {/* Warehouse and Products tabs were here */}
           {activeTab === 'warehouse' && (
             <div className="space-y-6">
                {/* Warehouse Stats */}
@@ -1094,520 +1120,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
             </div>
           )}
-
-          {activeTab === 'categories' && (
-             <div className="max-w-2xl mx-auto">
-               {/* Add Category */}
-               <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-6">
-                 <h3 className="font-bold text-gray-900 mb-4">Tambah Kategori Baru</h3>
-                 <form onSubmit={handleCategoryAdd} className="flex gap-4">
-                   <input 
-                      type="text"
-                      required
-                      placeholder="Nama Kategori (misal: Sepatu, Jaket)"
-                      className="flex-1 px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-nature-500 outline-none"
-                      value={newCategoryName}
-                      onChange={e => setNewCategoryName(e.target.value)}
-                   />
-                   <button 
-                      type="submit"
-                      disabled={isSubmitting}
-                      className="bg-nature-600 hover:bg-nature-700 text-white px-6 py-2 rounded-xl font-bold transition disabled:opacity-50"
-                   >
-                     {isSubmitting ? '...' : 'Tambah'}
-                   </button>
-                 </form>
-               </div>
-
-               {/* List Categories */}
-               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                 <div className="px-6 py-4 bg-gray-50 border-b border-gray-100">
-                   <h3 className="font-bold text-gray-700">Daftar Kategori</h3>
-                 </div>
-                 <ul className="divide-y divide-gray-100">
-                   {categories.map(cat => (
-                     <li key={cat.id} className="px-6 py-4 flex items-center justify-between hover:bg-gray-50">
-                       {editingCategoryId === cat.id ? (
-                         <div className="flex items-center gap-2 flex-1 mr-4">
-                           <input 
-                             type="text"
-                             className="w-full px-3 py-1.5 bg-white border border-nature-300 rounded-lg focus:ring-2 focus:ring-nature-500 outline-none text-sm"
-                             value={editCategoryName}
-                             onChange={e => setEditCategoryName(e.target.value)}
-                           />
-                           <button onClick={() => saveEditCategory(cat.id)} className="p-1.5 text-green-600 hover:bg-green-100 rounded">
-                             <CheckSquare size={18} />
-                           </button>
-                           <button onClick={() => setEditingCategoryId(null)} className="p-1.5 text-gray-400 hover:bg-gray-100 rounded">
-                             <X size={18} />
-                           </button>
-                         </div>
-                       ) : (
-                         <span className="font-medium text-gray-800">{cat.name}</span>
-                       )}
-                       
-                       <div className="flex gap-2">
-                         <button 
-                           onClick={() => {
-                             setEditingCategoryId(cat.id);
-                             setEditCategoryName(cat.name);
-                           }}
-                           className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
-                         >
-                           <Edit size={16} />
-                         </button>
-                         <button 
-                           onClick={() => onDeleteCategory(cat.id)}
-                           className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
-                         >
-                           <Trash2 size={16} />
-                         </button>
-                       </div>
-                     </li>
-                   ))}
-                 </ul>
-               </div>
-             </div>
-          )}
         </div>
       </main>
-
-      {/* MODAL RETURN ITEM KOMPLEKS (Size/Color) */}
-      {isReturnModalOpen && returnProduct && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsReturnModalOpen(false)}></div>
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md relative z-10 overflow-hidden animate-slide-in-right">
-             <div className="px-6 py-4 bg-blue-50 border-b border-blue-100 flex justify-between items-center">
-               <div>
-                  <h3 className="font-bold text-lg text-blue-900">Pengembalian Barang</h3>
-                  <p className="text-xs text-blue-600">Pilih varian yang kembali ke gudang</p>
-               </div>
-               <button onClick={() => setIsReturnModalOpen(false)} className="text-blue-400 hover:text-blue-600">
-                 <X size={24} />
-               </button>
-             </div>
-             
-             <form onSubmit={handleComplexReturnSubmit} className="p-6 space-y-4">
-                <div className="bg-gray-50 p-3 rounded-lg flex items-center gap-3">
-                   <img src={returnProduct.image} className="w-12 h-12 object-cover rounded-lg border border-gray-200" alt="" />
-                   <div>
-                      <p className="font-bold text-gray-900 text-sm">{returnProduct.name}</p>
-                      <p className="text-xs text-gray-500">Total Sewa: {returnProduct.rented} unit</p>
-                   </div>
-                </div>
-
-                <div>
-                   <label className="block text-sm font-bold text-gray-700 mb-2">Varian yang Kembali:</label>
-                   <select 
-                      required
-                      className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                      value={returnVariantKey}
-                      onChange={(e) => setReturnVariantKey(e.target.value)}
-                   >
-                      <option value="">-- Pilih Varian --</option>
-                      {returnProduct.variants && returnProduct.variants.length > 0 ? (
-                        returnProduct.variants.map((v, idx) => (
-                           <option key={`${v.color}|${v.size}`} value={`${v.color}|${v.size}`}>
-                              {v.color} - Size {v.size} (Stok Gudang: {v.stock})
-                           </option>
-                        ))
-                      ) : returnProduct.sizes ? (
-                         Object.entries(returnProduct.sizes).map(([size, stock]) => (
-                            <option key={size} value={size}>
-                              Size {size} (Stok Gudang: {stock})
-                            </option>
-                         ))
-                      ) : null}
-                   </select>
-                </div>
-
-                <div>
-                   <label className="block text-sm font-bold text-gray-700 mb-2">Jumlah Kembali:</label>
-                   <input 
-                      type="number" 
-                      min="1"
-                      max={returnProduct.rented || 1}
-                      className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                      value={returnQty}
-                      onChange={(e) => setReturnQty(parseInt(e.target.value) || 1)}
-                   />
-                   <p className="text-xs text-gray-500 mt-1 text-right">Maksimal: {returnProduct.rented}</p>
-                </div>
-
-                <div className="pt-2">
-                   <button 
-                      type="submit"
-                      disabled={isSubmitting}
-                      className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-blue-200 transition flex items-center justify-center gap-2"
-                   >
-                      {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : <RotateCcw size={20} />}
-                      Kembalikan ke Stok
-                   </button>
-                </div>
-             </form>
-          </div>
-        </div>
-      )}
-
-      {/* Add/Edit Product Modal */}
-      {isProductModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsProductModalOpen(false)}></div>
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl relative z-10 overflow-hidden animate-slide-in-right max-h-[95vh] flex flex-col">
-            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 flex-shrink-0">
-              <h3 className="font-bold text-lg text-gray-900">
-                {editingProduct ? 'Edit Produk' : 'Tambah Produk Baru'}
-              </h3>
-              <button onClick={() => setIsProductModalOpen(false)} className="text-gray-400 hover:text-gray-600">
-                <X size={24} />
-              </button>
-            </div>
-            
-            <form onSubmit={handleProductSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
-              {/* Form content omitted for brevity as it is identical to previous version, just ensuring XML structure is valid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Nama Produk</label>
-                  <input 
-                    type="text" 
-                    required
-                    className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-nature-500 outline-none"
-                    value={productFormData.name}
-                    onChange={e => setProductFormData({...productFormData, name: e.target.value})}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Kategori</label>
-                  <select 
-                    className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-nature-500 outline-none"
-                    value={productFormData.category}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setProductFormData({...productFormData, category: val});
-                      // Auto trigger package mode if category suggests it
-                      if(val === 'Paketan Sewa') setIsPackageMode(true);
-                    }}
-                  >
-                    {categories.map(c => (
-                      <option key={c.id} value={c.name}>{c.name}</option>
-                    ))}
-                    {categories.length === 0 && <option value="Umum">Umum</option>}
-                  </select>
-                </div>
-              </div>
-
-              {/* Price Section */}
-              <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
-                 <h4 className="text-sm font-bold text-blue-800 mb-3 flex items-center gap-2">
-                   <DollarSign size={16} /> Atur Harga Paket (Rupiah)
-                 </h4>
-                 <div className="grid grid-cols-3 gap-3">
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-600 mb-1">2 Hari (Min)</label>
-                      <input type="number" required min="0" className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm" value={productFormData.price2Days} onChange={e => setProductFormData({...productFormData, price2Days: parseInt(e.target.value)})} />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-600 mb-1">3 Hari</label>
-                      <input type="number" required min="0" className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm" value={productFormData.price3Days} onChange={e => setProductFormData({...productFormData, price3Days: parseInt(e.target.value)})} />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-600 mb-1">4 Hari</label>
-                      <input type="number" required min="0" className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm" value={productFormData.price4Days} onChange={e => setProductFormData({...productFormData, price4Days: parseInt(e.target.value)})} />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-600 mb-1">5 Hari</label>
-                      <input type="number" required min="0" className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm" value={productFormData.price5Days} onChange={e => setProductFormData({...productFormData, price5Days: parseInt(e.target.value)})} />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-600 mb-1">6 Hari</label>
-                      <input type="number" required min="0" className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm" value={productFormData.price6Days} onChange={e => setProductFormData({...productFormData, price6Days: parseInt(e.target.value)})} />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-600 mb-1">7 Hari</label>
-                      <input type="number" required min="0" className="w-full px-2 py-1.5 border border-gray-200 rounded text-sm" value={productFormData.price7Days} onChange={e => setProductFormData({...productFormData, price7Days: parseInt(e.target.value)})} />
-                    </div>
-                 </div>
-              </div>
-
-              {/* Main Image */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Gambar Utama (URL)</label>
-                <div className="flex gap-2">
-                   <div className="relative flex-1">
-                    <ImageIcon className="absolute left-3 top-2.5 text-gray-400" size={16} />
-                    <input 
-                      type="url" 
-                      required
-                      className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-nature-500 outline-none text-sm"
-                      value={productFormData.image}
-                      onChange={e => setProductFormData({...productFormData, image: e.target.value})}
-                    />
-                   </div>
-                   {productFormData.image && (
-                     <img src={productFormData.image} alt="Preview" className="w-10 h-10 rounded object-cover border border-gray-200" />
-                   )}
-                </div>
-              </div>
-
-              {/* PACKAGE BUILDER TOGGLE */}
-              <div className="flex items-center justify-between bg-purple-50 p-3 rounded-lg border border-purple-200">
-                <span className="text-sm font-bold text-purple-900 flex items-center gap-2">
-                  <Layers size={18} /> Produk ini adalah Paket / Bundling?
-                </span>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    checked={isPackageMode} 
-                    onChange={(e) => {
-                      setIsPackageMode(e.target.checked);
-                      if(e.target.checked) setUseAdvancedVariants(false); // Disable variants for packages generally
-                    }} 
-                    className="sr-only peer" 
-                  />
-                  <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-                </label>
-              </div>
-
-              {/* PACKAGE BUILDER UI */}
-              {isPackageMode && (
-                <div className="bg-white border border-purple-200 rounded-xl p-4 shadow-sm animate-slide-in-right">
-                   <h4 className="font-bold text-gray-800 mb-2">Isi Paket / Bundling</h4>
-                   <p className="text-xs text-gray-500 mb-4">Stok paket akan otomatis mengurangi stok produk di bawah ini saat disewa.</p>
-                   
-                   {/* Search for items */}
-                   <div className="relative mb-4">
-                     <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
-                     <input 
-                       type="text" 
-                       placeholder="Cari alat untuk ditambahkan ke paket..." 
-                       className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:border-purple-500 outline-none"
-                       value={packageSearchTerm}
-                       onChange={e => setPackageSearchTerm(e.target.value)}
-                     />
-                     {packageSearchTerm && packageSearchResults.length > 0 && (
-                        <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-xl mt-1 z-20 max-h-40 overflow-y-auto">
-                           {packageSearchResults.map(res => (
-                             <button
-                               type="button"
-                               key={res.id}
-                               onClick={() => addToPackage(res)}
-                               className="w-full text-left px-4 py-2 hover:bg-purple-50 text-sm flex justify-between items-center"
-                             >
-                               <span>{res.name}</span>
-                               <span className="text-xs text-gray-400">Stok: {res.stock}</span>
-                             </button>
-                           ))}
-                        </div>
-                     )}
-                   </div>
-
-                   {/* List of Added Items */}
-                   <div className="space-y-2">
-                     {productFormData.packageItems && productFormData.packageItems.length > 0 ? (
-                       productFormData.packageItems.map((pkgItem, idx) => {
-                         const originalProduct = products.find(p => p.id === pkgItem.productId);
-                         return (
-                           <div key={idx} className="flex items-center gap-3 bg-purple-50 p-2 rounded-lg border border-purple-100">
-                              <span className="flex-1 text-sm font-medium text-purple-900 truncate">
-                                {originalProduct ? originalProduct.name : 'Unknown Product'}
-                              </span>
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs text-gray-500">Qty:</span>
-                                <input 
-                                  type="number" 
-                                  min="1" 
-                                  className="w-14 text-center border border-purple-200 rounded px-1 py-1 text-sm"
-                                  value={pkgItem.quantity}
-                                  onChange={(e) => updatePackageQty(pkgItem.productId, parseInt(e.target.value) || 1)}
-                                />
-                              </div>
-                              <button 
-                                type="button" 
-                                onClick={() => removeFromPackage(pkgItem.productId)}
-                                className="p-1 text-red-500 hover:bg-red-100 rounded"
-                              >
-                                <Trash2 size={16} />
-                              </button>
-                           </div>
-                         );
-                       })
-                     ) : (
-                       <div className="text-center py-4 border-2 border-dashed border-gray-200 rounded-lg text-gray-400 text-sm">
-                         Belum ada item dalam paket ini.
-                       </div>
-                     )}
-                   </div>
-                   
-                   {/* Estimasi Modal */}
-                   {productFormData.packageItems && productFormData.packageItems.length > 0 && (
-                      <div className="mt-4 pt-3 border-t border-purple-100 text-right">
-                         <p className="text-xs text-gray-500">Estimasi Total Harga Satuan (2 Hari):</p>
-                         <p className="text-lg font-bold text-purple-700">
-                           Rp{productFormData.packageItems.reduce((acc, item) => {
-                             const p = products.find(prod => prod.id === item.productId);
-                             return acc + ((p?.price2Days || 0) * item.quantity);
-                           }, 0).toLocaleString('id-ID')}
-                         </p>
-                      </div>
-                   )}
-                </div>
-              )}
-
-              {/* VARIANT MODE TOGGLE - Hide if Package Mode is active */}
-              {!isPackageMode && (
-                <>
-                <div className="flex items-center justify-between bg-gray-100 p-3 rounded-lg border border-gray-200 mt-4">
-                  <span className="text-sm font-bold text-gray-700">Produk punya banyak warna & ukuran? (Jaket/Sepatu)</span>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" checked={useAdvancedVariants} onChange={(e) => setUseAdvancedVariants(e.target.checked)} className="sr-only peer" />
-                    <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-nature-600"></div>
-                  </label>
-                </div>
-
-                {/* COMPLEX VARIANTS UI */}
-                {useAdvancedVariants ? (
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <h4 className="font-bold text-gray-800">Varian Warna & Stok</h4>
-                      <button type="button" onClick={addVariantGroup} className="text-xs bg-nature-600 text-white px-3 py-1.5 rounded-lg font-bold flex items-center gap-1 hover:bg-nature-700">
-                        <Plus size={14} /> Tambah Warna
-                      </button>
-                    </div>
-                    
-                    {tempVariantGroups.map((group, idx) => (
-                      <div key={group.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm relative animate-slide-in-right">
-                        <button type="button" onClick={() => removeVariantGroup(group.id)} className="absolute top-2 right-2 text-gray-400 hover:text-red-500">
-                          <X size={18} />
-                        </button>
-                        
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                          <div>
-                            <label className="block text-xs font-bold text-gray-500 mb-1">Nama Warna (e.g. Pink, Biru)</label>
-                            <input 
-                              type="text" 
-                              className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-nature-500 outline-none"
-                              value={group.colorName}
-                              onChange={(e) => updateVariantGroup(group.id, 'colorName', e.target.value)}
-                              placeholder="Warna"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-bold text-gray-500 mb-1">URL Gambar Khusus Warna Ini</label>
-                            <div className="flex gap-2">
-                              <input 
-                                type="text" 
-                                className="flex-1 px-3 py-1.5 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-nature-500 outline-none"
-                                value={group.imageUrl}
-                                onChange={(e) => updateVariantGroup(group.id, 'imageUrl', e.target.value)}
-                                placeholder="https://..."
-                              />
-                              {group.imageUrl && <img src={group.imageUrl} className="w-8 h-8 rounded object-cover border" alt="" />}
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="bg-gray-50 p-3 rounded-lg">
-                          <p className="text-xs font-bold text-gray-500 mb-2">Stok per Ukuran untuk Warna {group.colorName || '...'}</p>
-                          <div className="grid grid-cols-5 gap-2">
-                            {AVAILABLE_SIZES.map(size => (
-                              <div key={size} className="text-center">
-                                <span className="block text-[10px] text-gray-400 font-bold mb-0.5">{size}</span>
-                                <input 
-                                  type="number" 
-                                  min="0" 
-                                  className="w-full text-center border border-gray-300 rounded py-1 text-sm focus:border-nature-500 outline-none"
-                                  placeholder="0"
-                                  value={group.sizes[size] || ''}
-                                  onChange={(e) => updateVariantSizeStock(group.id, size, parseInt(e.target.value) || 0)}
-                                />
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                    {tempVariantGroups.length === 0 && <p className="text-center text-sm text-gray-400 italic py-4">Belum ada varian warna. Klik Tambah Warna.</p>}
-                  </div>
-                ) : (
-                  /* SIMPLE SIZES UI (Fallback) */
-                  <div className="bg-orange-50 p-4 rounded-xl border border-orange-100">
-                     <h4 className="text-sm font-bold text-orange-800 mb-2 flex items-center gap-2">
-                       <Scissors size={16} /> Stok Sederhana (Tanpa Warna Spesifik)
-                     </h4>
-                     <div className="grid grid-cols-5 gap-2">
-                       {AVAILABLE_SIZES.map(size => (
-                         <div key={size} className="text-center">
-                           <label className="block text-xs font-bold text-gray-500 mb-1">{size}</label>
-                           <input 
-                             type="number"
-                             min="0"
-                             placeholder="0"
-                             className="w-full px-1 py-1 text-center bg-white border border-orange-200 rounded focus:ring-1 focus:ring-orange-500 outline-none text-sm"
-                             value={simpleSizes[size] || ''}
-                             onChange={(e) => updateSimpleSizeStock(size, parseInt(e.target.value) || 0)}
-                           />
-                         </div>
-                       ))}
-                     </div>
-                     <div className="mt-3 pt-3 border-t border-orange-200">
-                        <label className="block text-xs font-bold text-gray-500 mb-1">Stok Manual (Jika tanpa ukuran)</label>
-                        <input 
-                          type="number" 
-                          min="0"
-                          className="w-full px-3 py-1.5 bg-white border border-orange-200 rounded focus:ring-1 focus:ring-orange-500 outline-none text-sm"
-                          value={productFormData.stock}
-                          onChange={e => setProductFormData({...productFormData, stock: parseInt(e.target.value)})}
-                          disabled={Object.keys(simpleSizes).length > 0}
-                        />
-                     </div>
-                  </div>
-                )}
-                </>
-              )}
-
-              {/* Description */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Deskripsi</label>
-                <textarea 
-                  rows={3}
-                  required
-                  className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-nature-500 outline-none text-sm"
-                  value={productFormData.description}
-                  onChange={e => setProductFormData({...productFormData, description: e.target.value})}
-                ></textarea>
-              </div>
-
-              <div className="pt-4 flex gap-3">
-                <button 
-                  type="button"
-                  onClick={() => setIsProductModalOpen(false)}
-                  disabled={isSubmitting}
-                  className="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition disabled:opacity-50"
-                >
-                  Batal
-                </button>
-                <button 
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="flex-1 px-4 py-2.5 bg-nature-600 hover:bg-nature-700 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition shadow-lg shadow-nature-200 disabled:opacity-70 disabled:cursor-not-allowed"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 size={18} className="animate-spin" /> Menyimpan...
-                    </>
-                  ) : (
-                    <>
-                      <Save size={18} /> Simpan
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
-
-export default AdminDashboard;

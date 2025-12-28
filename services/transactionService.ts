@@ -95,6 +95,44 @@ export const updateTransactionStatus = async (id: string, newStatus: string): Pr
   return true;
 };
 
+// Delete Transaction & Restore Stock if applicable
+export const deleteTransaction = async (id: string): Promise<boolean> => {
+  if (!supabase) return false;
+
+  // 1. Ambil data transaksi sebelum dihapus untuk cek status & items
+  const { data: trx, error: fetchError } = await supabase
+    .from('transactions')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (fetchError || !trx) {
+    console.error('Error fetching transaction to delete:', fetchError);
+    return false;
+  }
+
+  // 2. Hapus data dari database
+  const { error: deleteError } = await supabase
+    .from('transactions')
+    .delete()
+    .eq('id', id);
+
+  if (deleteError) {
+    console.error('Error deleting transaction:', deleteError);
+    return false;
+  }
+
+  // 3. Logika Pengembalian Stok
+  // Jika status transaksi BUKAN 'completed', berarti barang secara teknis masih tercatat "keluar" atau "booking".
+  // Karena transaksi dihapus (dianggap tidak pernah ada/batal total), maka stok harus dikembalikan.
+  // Jika status SUDAH 'completed', stok sudah dikembalikan saat update status, jadi jangan dikembalikan lagi (nanti double).
+  if (trx.status !== 'completed') {
+    await processStockRestoration(trx.items as CartItem[]);
+  }
+
+  return true;
+};
+
 // Helper Mapper
 const mapDbToTransaction = (dbItem: any): Transaction => {
   return {

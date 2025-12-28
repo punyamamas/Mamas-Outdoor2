@@ -4,7 +4,7 @@ import CartDrawer from './components/CartDrawer';
 import HistoryDrawer from './components/HistoryDrawer';
 import GeminiAdvisor from './components/GeminiAdvisor';
 import TermsModal from './components/TermsModal';
-import AdminDashboard from './components/AdminDashboard';
+import { AdminDashboard } from './components/AdminDashboard';
 import ProductDetailModal from './components/ProductDetailModal';
 import Toast from './components/Toast'; // Import Toast
 import ImageLoader from './components/ImageLoader'; // Import ImageLoader
