@@ -1,6 +1,6 @@
 
 export interface Category {
-  id: string; // Bisa number dari DB, tapi string aman untuk frontend
+  id: string; 
   name: string;
 }
 
@@ -23,49 +23,52 @@ export interface ColorImage {
 export interface Product {
   id: string;
   name: string;
-  category: string; // Changed from union type to string to support dynamic categories
-  // Mengganti single price dengan tiered pricing
-  price2Days: number; // Minimal sewa
+  category: string; 
+  price2Days: number; 
   price3Days: number;
   price4Days: number;
   price5Days: number;
   price6Days: number;
-  price7Days: number; // Weekly limit
+  price7Days: number; 
   image: string;
   description: string;
-  stock: number; // Stok Ready (Available)
-  rented?: number; // Stok Sedang Disewa (New)
-  damaged?: number; // Stok Rusak/Maintenance (New)
+  stock: number; 
+  rented?: number; 
+  damaged?: number; 
   
-  packageItems?: PackageItem[]; // Optional: Hanya untuk kategori paket
-  sizes?: { [key: string]: number }; // Legacy: Simple Key (S, M, L...) Value (Stock count)
-  colors?: string[]; // Legacy: Array warna simpel
-  variants?: ProductVariant[]; // New: Detailed combinatorics (Color + Size + Stock)
-  colorImages?: ColorImage[]; // New: Specific image for a color
+  packageItems?: PackageItem[]; 
+  sizes?: { [key: string]: number }; 
+  colors?: string[]; 
+  variants?: ProductVariant[]; 
+  colorImages?: ColorImage[]; 
 }
 
 export interface CartItem extends Product {
   quantity: number;
-  selectedSize?: string; // Menyimpan ukuran yang dipilih user
-  selectedColor?: string; // Menyimpan warna yang dipilih user
+  selectedSize?: string; 
+  selectedColor?: string; 
 }
 
 export interface UserDetails {
   name: string;
   whatsapp: string;
-  campus: string; // Universitas Jenderal Soedirman, UMP, etc.
+  campus: string; 
   rentalDate: string;
-  duration: number; // Hari (Min 2)
+  duration: number; 
 }
 
+// Updated Transaction Interface
 export interface Transaction {
-  id: string;
-  date: string; // ISO string of when the booking was made
-  rentalDate: string; // Date of pickup
+  id: string; // ID dari Supabase
+  created_at?: string;
+  customerName: string; // Mapped from customer_name
+  customerWhatsapp: string; // Mapped from customer_whatsapp
+  customerCampus: string; // Mapped from customer_campus
+  rentalDate: string; // Mapped from rental_date
   duration: number;
-  totalPrice: number;
+  totalPrice: number; // Mapped from total_price
   items: CartItem[];
-  status: 'pending' | 'completed'; // Visual indicator
+  status: 'pending' | 'active' | 'completed' | 'cancelled'; 
 }
 
 export enum GeminiModel {
@@ -74,5 +77,5 @@ export enum GeminiModel {
 
 export interface AiRecommendation {
   reason: string;
-  suggestedItems: string[]; // List of product names or keywords
+  suggestedItems: string[]; 
 }

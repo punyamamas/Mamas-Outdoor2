@@ -3,6 +3,7 @@ import { X, Trash2, Calendar, Phone, User, School, ArrowRight, AlertCircle, Load
 import { CartItem, UserDetails, Transaction } from '../types';
 import { WA_NUMBER } from '../constants';
 import { processStockReduction } from '../services/productService';
+import { createTransaction } from '../services/transactionService';
 import ImageLoader from './ImageLoader';
 
 interface CartDrawerProps {
@@ -12,7 +13,7 @@ interface CartDrawerProps {
   onUpdateQuantity: (id: string, delta: number, size?: string, color?: string) => void;
   onRemoveItem: (id: string, size?: string, color?: string) => void;
   onClearCart: () => void;
-  onRefreshData: () => Promise<void>; // Prop baru untuk refresh data
+  onRefreshData: () => Promise<void>; 
 }
 
 const CartDrawer: React.FC<CartDrawerProps> = ({ 
@@ -31,12 +32,10 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
     whatsapp: '',
     campus: '',
     rentalDate: new Date().toISOString().split('T')[0],
-    duration: 2 // Minimal 2 hari
+    duration: 2 
   });
 
-  // Fungsi helper hitung harga item berdasarkan durasi
   const getItemPriceForDuration = (item: CartItem, days: number): number => {
-    // Safety check: jika item format lama, gunakan default 0
     const p2 = item.price2Days || 0;
     const p3 = item.price3Days || 0;
     const p4 = item.price4Days || 0;
@@ -50,12 +49,11 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
     else if (days === 4) unitPrice = p4;
     else if (days === 5) unitPrice = p5;
     else if (days === 6) unitPrice = p6;
-    else unitPrice = p7 + ((days - 7) * (p2 * 0.4)); // Fallback logis jika > 7 hari
+    else unitPrice = p7 + ((days - 7) * (p2 * 0.4)); 
 
     return unitPrice;
   };
 
-  // Helper untuk mendapatkan max stok item di cart (Duplikasi logic dari App.tsx agar UI responsif)
   const getAvailableStock = (item: CartItem): number => {
     if (item.variants && item.variants.length > 0 && item.selectedSize && item.selectedColor) {
       const variant = item.variants.find(v => v.size === item.selectedSize && v.color === item.selectedColor);
@@ -81,18 +79,24 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
     setIsProcessing(true);
     
     try {
-      // 1. Process Stock Reduction (Database Update)
-      // Kita tunggu proses ini selesai agar data di DB update
+      // 1. Simpan Transaksi ke Database (Supabase)
+      // Ini langkah penting agar data masuk dashboard admin
+      await createTransaction(userDetails, cartItems, total);
+
+      // 2. Process Stock Reduction (Database Update)
       await processStockReduction(cartItems);
 
-      // 2. Refresh Data Global
-      // Meminta aplikasi mengambil data terbaru agar UI (Admin/Katalog) terupdate
+      // 3. Refresh Data Global
       await onRefreshData();
 
-      // 3. Save Transaction to Local History
-      const newTransaction: Transaction = {
+      // 4. Save Transaction to Local History (Untuk UX user di frontend)
+      // Note: Di production, history sebaiknya fetch dari DB berdasarkan nomor HP/User ID
+      const localTransaction: Transaction = {
         id: Date.now().toString(),
-        date: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        customerName: userDetails.name,
+        customerWhatsapp: userDetails.whatsapp,
+        customerCampus: userDetails.campus,
         rentalDate: userDetails.rentalDate,
         duration: userDetails.duration,
         totalPrice: total,
@@ -102,10 +106,10 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
 
       const existingHistory = localStorage.getItem('mamasHistory');
       const history = existingHistory ? JSON.parse(existingHistory) : [];
-      history.push(newTransaction);
+      history.push(localTransaction);
       localStorage.setItem('mamasHistory', JSON.stringify(history));
 
-      // 4. Construct WhatsApp Message
+      // 5. Construct WhatsApp Message
       const header = `*Halo Mamas Outdoor! Saya mau sewa dong.*\n\n`;
       const buyerInfo = `*Data Penyewa:*\nNama: ${userDetails.name}\nKampus: ${userDetails.campus}\nWA: ${userDetails.whatsapp}\nTanggal Ambil: ${userDetails.rentalDate}\nLama Sewa: ${userDetails.duration} Hari\n\n`;
       
@@ -120,11 +124,11 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
       
       const fullMessage = encodeURIComponent(header + buyerInfo + "*List Alat:*\n" + itemsList + footer);
       
-      // 5. Open WhatsApp (Add small delay to ensure UI updates finish)
+      // 6. Open WhatsApp 
       setTimeout(() => {
         window.open(`https://wa.me/${WA_NUMBER}?text=${fullMessage}`, '_blank');
         
-        // 6. Reset & Close
+        // 7. Reset & Close
         onClearCart();
         setStep('cart');
         onClose();
@@ -139,7 +143,6 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
   };
 
   const handleDurationChange = (val: number) => {
-    // Enforce minimal 2 hari
     const newDuration = val < 2 ? 2 : val;
     setUserDetails(prev => ({ ...prev, duration: newDuration }));
   };
@@ -180,9 +183,7 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
                 ) : (
                   <div className="space-y-6">
                     {cartItems.map(item => {
-                      // Gunakan fallback untuk display
                       const displayPrice = item.price2Days || 0;
-                      // Unique key combining ID, Size, and Color
                       const itemKey = `${item.id}-${item.selectedSize || 'default'}-${item.selectedColor || 'default'}`;
                       
                       const maxStock = getAvailableStock(item);
@@ -353,7 +354,6 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
                  <div className="flex justify-between mb-4">
                     <span className="text-gray-600 text-sm">Estimasi (Paket Min. 2 Hari)</span>
                     <span className="font-bold text-xl text-gray-900">
-                      {/* Show estimate based on min 2 days */}
                       Rp{cartItems.reduce((acc, item) => acc + ((item.price2Days || 0) * item.quantity), 0).toLocaleString('id-ID')}
                     </span>
                  </div>

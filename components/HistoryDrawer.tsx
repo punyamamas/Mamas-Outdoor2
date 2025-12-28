@@ -18,7 +18,7 @@ const HistoryDrawer: React.FC<HistoryDrawerProps> = ({ isOpen, onClose }) => {
         try {
           // Sort by date descending (newest first)
           const parsed = JSON.parse(savedHistory) as Transaction[];
-          setHistory(parsed.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+          setHistory(parsed.sort((a, b) => new Date(b.rentalDate).getTime() - new Date(a.rentalDate).getTime()));
         } catch (e) {
           console.error("Failed to parse history", e);
         }
