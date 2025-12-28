@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Trash2, Calendar, Phone, User, School, ArrowRight, AlertCircle, Loader2 } from 'lucide-react';
+import { X, Trash2, Calendar, Phone, User, School, ArrowRight, AlertCircle, Loader2, Clock } from 'lucide-react';
 import { CartItem, UserDetails, Transaction } from '../types';
 import { WA_NUMBER } from '../constants';
 import { processStockReduction } from '../services/productService';
@@ -65,6 +65,22 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
     return item.stock || 0;
   };
 
+  // Helper untuk menghitung tanggal kembali
+  const getReturnDate = (startDateStr: string, duration: number): Date => {
+    const date = new Date(startDateStr);
+    date.setDate(date.getDate() + duration);
+    return date;
+  };
+
+  const formatReturnDate = (date: Date): string => {
+    return date.toLocaleDateString('id-ID', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
+  };
+
   const calculateTotal = () => {
     return cartItems.reduce((sum, item) => {
       const itemPriceTotal = getItemPriceForDuration(item, userDetails.duration) * item.quantity;
@@ -79,8 +95,10 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
     setIsProcessing(true);
     
     try {
+      const returnDateObj = getReturnDate(userDetails.rentalDate, userDetails.duration);
+      const returnDateFormatted = formatReturnDate(returnDateObj);
+
       // 1. Simpan Transaksi ke Database (Supabase)
-      // Ini langkah penting agar data masuk dashboard admin
       await createTransaction(userDetails, cartItems, total);
 
       // 2. Process Stock Reduction (Database Update)
@@ -89,8 +107,7 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
       // 3. Refresh Data Global
       await onRefreshData();
 
-      // 4. Save Transaction to Local History (Untuk UX user di frontend)
-      // Note: Di production, history sebaiknya fetch dari DB berdasarkan nomor HP/User ID
+      // 4. Save Transaction to Local History
       const localTransaction: Transaction = {
         id: Date.now().toString(),
         created_at: new Date().toISOString(),
@@ -111,7 +128,7 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
 
       // 5. Construct WhatsApp Message
       const header = `*Halo Mamas Outdoor! Saya mau sewa dong.*\n\n`;
-      const buyerInfo = `*Data Penyewa:*\nNama: ${userDetails.name}\nKampus: ${userDetails.campus}\nWA: ${userDetails.whatsapp}\nTanggal Ambil: ${userDetails.rentalDate}\nLama Sewa: ${userDetails.duration} Hari\n\n`;
+      const buyerInfo = `*Data Penyewa:*\nNama: ${userDetails.name}\nKampus: ${userDetails.campus}\nWA: ${userDetails.whatsapp}\n\n*Jadwal Sewa:*\nAmbil: ${userDetails.rentalDate}\nDurasi: ${userDetails.duration} Hari\nKembali: ${returnDateFormatted}\n\n`;
       
       const itemsList = cartItems.map((item, idx) => {
         const priceForDuration = getItemPriceForDuration(item, userDetails.duration);
@@ -148,6 +165,8 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
   };
 
   if (!isOpen) return null;
+
+  const returnDateDisplay = formatReturnDate(getReturnDate(userDetails.rentalDate, userDetails.duration));
 
   return (
     <div className="fixed inset-0 z-[60] overflow-hidden">
@@ -338,7 +357,14 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
                     <span>Durasi Sewa</span>
                     <span>{userDetails.duration} Hari</span>
                   </div>
-                  <div className="flex justify-between font-bold text-blue-900 text-lg mt-1">
+                  
+                  {/* Tanggal Kembali Section */}
+                  <div className="flex justify-between text-sm text-blue-900 font-medium pt-1">
+                    <span className="flex items-center gap-1"><Clock size={14} /> Wajib Kembali</span>
+                    <span className="font-bold text-right max-w-[50%] leading-tight">{returnDateDisplay}</span>
+                  </div>
+
+                  <div className="flex justify-between font-bold text-blue-900 text-lg mt-3 pt-2 border-t border-blue-200/60">
                     <span>Total Bayar</span>
                     <span>Rp{total.toLocaleString('id-ID')}</span>
                   </div>
