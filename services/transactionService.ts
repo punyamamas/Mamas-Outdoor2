@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { Transaction, CartItem, UserDetails } from '../types';
+import { processStockReduction, processStockRestoration } from './productService';
 
 // Create new transaction (Checkout)
 export const createTransaction = async (
@@ -51,18 +52,44 @@ export const getTransactions = async (): Promise<Transaction[]> => {
   return data.map(mapDbToTransaction);
 };
 
-// Update transaction status
-export const updateTransactionStatus = async (id: string, status: string): Promise<boolean> => {
+// Update transaction status & Handle Stock Logic
+export const updateTransactionStatus = async (id: string, newStatus: string): Promise<boolean> => {
   if (!supabase) return false;
 
+  // 1. Get current status & items
+  const { data: trx, error: fetchError } = await supabase
+    .from('transactions')
+    .select('status, items')
+    .eq('id', id)
+    .single();
+
+  if (fetchError || !trx) {
+     console.error("Error fetching transaction for status update", fetchError);
+     return false;
+  }
+
+  const oldStatus = trx.status;
+  const items = trx.items as CartItem[];
+
+  // 2. Update status in Database
   const { error } = await supabase
     .from('transactions')
-    .update({ status })
+    .update({ status: newStatus })
     .eq('id', id);
 
   if (error) {
     console.error('Error updating transaction status:', error);
     return false;
+  }
+
+  // 3. Handle Stock Logic based on status change
+  // Case A: Marking as Completed (Sewa Selesai) -> Restore Stock (Return to Ready)
+  if (newStatus === 'completed' && oldStatus !== 'completed') {
+      await processStockRestoration(items);
+  }
+  // Case B: Reverting FROM Completed TO something else (e.g. Active/Pending) -> Reduce Stock again
+  else if (oldStatus === 'completed' && newStatus !== 'completed') {
+      await processStockReduction(items);
   }
 
   return true;

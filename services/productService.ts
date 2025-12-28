@@ -262,3 +262,80 @@ export const processStockReduction = async (cartItems: CartItem[]): Promise<bool
     return false;
   }
 };
+
+// --- FUNGSI PENGEMBALIAN STOK (SAAT TRANSAKSI SELESAI) ---
+
+export const processStockRestoration = async (cartItems: CartItem[]): Promise<boolean> => {
+  if (!supabase) return true;
+
+  try {
+    const { data: allProducts, error } = await supabase
+      .from('products')
+      .select('id, stock, rented, package_items, sizes, variants');
+
+    if (error) return false;
+    if (!allProducts) return true;
+
+    const productMap = new Map<string, any>(allProducts.map((p: any) => [p.id.toString(), p]));
+
+    for (const item of cartItems) {
+      const dbProduct = productMap.get(item.id);
+      if (!dbProduct) continue;
+
+      const currentStock = Number(dbProduct.stock) || 0;
+      const currentRented = Number(dbProduct.rented) || 0;
+      
+      const quantityToRestore = item.quantity;
+      
+      // Kembalikan ke stok ready, kurangi dari rented
+      const newStock = currentStock + quantityToRestore;
+      const newRented = Math.max(0, currentRented - quantityToRestore);
+
+      await supabase.from('products').update({ 
+        stock: newStock,
+        rented: newRented
+      }).eq('id', item.id);
+
+      // Package items restoration
+      if (dbProduct.package_items && Array.isArray(dbProduct.package_items)) {
+        for (const subItem of dbProduct.package_items) {
+          const childProduct = productMap.get(subItem.productId);
+          if (childProduct) {
+            const restoreAmount = item.quantity * subItem.quantity;
+            const childCurrentStock = Number(childProduct.stock) || 0;
+            const childCurrentRented = Number(childProduct.rented) || 0;
+            
+            await supabase.from('products').update({ 
+              stock: childCurrentStock + restoreAmount,
+              rented: Math.max(0, childCurrentRented - restoreAmount)
+            }).eq('id', subItem.productId);
+          }
+        }
+      }
+      
+      // Variants restoration
+      if (item.selectedSize && item.selectedColor && dbProduct.variants && Array.isArray(dbProduct.variants)) {
+        const variants: ProductVariant[] = [...dbProduct.variants];
+        const variantIndex = variants.findIndex(v => v.color === item.selectedColor && v.size === item.selectedSize);
+        
+        if (variantIndex !== -1) {
+          const currentVarStock = Number(variants[variantIndex].stock) || 0;
+          variants[variantIndex].stock = currentVarStock + item.quantity;
+          
+          await supabase.from('products').update({ variants: variants }).eq('id', item.id);
+        }
+      }
+      else if (item.selectedSize && dbProduct.sizes) {
+         const currentSizes = { ...dbProduct.sizes };
+         const currentSizeStock = Number(currentSizes[item.selectedSize]) || 0;
+         currentSizes[item.selectedSize] = currentSizeStock + item.quantity;
+         await supabase.from('products').update({ sizes: currentSizes }).eq('id', item.id);
+      }
+    }
+
+    return true;
+  } catch (err) {
+    console.error("Critical error in processStockRestoration:", err);
+    return false;
+  }
+};
