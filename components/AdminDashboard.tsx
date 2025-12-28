@@ -4,7 +4,7 @@ import {
   Edit, Trash2, Save, X, Image as ImageIcon,
   AlertTriangle, DollarSign, Loader2, RotateCcw,
   Database, Wifi, WifiOff, Tags, CheckSquare, Layers, Scissors, Footprints, Palette, ChevronDown, ChevronUp, Lock, ShoppingBag,
-  Warehouse, ClipboardList, TrendingUp, AlertCircle, MinusCircle, PlusCircle
+  Warehouse, ClipboardList, TrendingUp, AlertCircle, MinusCircle, PlusCircle, HeartCrack
 } from 'lucide-react';
 import { Product, Category, PackageItem, ProductVariant, ColorImage } from '../types';
 import { supabase } from '../services/supabase';
@@ -80,6 +80,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   
   // Warehouse specific state
   const [warehouseFilter, setWarehouseFilter] = useState<'all' | 'low_stock'>('all');
+  const [warehouseCategoryFilter, setWarehouseCategoryFilter] = useState<string>('Semua');
 
   // Constants: Updated to include 36-48
   const AVAILABLE_SIZES = [
@@ -243,16 +244,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleQuickStockUpdate = async (product: Product, delta: number) => {
     // Determine new stock
     const newStock = Math.max(0, product.stock + delta);
-    
-    // Create optimistic update
     const updatedProduct = { ...product, stock: newStock };
-    
-    // We only update the 'stock' field primarily here, 
-    // but the API requires the full object usually or we can use the main update function
-    // For simplicity and safety, we reuse onUpdateProduct but we must respect variants/sizes if they exist.
-    // NOTE: This simple quick update only updates the main stock counter. 
-    // If a product has complex variants, quick update might be ambiguous.
-    // For now, we will disable quick update for complex variant products or just warn.
     
     if ((product.variants && product.variants.length > 0) || (product.sizes && Object.keys(product.sizes).length > 0)) {
       alert("Produk ini memiliki varian ukuran/warna. Silakan gunakan tombol Edit untuk mengubah stok per varian agar akurat.");
@@ -260,6 +252,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
 
     await onUpdateProduct(updatedProduct);
+  };
+
+  // --- Handle Damaged Item Reporting ---
+  const handleReportDamage = async (product: Product) => {
+    if ((product.variants && product.variants.length > 0) || (product.sizes && Object.keys(product.sizes).length > 0)) {
+      alert("Untuk produk dengan varian (Warna/Ukuran), silakan edit produk secara manual untuk mengurangi stok varian yang spesifik.");
+      return;
+    }
+
+    if (window.confirm(`Lapor barang rusak untuk "${product.name}"? Stok akan dikurangi 1 unit.`)) {
+      await handleQuickStockUpdate(product, -1);
+    }
   };
 
   // --- Logic for Advanced Variants ---
@@ -362,10 +366,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     p.category.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Warehouse filtering
+  // Warehouse filtering logic (Combined)
   const warehouseProducts = filteredProducts.filter(p => {
-    if (warehouseFilter === 'low_stock') return p.stock <= 3;
-    return true;
+    // 1. Filter by Status
+    const matchesStatus = warehouseFilter === 'low_stock' ? p.stock <= 3 : true;
+    // 2. Filter by Category
+    const matchesCategory = warehouseCategoryFilter === 'Semua' || p.category === warehouseCategoryFilter;
+    
+    return matchesStatus && matchesCategory;
   });
 
   // Calculate Warehouse Stats
@@ -547,28 +555,45 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
                {/* Inventory Table */}
                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                  <div className="p-5 border-b border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4">
-                     <div className="flex items-center gap-3 w-full md:w-auto">
-                        <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                  <div className="p-5 border-b border-gray-100 flex flex-col xl:flex-row justify-between items-center gap-4">
+                     <div className="flex flex-col md:flex-row items-center gap-3 w-full xl:w-auto">
+                        <h3 className="font-bold text-gray-800 flex items-center gap-2 whitespace-nowrap">
                            <Warehouse size={18} /> Inventaris Gudang
                         </h3>
-                        <div className="h-6 w-px bg-gray-200 mx-2"></div>
-                        <div className="flex gap-2">
-                           <button 
-                             onClick={() => setWarehouseFilter('all')}
-                             className={`px-3 py-1 text-xs font-bold rounded-full border transition ${warehouseFilter === 'all' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'}`}
+                        <div className="hidden md:block h-6 w-px bg-gray-200 mx-2"></div>
+                        
+                        {/* Filters */}
+                        <div className="flex flex-wrap gap-2 w-full md:w-auto justify-center md:justify-start">
+                           <div className="flex gap-2">
+                             <button 
+                               onClick={() => setWarehouseFilter('all')}
+                               className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition ${warehouseFilter === 'all' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'}`}
+                             >
+                               Semua Status
+                             </button>
+                             <button 
+                               onClick={() => setWarehouseFilter('low_stock')}
+                               className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition ${warehouseFilter === 'low_stock' ? 'bg-orange-100 text-orange-700 border-orange-200' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'}`}
+                             >
+                               Low Stock
+                             </button>
+                           </div>
+                           
+                           {/* Category Filter */}
+                           <select 
+                             value={warehouseCategoryFilter}
+                             onChange={(e) => setWarehouseCategoryFilter(e.target.value)}
+                             className="px-3 py-1.5 text-xs font-bold rounded-lg border border-gray-200 bg-white text-gray-600 outline-none focus:border-nature-500 focus:ring-1 focus:ring-nature-500"
                            >
-                             Semua
-                           </button>
-                           <button 
-                             onClick={() => setWarehouseFilter('low_stock')}
-                             className={`px-3 py-1 text-xs font-bold rounded-full border transition ${warehouseFilter === 'low_stock' ? 'bg-orange-100 text-orange-700 border-orange-200' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'}`}
-                           >
-                             Low Stock
-                           </button>
+                             <option value="Semua">Semua Kategori</option>
+                             {categories.map(c => (
+                               <option key={c.id} value={c.name}>{c.name}</option>
+                             ))}
+                           </select>
                         </div>
                      </div>
-                     <div className="relative w-full md:w-64">
+
+                     <div className="relative w-full xl:w-64">
                        <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
                        <input 
                          type="text" 
@@ -621,20 +646,34 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                  </td>
                                  <td className="px-6 py-4">
                                     <div className="flex justify-center items-center gap-3">
+                                       {/* Decrease Stock */}
                                        <button 
                                          onClick={() => handleQuickStockUpdate(p, -1)}
                                          disabled={p.stock <= 0 || isComplex}
                                          className="text-gray-400 hover:text-red-500 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                                         title="Kurangi Stok"
                                        >
                                           <MinusCircle size={20} />
                                        </button>
                                        <span className="text-gray-300 text-xs">|</span>
+                                       {/* Increase Stock */}
                                        <button 
                                          onClick={() => handleQuickStockUpdate(p, 1)}
                                          disabled={isComplex}
                                          className="text-gray-400 hover:text-green-500 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                                         title="Tambah Stok"
                                        >
                                           <PlusCircle size={20} />
+                                       </button>
+                                       <span className="text-gray-300 text-xs">|</span>
+                                       {/* Damaged Item Report */}
+                                       <button
+                                         onClick={() => handleReportDamage(p)}
+                                         disabled={p.stock <= 0 || isComplex}
+                                         className="text-red-300 hover:text-red-600 disabled:opacity-30 disabled:cursor-not-allowed transition hover:scale-110"
+                                         title="Lapor Barang Rusak/Hilang"
+                                       >
+                                          <HeartCrack size={18} />
                                        </button>
                                     </div>
                                  </td>
