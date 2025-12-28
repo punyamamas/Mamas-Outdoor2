@@ -36,6 +36,12 @@ export const getProducts = async (): Promise<Product[]> => {
         price5Days: item.price5Days || Math.floor(basePrice * 2.2),
         price6Days: item.price6Days || Math.floor(basePrice * 2.5),
         price7Days: item.price7Days || Math.floor(basePrice * 3.0),
+        
+        // NEW FIELDS MAPPING
+        stock: item.stock || 0,
+        rented: item.rented || 0,
+        damaged: item.damaged || 0,
+
         packageItems: item.package_items || [], // Map kolom DB snake_case ke camelCase
         sizes: item.sizes || {}, 
         colors: item.colors || [],
@@ -66,7 +72,9 @@ export const addProduct = async (product: Product): Promise<Product | null> => {
     sizes: sizes || {}, 
     colors: colors || [],
     variants: variants || [],
-    color_images: colorImages || []
+    color_images: colorImages || [],
+    rented: 0,
+    damaged: 0
   };
 
   if (payload.id && payload.id.length > 10) {
@@ -110,7 +118,11 @@ export const updateProduct = async (product: Product): Promise<Product | null> =
     sizes: sizes || {},
     colors: colors || [],
     variants: variants || [],
-    color_images: colorImages || []
+    color_images: colorImages || [],
+    // Pastikan field status stok ikut terupdate
+    stock: product.stock,
+    rented: product.rented,
+    damaged: product.damaged
   };
 
   const { data, error } = await supabase
@@ -149,7 +161,7 @@ export const deleteProduct = async (id: string): Promise<boolean> => {
   return true;
 };
 
-// --- FUNGSI BARU UNTUK PENGURANGAN STOK PAKET & VARIAN ---
+// --- FUNGSI PENGURANGAN STOK SAAT CHECKOUT ---
 
 export const processStockReduction = async (cartItems: CartItem[]): Promise<void> => {
   if (!supabase) return;
@@ -158,7 +170,7 @@ export const processStockReduction = async (cartItems: CartItem[]): Promise<void
     // 1. Ambil data produk terbaru
     const { data: allProducts, error } = await supabase
       .from('products')
-      .select('id, stock, package_items, sizes, variants');
+      .select('id, stock, rented, package_items, sizes, variants');
 
     if (error || !allProducts) throw new Error("Gagal mengambil data stok terbaru");
 
@@ -169,66 +181,61 @@ export const processStockReduction = async (cartItems: CartItem[]): Promise<void
       const dbProduct = productMap.get(item.id);
       if (!dbProduct) continue;
 
-      // A. Jika produk punya VARIAN KOMPLEKS (Warna + Size + Stok spesifik)
-      if (item.selectedSize && item.selectedColor && dbProduct.variants && dbProduct.variants.length > 0) {
-        const variants: ProductVariant[] = dbProduct.variants;
-        
-        // Cari varian yang cocok
-        const variantIndex = variants.findIndex(v => v.color === item.selectedColor && v.size === item.selectedSize);
-        
-        if (variantIndex !== -1) {
-          // Kurangi stok varian
-          const currentVariantStock = variants[variantIndex].stock;
-          const newVariantStock = Math.max(0, currentVariantStock - item.quantity);
-          
-          variants[variantIndex].stock = newVariantStock;
-          
-          // Hitung ulang total stok master
-          const newTotalStock = variants.reduce((acc, v) => acc + v.stock, 0);
-
-          await supabase.from('products').update({
-            variants: variants,
-            stock: newTotalStock
-          }).eq('id', item.id);
-          
-          continue; // Lanjut ke item berikutnya
-        }
-      }
-
-      // B. Jika produk punya SIZE SIMPLE (Legacy, hanya key size)
-      if (item.selectedSize && dbProduct.sizes && (!dbProduct.variants || dbProduct.variants.length === 0)) {
-         const currentSizes = dbProduct.sizes || {};
-         const currentSizeStock = currentSizes[item.selectedSize] || 0;
-         const newSizeStock = Math.max(0, currentSizeStock - item.quantity);
-         
-         const newSizes = { ...currentSizes, [item.selectedSize]: newSizeStock };
-         const newTotalStock = Object.values(newSizes).reduce((a: any, b: any) => a + b, 0);
-
-         await supabase.from('products').update({ 
-           sizes: newSizes,
-           stock: newTotalStock 
-         }).eq('id', item.id);
-         
-         continue;
-      }
-
-      // C. Kurangi stok item utama (tanpa varian)
+      // Note: Untuk varian kompleks, saat ini kita hanya mengurangi stok utama
+      // karena tracking "Rented" per varian butuh struktur DB relasional yang lebih kompleks.
+      
+      // LOGIKA UTAMA: Pindahkan Stock -> Rented
       const currentStock = typeof dbProduct.stock === 'number' ? dbProduct.stock : 0;
-      const newStock = Math.max(0, currentStock - item.quantity);
-      await supabase.from('products').update({ stock: newStock }).eq('id', item.id);
+      const currentRented = typeof dbProduct.rented === 'number' ? dbProduct.rented : 0;
+      
+      const quantityToRent = item.quantity;
+      
+      const newStock = Math.max(0, currentStock - quantityToRent);
+      const newRented = currentRented + quantityToRent;
 
-      // D. Jika item ini adalah PAKET
+      // Update Database Utama
+      await supabase.from('products').update({ 
+        stock: newStock,
+        rented: newRented
+      }).eq('id', item.id);
+
+      // Handle Sub-item jika Paket
       if (dbProduct.package_items && Array.isArray(dbProduct.package_items)) {
         for (const subItem of dbProduct.package_items) {
           const childProduct = productMap.get(subItem.productId);
           if (childProduct) {
             const deductionAmount = item.quantity * subItem.quantity;
-            const childCurrentStock = typeof childProduct.stock === 'number' ? childProduct.stock : 0;
-            const newChildStock = Math.max(0, childCurrentStock - deductionAmount);
             
-            await supabase.from('products').update({ stock: newChildStock }).eq('id', subItem.productId);
+            const childCurrentStock = typeof childProduct.stock === 'number' ? childProduct.stock : 0;
+            const childCurrentRented = typeof childProduct.rented === 'number' ? childProduct.rented : 0;
+            
+            const newChildStock = Math.max(0, childCurrentStock - deductionAmount);
+            const newChildRented = childCurrentRented + deductionAmount;
+            
+            await supabase.from('products').update({ 
+              stock: newChildStock,
+              rented: newChildRented
+            }).eq('id', subItem.productId);
           }
         }
+      }
+      
+      // Update specific variants stock if needed (Only reducing available stock)
+      // Limitation: We don't track rented per variant size yet in this simple schema
+      if (item.selectedSize && item.selectedColor && dbProduct.variants && dbProduct.variants.length > 0) {
+        const variants: ProductVariant[] = dbProduct.variants;
+        const variantIndex = variants.findIndex(v => v.color === item.selectedColor && v.size === item.selectedSize);
+        if (variantIndex !== -1) {
+          variants[variantIndex].stock = Math.max(0, variants[variantIndex].stock - item.quantity);
+          await supabase.from('products').update({ variants: variants }).eq('id', item.id);
+        }
+      }
+      else if (item.selectedSize && dbProduct.sizes) {
+         const currentSizes = dbProduct.sizes || {};
+         const currentSizeStock = currentSizes[item.selectedSize] || 0;
+         const newSizeStock = Math.max(0, currentSizeStock - item.quantity);
+         const newSizes = { ...currentSizes, [item.selectedSize]: newSizeStock };
+         await supabase.from('products').update({ sizes: newSizes }).eq('id', item.id);
       }
     }
   } catch (err) {

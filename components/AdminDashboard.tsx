@@ -4,7 +4,7 @@ import {
   Edit, Trash2, Save, X, Image as ImageIcon,
   AlertTriangle, DollarSign, Loader2, RotateCcw,
   Database, Wifi, WifiOff, Tags, CheckSquare, Layers, Scissors, Footprints, Palette, ChevronDown, ChevronUp, Lock, ShoppingBag,
-  Warehouse, ClipboardList, TrendingUp, AlertCircle, MinusCircle, PlusCircle, HeartCrack
+  Warehouse, ClipboardList, TrendingUp, AlertCircle, MinusCircle, PlusCircle, HeartCrack, Hammer, ArrowRightLeft, FileText
 } from 'lucide-react';
 import { Product, Category, PackageItem, ProductVariant, ColorImage } from '../types';
 import { supabase } from '../services/supabase';
@@ -79,7 +79,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [packageSearchTerm, setPackageSearchTerm] = useState('');
   
   // Warehouse specific state
-  const [warehouseFilter, setWarehouseFilter] = useState<'all' | 'low_stock'>('all');
+  const [warehouseFilter, setWarehouseFilter] = useState<'all' | 'low_stock' | 'rented' | 'damaged'>('all');
   const [warehouseCategoryFilter, setWarehouseCategoryFilter] = useState<string>('Semua');
 
   // Constants: Updated to include 36-48
@@ -240,31 +240,74 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
-  // --- Quick Stock Update for Warehouse ---
-  const handleQuickStockUpdate = async (product: Product, delta: number) => {
-    // Determine new stock
-    const newStock = Math.max(0, product.stock + delta);
-    const updatedProduct = { ...product, stock: newStock };
-    
-    if ((product.variants && product.variants.length > 0) || (product.sizes && Object.keys(product.sizes).length > 0)) {
-      alert("Produk ini memiliki varian ukuran/warna. Silakan gunakan tombol Edit untuk mengubah stok per varian agar akurat.");
-      return;
-    }
+  // --- WAREHOUSE LOGIC ---
 
-    await onUpdateProduct(updatedProduct);
+  // 1. Restock Baru (Menambah stok total)
+  const handleRestock = async (product: Product) => {
+    const qty = prompt(`Tambah stok baru untuk "${product.name}"?`, "1");
+    if (!qty) return;
+    const val = parseInt(qty);
+    if (isNaN(val) || val <= 0) return;
+
+    await onUpdateProduct({ ...product, stock: product.stock + val });
   };
 
-  // --- Handle Damaged Item Reporting ---
+  // 2. Lapor Barang Rusak (Ready -> Damaged)
   const handleReportDamage = async (product: Product) => {
-    if ((product.variants && product.variants.length > 0) || (product.sizes && Object.keys(product.sizes).length > 0)) {
-      alert("Untuk produk dengan varian (Warna/Ukuran), silakan edit produk secara manual untuk mengurangi stok varian yang spesifik.");
-      return;
-    }
+    if (product.stock <= 0) return;
+    const confirm = window.confirm(`Lapor 1 unit "${product.name}" RUSAK? Stok Ready akan berkurang.`);
+    if (!confirm) return;
 
-    if (window.confirm(`Lapor barang rusak untuk "${product.name}"? Stok akan dikurangi 1 unit.`)) {
-      await handleQuickStockUpdate(product, -1);
-    }
+    await onUpdateProduct({ 
+      ...product, 
+      stock: product.stock - 1, 
+      damaged: (product.damaged || 0) + 1 
+    });
   };
+
+  // 3. Service Selesai (Damaged -> Ready)
+  const handleRepairFinish = async (product: Product) => {
+    if (!product.damaged || product.damaged <= 0) return;
+    const confirm = window.confirm(`1 unit "${product.name}" sudah DIPERBAIKI dan kembali ke Ready Stock?`);
+    if (!confirm) return;
+
+    await onUpdateProduct({ 
+      ...product, 
+      stock: product.stock + 1, 
+      damaged: product.damaged - 1 
+    });
+  };
+
+  // 4. Barang Kembali dari Sewa (Rented -> Ready)
+  const handleReturnFromRent = async (product: Product) => {
+    if (!product.rented || product.rented <= 0) return;
+    const qty = prompt(`Berapa unit "${product.name}" yang kembali? (Max: ${product.rented})`, "1");
+    if (!qty) return;
+    const val = parseInt(qty);
+    if (isNaN(val) || val <= 0 || val > product.rented) return;
+
+    await onUpdateProduct({ 
+      ...product, 
+      stock: product.stock + val, 
+      rented: product.rented - val 
+    });
+  };
+
+  // 5. Barang Keluar Manual (Ready -> Rented) - Optional override
+  const handleManualRent = async (product: Product) => {
+    if (product.stock <= 0) return;
+    const qty = prompt(`Keluarkan manual "${product.name}" (Tanpa Checkout)?`, "1");
+    if (!qty) return;
+    const val = parseInt(qty);
+    if (isNaN(val) || val <= 0 || val > product.stock) return;
+
+    await onUpdateProduct({ 
+      ...product, 
+      stock: product.stock - val, 
+      rented: (product.rented || 0) + val 
+    });
+  };
+
 
   // --- Logic for Advanced Variants ---
   const addVariantGroup = () => {
@@ -369,7 +412,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // Warehouse filtering logic (Combined)
   const warehouseProducts = filteredProducts.filter(p => {
     // 1. Filter by Status
-    const matchesStatus = warehouseFilter === 'low_stock' ? p.stock <= 3 : true;
+    let matchesStatus = true;
+    if (warehouseFilter === 'low_stock') matchesStatus = p.stock <= 3;
+    if (warehouseFilter === 'rented') matchesStatus = (p.rented || 0) > 0;
+    if (warehouseFilter === 'damaged') matchesStatus = (p.damaged || 0) > 0;
+    
     // 2. Filter by Category
     const matchesCategory = warehouseCategoryFilter === 'Semua' || p.category === warehouseCategoryFilter;
     
@@ -377,8 +424,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   });
 
   // Calculate Warehouse Stats
-  const totalItems = products.reduce((acc, p) => acc + p.stock, 0);
-  const totalAssetValue = products.reduce((acc, p) => acc + (p.stock * (p.price2Days || 0)), 0);
+  const totalAvailable = products.reduce((acc, p) => acc + p.stock, 0);
+  const totalRented = products.reduce((acc, p) => acc + (p.rented || 0), 0);
+  const totalDamaged = products.reduce((acc, p) => acc + (p.damaged || 0), 0);
   const lowStockCount = products.filter(p => p.stock <= 3).length;
 
   // Search results for package builder
@@ -444,7 +492,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             onClick={() => setActiveTab('warehouse')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition ${activeTab === 'warehouse' ? 'bg-white/10 text-white font-bold' : 'text-nature-200 hover:bg-white/5'}`}
           >
-            <Warehouse size={20} /> Gudang
+            <Warehouse size={20} /> Gudang & Laporan
           </button>
           <button 
             onClick={() => setActiveTab('products')}
@@ -473,7 +521,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto max-h-screen">
         <header className="bg-white border-b border-gray-200 px-8 py-5 flex justify-between items-center sticky top-0 z-30">
-          <h1 className="text-2xl font-bold text-gray-800 capitalize">{activeTab === 'warehouse' ? 'Manajemen Gudang' : `${activeTab} Overview`}</h1>
+          <h1 className="text-2xl font-bold text-gray-800 capitalize">{activeTab === 'warehouse' ? 'Laporan Inventaris' : `${activeTab} Overview`}</h1>
           <div className="flex items-center gap-4">
              <button 
                 onClick={handleRefreshData}
@@ -506,8 +554,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <Database size={24} />
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500 font-medium">Total Aset Barang</p>
-                    <h3 className="text-2xl font-bold text-gray-900">{totalItems} Unit</h3>
+                    <p className="text-sm text-gray-500 font-medium">Total Stok Ready</p>
+                    <h3 className="text-2xl font-bold text-gray-900">{totalAvailable} Unit</h3>
                   </div>
                 </div>
               </div>
@@ -529,27 +577,26 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <div className="space-y-6">
                {/* Warehouse Stats */}
                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                 <div className="bg-gradient-to-br from-gray-800 to-gray-900 text-white p-6 rounded-2xl shadow-lg">
+                 <div className="bg-gradient-to-br from-green-600 to-green-800 text-white p-6 rounded-2xl shadow-lg">
                     <div className="flex items-center gap-3 mb-2">
-                       <ClipboardList size={20} className="text-gray-400" />
-                       <span className="text-sm font-medium text-gray-300">Total Stok Fisik</span>
+                       <CheckSquare size={20} className="text-green-200" />
+                       <span className="text-sm font-medium text-green-100">Stok Ready (Gudang)</span>
                     </div>
-                    <p className="text-3xl font-black">{totalItems} <span className="text-base font-normal text-gray-400">Unit</span></p>
+                    <p className="text-3xl font-black">{totalAvailable} <span className="text-base font-normal text-green-200">Unit</span></p>
                  </div>
                  <div className="bg-white border border-gray-200 p-6 rounded-2xl shadow-sm">
                     <div className="flex items-center gap-3 mb-2">
-                       <TrendingUp size={20} className="text-green-600" />
-                       <span className="text-sm font-medium text-gray-500">Estimasi Nilai Aset</span>
+                       <ArrowRightLeft size={20} className="text-blue-600" />
+                       <span className="text-sm font-medium text-gray-500">Sedang Disewa (Keluar)</span>
                     </div>
-                    <p className="text-3xl font-black text-gray-900">Rp{(totalAssetValue / 1000000).toFixed(1)} <span className="text-base font-normal text-gray-400">Juta</span></p>
-                    <p className="text-xs text-gray-400 mt-1">*Berdasarkan harga sewa dasar</p>
+                    <p className="text-3xl font-black text-gray-900">{totalRented} <span className="text-base font-normal text-gray-400">Unit</span></p>
                  </div>
                  <div className="bg-white border border-gray-200 p-6 rounded-2xl shadow-sm">
                     <div className="flex items-center gap-3 mb-2">
-                       <AlertTriangle size={20} className="text-orange-500" />
-                       <span className="text-sm font-medium text-gray-500">Perlu Restock</span>
+                       <HeartCrack size={20} className="text-red-500" />
+                       <span className="text-sm font-medium text-gray-500">Stok Rusak/Maintenance</span>
                     </div>
-                    <p className="text-3xl font-black text-gray-900">{lowStockCount} <span className="text-base font-normal text-gray-400">Item</span></p>
+                    <p className="text-3xl font-black text-gray-900">{totalDamaged} <span className="text-base font-normal text-gray-400">Item</span></p>
                  </div>
                </div>
 
@@ -558,24 +605,30 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <div className="p-5 border-b border-gray-100 flex flex-col xl:flex-row justify-between items-center gap-4">
                      <div className="flex flex-col md:flex-row items-center gap-3 w-full xl:w-auto">
                         <h3 className="font-bold text-gray-800 flex items-center gap-2 whitespace-nowrap">
-                           <Warehouse size={18} /> Inventaris Gudang
+                           <FileText size={18} /> Laporan Stok
                         </h3>
                         <div className="hidden md:block h-6 w-px bg-gray-200 mx-2"></div>
                         
                         {/* Filters */}
                         <div className="flex flex-wrap gap-2 w-full md:w-auto justify-center md:justify-start">
-                           <div className="flex gap-2">
+                           <div className="flex gap-2 bg-gray-100 p-1 rounded-lg">
                              <button 
                                onClick={() => setWarehouseFilter('all')}
-                               className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition ${warehouseFilter === 'all' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'}`}
+                               className={`px-3 py-1 text-xs font-bold rounded-md transition ${warehouseFilter === 'all' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:bg-gray-200'}`}
                              >
-                               Semua Status
+                               Semua
                              </button>
                              <button 
-                               onClick={() => setWarehouseFilter('low_stock')}
-                               className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition ${warehouseFilter === 'low_stock' ? 'bg-orange-100 text-orange-700 border-orange-200' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'}`}
+                               onClick={() => setWarehouseFilter('rented')}
+                               className={`px-3 py-1 text-xs font-bold rounded-md transition ${warehouseFilter === 'rented' ? 'bg-white shadow text-blue-600' : 'text-gray-500 hover:bg-gray-200'}`}
                              >
-                               Low Stock
+                               Keluar
+                             </button>
+                             <button 
+                               onClick={() => setWarehouseFilter('damaged')}
+                               className={`px-3 py-1 text-xs font-bold rounded-md transition ${warehouseFilter === 'damaged' ? 'bg-white shadow text-red-600' : 'text-gray-500 hover:bg-gray-200'}`}
+                             >
+                               Rusak
                              </button>
                            </div>
                            
@@ -609,71 +662,107 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <table className="w-full text-left text-sm text-gray-600">
                        <thead className="bg-gray-50 text-gray-700 font-bold uppercase text-xs">
                           <tr>
-                             <th className="px-6 py-4">Nama Barang</th>
-                             <th className="px-6 py-4">Kategori</th>
-                             <th className="px-6 py-4 text-center">Status Stok</th>
-                             <th className="px-6 py-4 text-center">Quick Adjust</th>
+                             <th className="px-6 py-4 w-1/3">Nama Barang</th>
+                             <th className="px-4 py-4 text-center text-green-700 bg-green-50">Ready</th>
+                             <th className="px-4 py-4 text-center text-blue-700 bg-blue-50">Keluar</th>
+                             <th className="px-4 py-4 text-center text-red-700 bg-red-50">Rusak</th>
+                             <th className="px-6 py-4 text-center">Aksi Cepat</th>
                           </tr>
                        </thead>
                        <tbody className="divide-y divide-gray-100">
                           {warehouseProducts.map(p => {
-                            const stockPercentage = Math.min(100, (p.stock / 20) * 100); // Assume 20 is "healthy" stock
                             const isComplex = (p.variants && p.variants.length > 0) || (p.sizes && Object.keys(p.sizes).length > 0);
                             
                             return (
-                              <tr key={p.id} className="hover:bg-gray-50 transition">
+                              <tr key={p.id} className="hover:bg-gray-50 transition group">
                                  <td className="px-6 py-4 font-medium text-gray-900">
                                     <div className="flex flex-col">
                                        <span>{p.name}</span>
-                                       {isComplex && <span className="text-[10px] text-gray-400 italic">Multi-Varian</span>}
-                                    </div>
-                                 </td>
-                                 <td className="px-6 py-4">
-                                    <span className="px-2 py-1 rounded bg-gray-100 text-gray-600 text-xs border border-gray-200">{p.category}</span>
-                                 </td>
-                                 <td className="px-6 py-4">
-                                    <div className="flex flex-col gap-1 items-center">
-                                       <span className={`text-lg font-black ${p.stock <= 3 ? 'text-red-500' : 'text-gray-800'}`}>
-                                          {p.stock}
-                                       </span>
-                                       <div className="w-24 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                                          <div 
-                                            className={`h-full rounded-full ${p.stock <= 3 ? 'bg-red-500' : 'bg-green-500'}`} 
-                                            style={{ width: `${stockPercentage}%` }}
-                                          ></div>
+                                       <div className="flex items-center gap-2 mt-1">
+                                         <span className="text-[10px] bg-gray-100 px-1.5 py-0.5 rounded text-gray-500 border border-gray-200">{p.category}</span>
+                                         {isComplex && <span className="text-[10px] text-gray-400 italic">Multi-Varian</span>}
                                        </div>
                                     </div>
                                  </td>
+                                 
+                                 {/* Stok Ready */}
+                                 <td className="px-4 py-4 text-center bg-green-50/30 font-bold text-green-700 text-lg">
+                                    {p.stock}
+                                 </td>
+
+                                 {/* Stok Keluar */}
+                                 <td className="px-4 py-4 text-center bg-blue-50/30">
+                                    {(p.rented || 0) > 0 ? (
+                                      <span className="font-bold text-blue-600 text-lg">{p.rented}</span>
+                                    ) : (
+                                      <span className="text-gray-300">-</span>
+                                    )}
+                                 </td>
+
+                                 {/* Stok Rusak */}
+                                 <td className="px-4 py-4 text-center bg-red-50/30">
+                                    {(p.damaged || 0) > 0 ? (
+                                      <span className="font-bold text-red-600 text-lg">{p.damaged}</span>
+                                    ) : (
+                                      <span className="text-gray-300">-</span>
+                                    )}
+                                 </td>
+
                                  <td className="px-6 py-4">
-                                    <div className="flex justify-center items-center gap-3">
-                                       {/* Decrease Stock */}
+                                    <div className="flex justify-center items-center gap-2 opacity-100 lg:opacity-60 lg:group-hover:opacity-100 transition">
+                                       
+                                       {/* 1. Tambah Stok (Beli Baru) */}
                                        <button 
-                                         onClick={() => handleQuickStockUpdate(p, -1)}
-                                         disabled={p.stock <= 0 || isComplex}
-                                         className="text-gray-400 hover:text-red-500 disabled:opacity-30 disabled:cursor-not-allowed transition"
-                                         title="Kurangi Stok"
-                                       >
-                                          <MinusCircle size={20} />
-                                       </button>
-                                       <span className="text-gray-300 text-xs">|</span>
-                                       {/* Increase Stock */}
-                                       <button 
-                                         onClick={() => handleQuickStockUpdate(p, 1)}
+                                         onClick={() => handleRestock(p)}
                                          disabled={isComplex}
-                                         className="text-gray-400 hover:text-green-500 disabled:opacity-30 disabled:cursor-not-allowed transition"
-                                         title="Tambah Stok"
+                                         className="p-1.5 text-gray-500 hover:text-green-600 hover:bg-green-100 rounded transition"
+                                         title="Restock Baru"
                                        >
-                                          <PlusCircle size={20} />
+                                          <PlusCircle size={18} />
                                        </button>
-                                       <span className="text-gray-300 text-xs">|</span>
-                                       {/* Damaged Item Report */}
+                                       
+                                       <div className="w-px h-4 bg-gray-200 mx-1"></div>
+
+                                       {/* 2. Manual Rent Out */}
+                                       <button
+                                         onClick={() => handleManualRent(p)}
+                                         disabled={p.stock <= 0 || isComplex}
+                                         className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-100 rounded transition"
+                                         title="Manual Keluar (Sewa)"
+                                       >
+                                          <MinusCircle size={18} />
+                                       </button>
+
+                                       {/* 3. Return From Rent */}
+                                       <button
+                                         onClick={() => handleReturnFromRent(p)}
+                                         disabled={(p.rented || 0) <= 0 || isComplex}
+                                         className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-100 rounded transition"
+                                         title="Barang Kembali (Masuk Gudang)"
+                                       >
+                                          <ArrowRightLeft size={18} />
+                                       </button>
+
+                                       <div className="w-px h-4 bg-gray-200 mx-1"></div>
+
+                                       {/* 4. Report Damage */}
                                        <button
                                          onClick={() => handleReportDamage(p)}
                                          disabled={p.stock <= 0 || isComplex}
-                                         className="text-red-300 hover:text-red-600 disabled:opacity-30 disabled:cursor-not-allowed transition hover:scale-110"
-                                         title="Lapor Barang Rusak/Hilang"
+                                         className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-100 rounded transition"
+                                         title="Lapor Rusak"
                                        >
                                           <HeartCrack size={18} />
+                                       </button>
+
+                                       {/* 5. Repair Finish */}
+                                       <button
+                                         onClick={() => handleRepairFinish(p)}
+                                         disabled={(p.damaged || 0) <= 0 || isComplex}
+                                         className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-100 rounded transition"
+                                         title="Selesai Servis"
+                                       >
+                                          <Hammer size={18} />
                                        </button>
                                     </div>
                                  </td>
@@ -682,7 +771,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           })}
                           {warehouseProducts.length === 0 && (
                              <tr>
-                                <td colSpan={4} className="px-6 py-8 text-center text-gray-400 italic">
+                                <td colSpan={5} className="px-6 py-8 text-center text-gray-400 italic">
                                    Tidak ada barang yang sesuai filter.
                                 </td>
                              </tr>

@@ -33,7 +33,10 @@ export interface Product {
   price7Days: number; // Weekly limit
   image: string;
   description: string;
-  stock: number;
+  stock: number; // Stok Ready (Available)
+  rented?: number; // Stok Sedang Disewa (New)
+  damaged?: number; // Stok Rusak/Maintenance (New)
+  
   packageItems?: PackageItem[]; // Optional: Hanya untuk kategori paket
   sizes?: { [key: string]: number }; // Legacy: Simple Key (S, M, L...) Value (Stock count)
   colors?: string[]; // Legacy: Array warna simpel
