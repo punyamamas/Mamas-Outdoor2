@@ -129,9 +129,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       // Optimistic update status UI
       setTransactions(prev => prev.map(t => t.id === id ? { ...t, status: newStatus as any } : t));
       
-      // Jika status berubah jadi 'completed' (Barang Kembali), trigger refresh data global
-      // agar stok di tab produk/gudang terupdate otomatis
-      if (newStatus === 'completed' || transactions.find(t => t.id === id)?.status === 'completed') {
+      // Jika status berubah jadi 'completed' atau 'cancelled', refresh data global untuk update stok
+      if (newStatus === 'completed' || newStatus === 'cancelled' || transactions.find(t => t.id === id)?.status === 'completed') {
         onRefresh(); 
       }
     } else {
@@ -139,9 +138,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
-  // NEW: Handle Delete Transaction
+  // NEW: Handle Delete Transaction with Fallback
   const handleDeleteTransaction = async (id: string) => {
-    const confirm = window.confirm("HAPUS TRANSAKSI?\n\nJika transaksi ini dihapus, stok barang akan DIKEMBALIKAN (kecuali status sudah 'Selesai').\n\nTindakan ini tidak bisa dibatalkan.");
+    const confirm = window.confirm("HAPUS TRANSAKSI?\n\nJika transaksi ini dihapus, stok barang akan DIKEMBALIKAN (kecuali status sudah 'Selesai'/'Batal').\n\nTindakan ini tidak bisa dibatalkan.");
     if (!confirm) return;
 
     // Tampilkan loading state sederhana jika perlu, atau user menunggu sebentar
@@ -153,8 +152,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       // Refresh global data untuk memastikan stok sinkron
       onRefresh();
     } else {
-      alert("Gagal menghapus transaksi. Cek koneksi atau izin database (RLS).\n\nPastikan policy 'DELETE' diaktifkan di Supabase untuk tabel transactions.");
-      // Refresh list agar user melihat data yang sebenarnya (mengembalikan item jika tadi sempat hilang karena optimis)
+      // FALLBACK JIKA HAPUS GAGAL KARENA RLS
+      const sqlCommand = `create policy "Enable delete for anon" on "public"."transactions" for delete using (true);`;
+      
+      const tryCancel = window.confirm(
+        `GAGAL MENGHAPUS (Database Policy).\n\nDatabase Supabase Anda belum mengizinkan fitur 'DELETE'.\n\nSOLUSI CEPAT:\nKlik OK untuk mengubah status transaksi ini menjadi 'BATAL' saja?\n(Stok barang akan otomatis dikembalikan ke gudang).\n\nAtau Klik Cancel untuk melihat kode SQL perbaikan.`
+      );
+
+      if (tryCancel) {
+        // Opsi A: Ubah jadi Cancelled (Stok Balik)
+        await handleTransactionStatusUpdate(id, 'cancelled');
+      } else {
+        // Opsi B: Tampilkan SQL
+        prompt("Copy SQL ini dan jalankan di Supabase SQL Editor untuk mengaktifkan fitur hapus:", sqlCommand);
+      }
+      
+      // Refresh list agar user melihat data yang sebenarnya
       fetchTransactions();
     }
   };
@@ -775,7 +788,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                   trx.status === 'cancelled' ? 'bg-red-100 text-red-700' :
                                   'bg-yellow-100 text-yellow-700'
                                 }`}>
-                                  {trx.status === 'active' ? 'Sedang Sewa' : trx.status}
+                                  {trx.status === 'active' ? 'Sedang Sewa' : 
+                                   trx.status === 'cancelled' ? 'Dibatalkan' : trx.status}
                                 </span>
                               </td>
                               <td className="px-6 py-4 align-top">

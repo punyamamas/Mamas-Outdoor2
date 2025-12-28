@@ -83,12 +83,15 @@ export const updateTransactionStatus = async (id: string, newStatus: string): Pr
   }
 
   // 3. Handle Stock Logic based on status change
-  // Case A: Marking as Completed (Sewa Selesai) -> Restore Stock (Return to Ready)
-  if (newStatus === 'completed' && oldStatus !== 'completed') {
+  // Case A: Marking as Completed (Selesai) OR Cancelled (Batal) -> Restore Stock (Return to Ready)
+  // Syarat: Status sebelumnya BUKAN 'completed' atau 'cancelled' (supaya tidak restore double)
+  const isFinalStatus = (s: string) => s === 'completed' || s === 'cancelled';
+  
+  if (isFinalStatus(newStatus) && !isFinalStatus(oldStatus)) {
       await processStockRestoration(items);
   }
-  // Case B: Reverting FROM Completed TO something else (e.g. Active/Pending) -> Reduce Stock again
-  else if (oldStatus === 'completed' && newStatus !== 'completed') {
+  // Case B: Reverting FROM Final Status (Completed/Cancelled) TO Active/Pending -> Reduce Stock again
+  else if (isFinalStatus(oldStatus) && !isFinalStatus(newStatus)) {
       await processStockReduction(items);
   }
 
@@ -133,8 +136,8 @@ export const deleteTransaction = async (id: string): Promise<boolean> => {
 
   // 3. Logika Pengembalian Stok
   // Dijalankan hanya jika delete BERHASIL (deletedData ada isinya)
-  // Jika status BUKAN 'completed', berarti barang masih dihitung keluar, jadi harus dikembalikan.
-  if (trx.status !== 'completed') {
+  // Jika status BUKAN 'completed'/'cancelled', berarti barang masih dihitung keluar, jadi harus dikembalikan.
+  if (trx.status !== 'completed' && trx.status !== 'cancelled') {
     await processStockRestoration(trx.items as CartItem[]);
   }
 
