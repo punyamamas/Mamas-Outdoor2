@@ -144,14 +144,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const confirm = window.confirm("HAPUS TRANSAKSI?\n\nJika transaksi ini dihapus, stok barang akan DIKEMBALIKAN (kecuali status sudah 'Selesai').\n\nTindakan ini tidak bisa dibatalkan.");
     if (!confirm) return;
 
+    // Tampilkan loading state sederhana jika perlu, atau user menunggu sebentar
     const success = await deleteTransaction(id);
+    
     if (success) {
       // Hapus dari state local
       setTransactions(prev => prev.filter(t => t.id !== id));
       // Refresh global data untuk memastikan stok sinkron
       onRefresh();
     } else {
-      alert("Gagal menghapus transaksi.");
+      alert("Gagal menghapus transaksi. Cek koneksi atau izin database (RLS).\n\nPastikan policy 'DELETE' diaktifkan di Supabase untuk tabel transactions.");
+      // Refresh list agar user melihat data yang sebenarnya (mengembalikan item jika tadi sempat hilang karena optimis)
+      fetchTransactions();
     }
   };
 

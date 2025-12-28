@@ -99,7 +99,7 @@ export const updateTransactionStatus = async (id: string, newStatus: string): Pr
 export const deleteTransaction = async (id: string): Promise<boolean> => {
   if (!supabase) return false;
 
-  // 1. Ambil data transaksi sebelum dihapus untuk cek status & items
+  // 1. Ambil data transaksi (Snapshot) sebelum dihapus untuk cek status & items
   const { data: trx, error: fetchError } = await supabase
     .from('transactions')
     .select('*')
@@ -112,20 +112,28 @@ export const deleteTransaction = async (id: string): Promise<boolean> => {
   }
 
   // 2. Hapus data dari database
-  const { error: deleteError } = await supabase
+  // PENTING: Gunakan .select() untuk memastikan baris benar-benar terhapus (mengatasi silent fail RLS)
+  const { data: deletedData, error: deleteError } = await supabase
     .from('transactions')
     .delete()
-    .eq('id', id);
+    .eq('id', id)
+    .select();
 
   if (deleteError) {
     console.error('Error deleting transaction:', deleteError);
     return false;
   }
 
+  // Jika deletedData kosong atau null, berarti tidak ada baris yang terhapus 
+  // (Mungkin karena ID salah atau Policy RLS memblokir delete)
+  if (!deletedData || deletedData.length === 0) {
+    console.error('Delete failed: No rows were deleted. Check Supabase RLS policies.');
+    return false;
+  }
+
   // 3. Logika Pengembalian Stok
-  // Jika status transaksi BUKAN 'completed', berarti barang secara teknis masih tercatat "keluar" atau "booking".
-  // Karena transaksi dihapus (dianggap tidak pernah ada/batal total), maka stok harus dikembalikan.
-  // Jika status SUDAH 'completed', stok sudah dikembalikan saat update status, jadi jangan dikembalikan lagi (nanti double).
+  // Dijalankan hanya jika delete BERHASIL (deletedData ada isinya)
+  // Jika status BUKAN 'completed', berarti barang masih dihitung keluar, jadi harus dikembalikan.
   if (trx.status !== 'completed') {
     await processStockRestoration(trx.items as CartItem[]);
   }
