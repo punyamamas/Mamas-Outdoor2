@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Package, LogOut, Plus, Search, 
   Edit, Trash2, Save, X, Image as ImageIcon,
   AlertTriangle, DollarSign, Loader2, RotateCcw,
-  Database, Wifi, WifiOff, Tags, CheckSquare, Layers, Scissors, Footprints, Palette, ChevronDown, ChevronUp, Lock
+  Database, Wifi, WifiOff, Tags, CheckSquare, Layers, Scissors, Footprints, Palette, ChevronDown, ChevronUp, Lock, ShoppingBag
 } from 'lucide-react';
 import { Product, Category, PackageItem, ProductVariant, ColorImage } from '../types';
 import { supabase } from '../services/supabase';
@@ -72,6 +72,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [useAdvancedVariants, setUseAdvancedVariants] = useState(false);
   const [tempVariantGroups, setTempVariantGroups] = useState<TempVariantGroup[]>([]);
   const [simpleSizes, setSimpleSizes] = useState<{ [key: string]: number }>({});
+
+  // Package Builder State
+  const [isPackageMode, setIsPackageMode] = useState(false);
+  const [packageSearchTerm, setPackageSearchTerm] = useState('');
   
   // Constants: Updated to include 36-48
   const AVAILABLE_SIZES = [
@@ -104,6 +108,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         ...product,
         packageItems: product.packageItems || [],
       });
+
+      // Check Category / Package Items for Package Mode
+      const isPkg = product.category === 'Paketan Sewa' || (product.packageItems && product.packageItems.length > 0);
+      setIsPackageMode(!!isPkg);
 
       // Check if product uses Advanced Variants (has variants array)
       if (product.variants && product.variants.length > 0) {
@@ -154,6 +162,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setUseAdvancedVariants(false);
       setTempVariantGroups([]);
       setSimpleSizes({});
+      setIsPackageMode(false);
     }
     setIsProductModalOpen(true);
   };
@@ -198,13 +207,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       finalColors = []; // Or from basic color input if we kept it (omitted for simplicity here)
     }
 
+    // Jika Mode Paket Aktif, pastikan packageItems tersimpan
+    const finalPackageItems = isPackageMode ? productFormData.packageItems : [];
+
     const finalProductData = {
       ...productFormData,
       stock: finalStock,
       sizes: finalSizes,
       colors: finalColors,
       variants: finalVariants,
-      colorImages: finalColorImages
+      colorImages: finalColorImages,
+      packageItems: finalPackageItems
     } as Product;
 
     try {
@@ -262,6 +275,39 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     });
   };
 
+  // --- Logic for Package Items ---
+  const addToPackage = (item: Product) => {
+    const exists = productFormData.packageItems?.find(p => p.productId === item.id);
+    if (exists) return; // Prevent duplicate
+
+    const newItem: PackageItem = {
+      productId: item.id,
+      quantity: 1
+    };
+
+    setProductFormData(prev => ({
+      ...prev,
+      packageItems: [...(prev.packageItems || []), newItem]
+    }));
+    setPackageSearchTerm(''); // Clear search
+  };
+
+  const removeFromPackage = (productId: string) => {
+    setProductFormData(prev => ({
+      ...prev,
+      packageItems: prev.packageItems?.filter(p => p.productId !== productId)
+    }));
+  };
+
+  const updatePackageQty = (productId: string, qty: number) => {
+    setProductFormData(prev => ({
+      ...prev,
+      packageItems: prev.packageItems?.map(p => 
+        p.productId === productId ? { ...p, quantity: qty } : p
+      )
+    }));
+  };
+
   // --- Logic for Categories ---
   const handleCategoryAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -288,6 +334,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     p.category.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // Search results for package builder
+  const packageSearchResults = products.filter(p => 
+    p.id !== productFormData.id && // Exclude self
+    !p.packageItems?.length && // Exclude other packages (to prevent deep nesting)
+    p.name.toLowerCase().includes(packageSearchTerm.toLowerCase())
+  ).slice(0, 5); // Limit 5
 
   // --- LOCK SCREEN LOGIC ---
   if (!isAuthenticated) {
@@ -438,7 +491,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             <img src={product.image} alt="" className="w-10 h-10 rounded-lg object-cover bg-gray-200" />
                             <div className="flex flex-col">
                               <span className="font-medium text-gray-900">{product.name}</span>
-                              {product.variants && product.variants.length > 0 ? (
+                              {product.packageItems && product.packageItems.length > 0 ? (
+                                <span className="text-xs text-orange-600 flex items-center gap-1 font-bold">
+                                  <Layers size={10} /> Paket Hemat ({product.packageItems.length} Alat)
+                                </span>
+                              ) : product.variants && product.variants.length > 0 ? (
                                 <span className="text-xs text-purple-600 flex items-center gap-1">
                                   <Palette size={10} /> Multi Varian ({product.variants.length})
                                 </span>
@@ -599,7 +656,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <select 
                     className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-nature-500 outline-none"
                     value={productFormData.category}
-                    onChange={e => setProductFormData({...productFormData, category: e.target.value})}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setProductFormData({...productFormData, category: val});
+                      // Auto trigger package mode if category suggests it
+                      if(val === 'Paketan Sewa') setIsPackageMode(true);
+                    }}
                   >
                     {categories.map(c => (
                       <option key={c.id} value={c.name}>{c.name}</option>
@@ -662,112 +724,220 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
               </div>
 
-              {/* VARIANT MODE TOGGLE */}
-              <div className="flex items-center justify-between bg-gray-100 p-3 rounded-lg border border-gray-200">
-                <span className="text-sm font-bold text-gray-700">Produk punya banyak warna & ukuran? (Jaket/Sepatu)</span>
+              {/* PACKAGE BUILDER TOGGLE */}
+              <div className="flex items-center justify-between bg-purple-50 p-3 rounded-lg border border-purple-200">
+                <span className="text-sm font-bold text-purple-900 flex items-center gap-2">
+                  <Layers size={18} /> Produk ini adalah Paket / Bundling?
+                </span>
                 <label className="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" checked={useAdvancedVariants} onChange={(e) => setUseAdvancedVariants(e.target.checked)} className="sr-only peer" />
-                  <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-nature-600"></div>
+                  <input 
+                    type="checkbox" 
+                    checked={isPackageMode} 
+                    onChange={(e) => {
+                      setIsPackageMode(e.target.checked);
+                      if(e.target.checked) setUseAdvancedVariants(false); // Disable variants for packages generally
+                    }} 
+                    className="sr-only peer" 
+                  />
+                  <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
                 </label>
               </div>
 
-              {/* COMPLEX VARIANTS UI */}
-              {useAdvancedVariants ? (
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <h4 className="font-bold text-gray-800">Varian Warna & Stok</h4>
-                    <button type="button" onClick={addVariantGroup} className="text-xs bg-nature-600 text-white px-3 py-1.5 rounded-lg font-bold flex items-center gap-1 hover:bg-nature-700">
-                      <Plus size={14} /> Tambah Warna
-                    </button>
-                  </div>
-                  
-                  {tempVariantGroups.map((group, idx) => (
-                    <div key={group.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm relative animate-slide-in-right">
-                      <button type="button" onClick={() => removeVariantGroup(group.id)} className="absolute top-2 right-2 text-gray-400 hover:text-red-500">
-                        <X size={18} />
-                      </button>
-                      
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                        <div>
-                          <label className="block text-xs font-bold text-gray-500 mb-1">Nama Warna (e.g. Pink, Biru)</label>
-                          <input 
-                            type="text" 
-                            className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-nature-500 outline-none"
-                            value={group.colorName}
-                            onChange={(e) => updateVariantGroup(group.id, 'colorName', e.target.value)}
-                            placeholder="Warna"
-                          />
+              {/* PACKAGE BUILDER UI */}
+              {isPackageMode && (
+                <div className="bg-white border border-purple-200 rounded-xl p-4 shadow-sm animate-slide-in-right">
+                   <h4 className="font-bold text-gray-800 mb-2">Isi Paket / Bundling</h4>
+                   <p className="text-xs text-gray-500 mb-4">Stok paket akan otomatis mengurangi stok produk di bawah ini saat disewa.</p>
+                   
+                   {/* Search for items */}
+                   <div className="relative mb-4">
+                     <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
+                     <input 
+                       type="text" 
+                       placeholder="Cari alat untuk ditambahkan ke paket..." 
+                       className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:border-purple-500 outline-none"
+                       value={packageSearchTerm}
+                       onChange={e => setPackageSearchTerm(e.target.value)}
+                     />
+                     {packageSearchTerm && packageSearchResults.length > 0 && (
+                        <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-xl mt-1 z-20 max-h-40 overflow-y-auto">
+                           {packageSearchResults.map(res => (
+                             <button
+                               type="button"
+                               key={res.id}
+                               onClick={() => addToPackage(res)}
+                               className="w-full text-left px-4 py-2 hover:bg-purple-50 text-sm flex justify-between items-center"
+                             >
+                               <span>{res.name}</span>
+                               <span className="text-xs text-gray-400">Stok: {res.stock}</span>
+                             </button>
+                           ))}
                         </div>
-                        <div>
-                          <label className="block text-xs font-bold text-gray-500 mb-1">URL Gambar Khusus Warna Ini</label>
-                          <div className="flex gap-2">
+                     )}
+                   </div>
+
+                   {/* List of Added Items */}
+                   <div className="space-y-2">
+                     {productFormData.packageItems && productFormData.packageItems.length > 0 ? (
+                       productFormData.packageItems.map((pkgItem, idx) => {
+                         const originalProduct = products.find(p => p.id === pkgItem.productId);
+                         return (
+                           <div key={idx} className="flex items-center gap-3 bg-purple-50 p-2 rounded-lg border border-purple-100">
+                              <span className="flex-1 text-sm font-medium text-purple-900 truncate">
+                                {originalProduct ? originalProduct.name : 'Unknown Product'}
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-gray-500">Qty:</span>
+                                <input 
+                                  type="number" 
+                                  min="1" 
+                                  className="w-14 text-center border border-purple-200 rounded px-1 py-1 text-sm"
+                                  value={pkgItem.quantity}
+                                  onChange={(e) => updatePackageQty(pkgItem.productId, parseInt(e.target.value) || 1)}
+                                />
+                              </div>
+                              <button 
+                                type="button" 
+                                onClick={() => removeFromPackage(pkgItem.productId)}
+                                className="p-1 text-red-500 hover:bg-red-100 rounded"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                           </div>
+                         );
+                       })
+                     ) : (
+                       <div className="text-center py-4 border-2 border-dashed border-gray-200 rounded-lg text-gray-400 text-sm">
+                         Belum ada item dalam paket ini.
+                       </div>
+                     )}
+                   </div>
+                   
+                   {/* Estimasi Modal */}
+                   {productFormData.packageItems && productFormData.packageItems.length > 0 && (
+                      <div className="mt-4 pt-3 border-t border-purple-100 text-right">
+                         <p className="text-xs text-gray-500">Estimasi Total Harga Satuan (2 Hari):</p>
+                         <p className="text-lg font-bold text-purple-700">
+                           Rp{productFormData.packageItems.reduce((acc, item) => {
+                             const p = products.find(prod => prod.id === item.productId);
+                             return acc + ((p?.price2Days || 0) * item.quantity);
+                           }, 0).toLocaleString('id-ID')}
+                         </p>
+                      </div>
+                   )}
+                </div>
+              )}
+
+              {/* VARIANT MODE TOGGLE - Hide if Package Mode is active */}
+              {!isPackageMode && (
+                <>
+                <div className="flex items-center justify-between bg-gray-100 p-3 rounded-lg border border-gray-200 mt-4">
+                  <span className="text-sm font-bold text-gray-700">Produk punya banyak warna & ukuran? (Jaket/Sepatu)</span>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" checked={useAdvancedVariants} onChange={(e) => setUseAdvancedVariants(e.target.checked)} className="sr-only peer" />
+                    <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-nature-600"></div>
+                  </label>
+                </div>
+
+                {/* COMPLEX VARIANTS UI */}
+                {useAdvancedVariants ? (
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <h4 className="font-bold text-gray-800">Varian Warna & Stok</h4>
+                      <button type="button" onClick={addVariantGroup} className="text-xs bg-nature-600 text-white px-3 py-1.5 rounded-lg font-bold flex items-center gap-1 hover:bg-nature-700">
+                        <Plus size={14} /> Tambah Warna
+                      </button>
+                    </div>
+                    
+                    {tempVariantGroups.map((group, idx) => (
+                      <div key={group.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm relative animate-slide-in-right">
+                        <button type="button" onClick={() => removeVariantGroup(group.id)} className="absolute top-2 right-2 text-gray-400 hover:text-red-500">
+                          <X size={18} />
+                        </button>
+                        
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                          <div>
+                            <label className="block text-xs font-bold text-gray-500 mb-1">Nama Warna (e.g. Pink, Biru)</label>
                             <input 
                               type="text" 
-                              className="flex-1 px-3 py-1.5 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-nature-500 outline-none"
-                              value={group.imageUrl}
-                              onChange={(e) => updateVariantGroup(group.id, 'imageUrl', e.target.value)}
-                              placeholder="https://..."
+                              className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-nature-500 outline-none"
+                              value={group.colorName}
+                              onChange={(e) => updateVariantGroup(group.id, 'colorName', e.target.value)}
+                              placeholder="Warna"
                             />
-                            {group.imageUrl && <img src={group.imageUrl} className="w-8 h-8 rounded object-cover border" alt="" />}
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-gray-500 mb-1">URL Gambar Khusus Warna Ini</label>
+                            <div className="flex gap-2">
+                              <input 
+                                type="text" 
+                                className="flex-1 px-3 py-1.5 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-nature-500 outline-none"
+                                value={group.imageUrl}
+                                onChange={(e) => updateVariantGroup(group.id, 'imageUrl', e.target.value)}
+                                placeholder="https://..."
+                              />
+                              {group.imageUrl && <img src={group.imageUrl} className="w-8 h-8 rounded object-cover border" alt="" />}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="bg-gray-50 p-3 rounded-lg">
+                          <p className="text-xs font-bold text-gray-500 mb-2">Stok per Ukuran untuk Warna {group.colorName || '...'}</p>
+                          <div className="grid grid-cols-5 gap-2">
+                            {AVAILABLE_SIZES.map(size => (
+                              <div key={size} className="text-center">
+                                <span className="block text-[10px] text-gray-400 font-bold mb-0.5">{size}</span>
+                                <input 
+                                  type="number" 
+                                  min="0" 
+                                  className="w-full text-center border border-gray-300 rounded py-1 text-sm focus:border-nature-500 outline-none"
+                                  placeholder="0"
+                                  value={group.sizes[size] || ''}
+                                  onChange={(e) => updateVariantSizeStock(group.id, size, parseInt(e.target.value) || 0)}
+                                />
+                              </div>
+                            ))}
                           </div>
                         </div>
                       </div>
-
-                      <div className="bg-gray-50 p-3 rounded-lg">
-                        <p className="text-xs font-bold text-gray-500 mb-2">Stok per Ukuran untuk Warna {group.colorName || '...'}</p>
-                        <div className="grid grid-cols-5 gap-2">
-                          {AVAILABLE_SIZES.map(size => (
-                            <div key={size} className="text-center">
-                              <span className="block text-[10px] text-gray-400 font-bold mb-0.5">{size}</span>
-                              <input 
-                                type="number" 
-                                min="0" 
-                                className="w-full text-center border border-gray-300 rounded py-1 text-sm focus:border-nature-500 outline-none"
-                                placeholder="0"
-                                value={group.sizes[size] || ''}
-                                onChange={(e) => updateVariantSizeStock(group.id, size, parseInt(e.target.value) || 0)}
-                              />
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  {tempVariantGroups.length === 0 && <p className="text-center text-sm text-gray-400 italic py-4">Belum ada varian warna. Klik Tambah Warna.</p>}
-                </div>
-              ) : (
-                /* SIMPLE SIZES UI (Fallback) */
-                <div className="bg-orange-50 p-4 rounded-xl border border-orange-100">
-                   <h4 className="text-sm font-bold text-orange-800 mb-2 flex items-center gap-2">
-                     <Scissors size={16} /> Stok Sederhana (Tanpa Warna Spesifik)
-                   </h4>
-                   <div className="grid grid-cols-5 gap-2">
-                     {AVAILABLE_SIZES.map(size => (
-                       <div key={size} className="text-center">
-                         <label className="block text-xs font-bold text-gray-500 mb-1">{size}</label>
-                         <input 
-                           type="number"
-                           min="0"
-                           placeholder="0"
-                           className="w-full px-1 py-1 text-center bg-white border border-orange-200 rounded focus:ring-1 focus:ring-orange-500 outline-none text-sm"
-                           value={simpleSizes[size] || ''}
-                           onChange={(e) => updateSimpleSizeStock(size, parseInt(e.target.value) || 0)}
-                         />
-                       </div>
-                     ))}
-                   </div>
-                   <div className="mt-3 pt-3 border-t border-orange-200">
-                      <label className="block text-xs font-bold text-gray-500 mb-1">Stok Manual (Jika tanpa ukuran)</label>
-                      <input 
-                        type="number" 
-                        min="0"
-                        className="w-full px-3 py-1.5 bg-white border border-orange-200 rounded focus:ring-1 focus:ring-orange-500 outline-none text-sm"
-                        value={productFormData.stock}
-                        onChange={e => setProductFormData({...productFormData, stock: parseInt(e.target.value)})}
-                        disabled={Object.keys(simpleSizes).length > 0}
-                      />
-                   </div>
-                </div>
+                    ))}
+                    {tempVariantGroups.length === 0 && <p className="text-center text-sm text-gray-400 italic py-4">Belum ada varian warna. Klik Tambah Warna.</p>}
+                  </div>
+                ) : (
+                  /* SIMPLE SIZES UI (Fallback) */
+                  <div className="bg-orange-50 p-4 rounded-xl border border-orange-100">
+                     <h4 className="text-sm font-bold text-orange-800 mb-2 flex items-center gap-2">
+                       <Scissors size={16} /> Stok Sederhana (Tanpa Warna Spesifik)
+                     </h4>
+                     <div className="grid grid-cols-5 gap-2">
+                       {AVAILABLE_SIZES.map(size => (
+                         <div key={size} className="text-center">
+                           <label className="block text-xs font-bold text-gray-500 mb-1">{size}</label>
+                           <input 
+                             type="number"
+                             min="0"
+                             placeholder="0"
+                             className="w-full px-1 py-1 text-center bg-white border border-orange-200 rounded focus:ring-1 focus:ring-orange-500 outline-none text-sm"
+                             value={simpleSizes[size] || ''}
+                             onChange={(e) => updateSimpleSizeStock(size, parseInt(e.target.value) || 0)}
+                           />
+                         </div>
+                       ))}
+                     </div>
+                     <div className="mt-3 pt-3 border-t border-orange-200">
+                        <label className="block text-xs font-bold text-gray-500 mb-1">Stok Manual (Jika tanpa ukuran)</label>
+                        <input 
+                          type="number" 
+                          min="0"
+                          className="w-full px-3 py-1.5 bg-white border border-orange-200 rounded focus:ring-1 focus:ring-orange-500 outline-none text-sm"
+                          value={productFormData.stock}
+                          onChange={e => setProductFormData({...productFormData, stock: parseInt(e.target.value)})}
+                          disabled={Object.keys(simpleSizes).length > 0}
+                        />
+                     </div>
+                  </div>
+                )}
+                </>
               )}
 
               {/* Description */}
