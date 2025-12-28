@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, ShoppingCart, Check, Layers, Clock, Sparkles, Tag, ShieldCheck, Zap, Box, Scissors, Footprints, Palette } from 'lucide-react';
+import { X, ShoppingCart, Check, Layers, Clock, Sparkles, Tag, ShieldCheck, Zap, Box, Scissors, Footprints, Palette, Heart } from 'lucide-react';
 import { Product } from '../types';
 import ImageLoader from './ImageLoader';
 
@@ -23,6 +23,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [displayImage, setDisplayImage] = useState<string>('');
+  const [isWishlisted, setIsWishlisted] = useState(false);
 
   // Reset selections when modal opens/product changes
   useEffect(() => {
@@ -30,6 +31,15 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       setSelectedSize(null);
       setSelectedColor(null);
       setDisplayImage(product.image);
+      
+      // Check Wishlist Status from LocalStorage
+      const savedWishlist = localStorage.getItem('mamasWishlist');
+      if (savedWishlist) {
+        const items = JSON.parse(savedWishlist);
+        setIsWishlisted(items.some((item: Product) => item.id === product.id));
+      } else {
+        setIsWishlisted(false);
+      }
     }
   }, [product]);
 
@@ -46,6 +56,25 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       setDisplayImage(product.image);
     }
   }, [selectedColor, product]);
+
+  const toggleWishlist = () => {
+    if (!product) return;
+
+    const savedWishlist = localStorage.getItem('mamasWishlist');
+    let items = savedWishlist ? JSON.parse(savedWishlist) : [];
+
+    if (isWishlisted) {
+      // Remove
+      items = items.filter((item: Product) => item.id !== product.id);
+      setIsWishlisted(false);
+    } else {
+      // Add
+      items.push(product);
+      setIsWishlisted(true);
+    }
+
+    localStorage.setItem('mamasWishlist', JSON.stringify(items));
+  };
 
   if (!isOpen || !product) return null;
 
@@ -381,6 +410,22 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   )}
                 </button>
               </div>
+
+              {/* Wishlist Button */}
+              <button
+                onClick={toggleWishlist}
+                className={`
+                   mt-5 w-full flex items-center justify-center gap-2 font-bold transition-all duration-300 py-2 rounded-xl border border-transparent hover:bg-gray-100
+                   ${isWishlisted ? 'text-red-500' : 'text-gray-400 hover:text-gray-600'}
+                `}
+              >
+                <Heart 
+                  size={20} 
+                  className={`transition-all duration-300 ${isWishlisted ? "fill-current scale-110" : "scale-100"}`} 
+                />
+                <span>{isWishlisted ? 'Tersimpan di Wishlist' : 'Tambah ke Wishlist'}</span>
+              </button>
+
             </div>
           </div>
 
