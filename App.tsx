@@ -37,6 +37,7 @@ function App() {
 
   // Define fetch data functions
   const fetchData = async () => {
+    // Only show loading on initial load or empty state
     if (products.length === 0) setIsLoading(true);
     
     try {
@@ -334,6 +335,7 @@ function App() {
         onUpdateQuantity={updateQuantity}
         onRemoveItem={removeItem}
         onClearCart={clearCart}
+        onRefreshData={fetchData} // Pass function to update UI after checkout
       />
 
       <HistoryDrawer 

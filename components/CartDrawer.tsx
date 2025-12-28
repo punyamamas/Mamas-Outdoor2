@@ -12,9 +12,18 @@ interface CartDrawerProps {
   onUpdateQuantity: (id: string, delta: number, size?: string, color?: string) => void;
   onRemoveItem: (id: string, size?: string, color?: string) => void;
   onClearCart: () => void;
+  onRefreshData: () => Promise<void>; // Prop baru untuk refresh data
 }
 
-const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, cartItems, onUpdateQuantity, onRemoveItem, onClearCart }) => {
+const CartDrawer: React.FC<CartDrawerProps> = ({ 
+  isOpen, 
+  onClose, 
+  cartItems, 
+  onUpdateQuantity, 
+  onRemoveItem, 
+  onClearCart,
+  onRefreshData
+}) => {
   const [step, setStep] = useState<'cart' | 'details'>('cart');
   const [isProcessing, setIsProcessing] = useState(false);
   const [userDetails, setUserDetails] = useState<UserDetails>({
@@ -74,7 +83,11 @@ const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, cartItems, onU
     // Ini akan mengurangi stok paket DAN stok komponen di dalamnya
     await processStockReduction(cartItems);
 
-    // 2. Save Transaction to Local History
+    // 2. REFRESH DATA (CRITICAL FIX)
+    // Meminta aplikasi mengambil data terbaru dari DB agar stok di UI berkurang
+    await onRefreshData();
+
+    // 3. Save Transaction to Local History
     const newTransaction: Transaction = {
       id: Date.now().toString(),
       date: new Date().toISOString(),
@@ -90,7 +103,7 @@ const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, cartItems, onU
     history.push(newTransaction);
     localStorage.setItem('mamasHistory', JSON.stringify(history));
 
-    // 3. Construct WhatsApp Message
+    // 4. Construct WhatsApp Message
     const header = `*Halo Mamas Outdoor! Saya mau sewa dong.*\n\n`;
     const buyerInfo = `*Data Penyewa:*\nNama: ${userDetails.name}\nKampus: ${userDetails.campus}\nWA: ${userDetails.whatsapp}\nTanggal Ambil: ${userDetails.rentalDate}\nLama Sewa: ${userDetails.duration} Hari\n\n`;
     
@@ -107,10 +120,10 @@ const CartDrawer: React.FC<CartDrawerProps> = ({ isOpen, onClose, cartItems, onU
     
     setIsProcessing(false);
     
-    // 4. Open WhatsApp
+    // 5. Open WhatsApp
     window.open(`https://wa.me/${WA_NUMBER}?text=${fullMessage}`, '_blank');
     
-    // 5. Reset & Close
+    // 6. Reset & Close
     onClearCart();
     setStep('cart');
     onClose();
