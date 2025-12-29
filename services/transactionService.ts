@@ -389,12 +389,22 @@ export const printInvoice = (trx: Transaction) => {
   const dateStr = dateObj.toLocaleDateString('id-ID'); // 28/12/2025
   const timeStr = dateObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }); // 21:43
 
+  // Hitung Tanggal Pinjam (Rental Date) & Kembali
+  const rentalDateObj = new Date(trx.rentalDate);
+  const rentalDateStr = rentalDateObj.toLocaleDateString('id-ID');
+
+  const returnDateObj = new Date(trx.rentalDate);
+  returnDateObj.setDate(returnDateObj.getDate() + (trx.duration - 1)); // -1 karena hari pertama dihitung
+  const returnDateStr = returnDateObj.toLocaleDateString('id-ID');
+
   const paid = trx.amountPaid || 0;
   const remaining = Math.max(0, trx.totalPrice - paid);
   const change = Math.max(0, paid - trx.totalPrice);
   
-  // Status Logic
-  const statusLabel = remaining <= 0 ? 'Lunas' : 'Belum Lunas';
+  // Status Logic & Cap Text
+  const isLunas = remaining <= 0;
+  const statusLabel = isLunas ? 'LUNAS' : 'BELUM LUNAS';
+  const stampColor = isLunas ? '#22c55e' : '#ef4444'; // Green or Red
   const paymentMethodDisplay = trx.paymentMethod === 'transfer' ? 'Transfer' : 'Cash';
   
   // Format Mata Uang Helper
@@ -427,7 +437,7 @@ export const printInvoice = (trx: Transaction) => {
         <title>Struk Pembayaran #${trx.id.slice(0,6)}</title>
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <style>
-          @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700&display=swap');
+          @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700;900&display=swap');
           
           body { 
             font-family: 'Roboto Mono', monospace, sans-serif; 
@@ -438,6 +448,7 @@ export const printInvoice = (trx: Transaction) => {
             background: #fff;
             font-size: 11px;
             line-height: 1.4;
+            position: relative;
           }
           
           .header { text-align: center; margin-bottom: 10px; }
@@ -451,7 +462,7 @@ export const printInvoice = (trx: Transaction) => {
             display: flex;
             align-items: center;
             justify-content: center;
-            border-radius: 4px; /* Sedikit rounded biar manis dikit */
+            border-radius: 4px; 
           }
           .logo-svg { width: 40px; height: 40px; fill: white; }
           
@@ -479,9 +490,35 @@ export const printInvoice = (trx: Transaction) => {
           .sum-label { text-align: left; }
           .sum-val { text-align: right; font-weight: bold; }
           
-          .grand-total { font-size: 14px; font-weight: 800; border-top: 1px dashed #000; padding-top: 5px; margin-top: 5px; }
+          .footer-info { margin-top: 10px; margin-bottom: 10px; font-size: 10px; }
+          .footer-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
+          .footer-label { font-weight: 500; }
+          .footer-val { font-weight: bold; }
 
-          .footer { text-align: center; margin-top: 20px; font-size: 9px; color: #666; font-style: italic; }
+          .footer-text { text-align: justify; margin-top: 15px; font-size: 10px; color: #444; line-height: 1.3; }
+
+          /* STAMP CSS (CAP LUNAS) */
+          .stamp-container {
+             position: absolute;
+             top: 45%;
+             left: 50%;
+             transform: translate(-50%, -50%) rotate(-15deg);
+             z-index: 10;
+             pointer-events: none;
+             opacity: 0.25;
+          }
+          .stamp {
+             border: 4px solid ${stampColor};
+             color: ${stampColor};
+             padding: 10px 20px;
+             font-size: 32px;
+             font-weight: 900;
+             text-transform: uppercase;
+             border-radius: 8px;
+             letter-spacing: 2px;
+             text-align: center;
+             display: inline-block;
+          }
           
           @media print {
             body { margin: 0; padding: 10px; width: 100%; }
@@ -490,6 +527,11 @@ export const printInvoice = (trx: Transaction) => {
         </style>
       </head>
       <body>
+        <!-- STAMP OVERLAY -->
+        <div class="stamp-container">
+           <div class="stamp">${statusLabel}</div>
+        </div>
+
         <div class="header">
           <div class="logo-box">
              <!-- SVG Logo Gunung Sederhana -->
@@ -551,10 +593,25 @@ export const printInvoice = (trx: Transaction) => {
 
         <div class="dashed-line"></div>
         
-        <div class="footer">
-           <p>Terima Kasih atas Kunjungan Anda</p>
-           <p>Simpan struk ini sebagai bukti pembayaran yang sah.</p>
-           <p>Barang yang sudah disewa wajib dijaga dengan baik.</p>
+        <!-- NEW FOOTER INFO SECTION -->
+        <div class="footer-info">
+           <div class="footer-row">
+              <span class="footer-label">Tanggal Pinjam :</span>
+              <span class="footer-val">${rentalDateStr}</span>
+           </div>
+           <div class="footer-row">
+              <span class="footer-label">Tanggal Kembali :</span>
+              <span class="footer-val">${returnDateStr}</span>
+           </div>
+           <div class="footer-row" style="margin-top: 8px;">
+              <span class="footer-label">Identitas Jaminan :</span>
+           </div>
+           <div style="border-bottom: 1px dotted #999; height: 16px; width: 100%; margin-bottom: 4px;"></div>
+        </div>
+
+        <div class="footer-text">
+           Terima kasih atas kepercayaan Anda telah memilih kami sebagai mitra petualangan outdoor Anda. 
+           Kami harap perlengkapan yang Anda sewa dapat menunjang kegiatan Anda dengan optimal.
         </div>
 
         <script>
