@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { PieChart, Calendar, TrendingUp, TrendingDown, Package, Loader2, Printer, CheckCircle, XCircle, Download, BarChart3, Clock, Users, ArrowUpRight, AlertTriangle, MessageCircle, BellRing } from 'lucide-react';
+import { PieChart, Calendar, TrendingUp, TrendingDown, Package, Loader2, Printer, CheckCircle, XCircle, Download, BarChart3, Clock, Users, ArrowUpRight, AlertTriangle, MessageCircle, BellRing, Calculator } from 'lucide-react';
 import { Transaction } from '../types';
 import { getTransactionsByDateRange } from '../services/transactionService';
 
@@ -38,9 +38,7 @@ const AdminReportManager: React.FC = () => {
 
   // 2. Status Breakdown
   const completedCount = transactions.filter(t => t.status === 'completed' || t.status === 'rented').length;
-  const cancelledCount = transactions.filter(t => t.status === 'cancelled').length;
-  const bookingCount = transactions.filter(t => t.status === 'booked' || t.status === 'pending' || t.status === 'partial_payment').length;
-
+  
   // 3. Top Products Logic
   const productFrequency: { [key: string]: number } = {};
   validTransactions.forEach(t => {
@@ -55,7 +53,7 @@ const AdminReportManager: React.FC = () => {
     .sort((a, b) => b.count - a.count)
     .slice(0, 5);
 
-  // 4. Daily Revenue Trend (Grafik Harian)
+  // 4. Daily Revenue Trend
   const dailyRevenueMap: { [date: string]: number } = {};
   validTransactions.forEach(t => {
     const date = t.rentalDate.split('T')[0]; // YYYY-MM-DD
@@ -80,7 +78,7 @@ const AdminReportManager: React.FC = () => {
     revenue: dailyRevenueMap[date] || 0
   }));
 
-  const maxRevenue = Math.max(...chartData.map(d => d.revenue), 1); // Avoid div by zero
+  const maxRevenue = Math.max(...chartData.map(d => d.revenue), 1);
 
   // 5. Top Customers
   const customerFrequency: { [key: string]: { count: number, totalSpent: number } } = {};
@@ -95,36 +93,72 @@ const AdminReportManager: React.FC = () => {
 
   const topCustomers = Object.entries(customerFrequency)
     .map(([name, data]) => ({ name, ...data }))
-    .sort((a, b) => b.totalSpent - a.totalSpent) // Sort by spending
+    .sort((a, b) => b.totalSpent - a.totalSpent)
     .slice(0, 5);
 
-  // 6. Return Schedule & LATE DETECTION
-  const today = new Date();
-  today.setHours(0,0,0,0);
+  // 6. Return Schedule & LATE DETECTION LOGIC
+  const now = new Date();
 
   const returnsInPeriod = validTransactions.map(t => {
     const rentalDate = new Date(t.rentalDate);
     const returnDate = new Date(rentalDate);
     returnDate.setDate(rentalDate.getDate() + (t.duration - 1));
-    returnDate.setHours(0,0,0,0); // Normalize time
+    
+    // Deadline Jam 19:00 pada Hari Pengembalian
+    const reminderDeadline = new Date(returnDate);
+    reminderDeadline.setHours(19, 0, 0, 0); 
 
-    const isLate = today > returnDate && t.status === 'rented';
+    // Batas Pergantian Hari (Midnight)
+    const endOfDay = new Date(returnDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    let statusType = 'normal'; // normal | reminder | overdue
+    let daysLate = 0;
+    let fineAmount = 0;
+
+    if (t.status === 'rented') {
+      if (now > endOfDay) {
+        // SUDAH GANTI HARI -> DENDA
+        statusType = 'overdue';
+        
+        // Hitung selisih hari (pembulatan ke atas)
+        const diffTime = Math.abs(now.getTime() - endOfDay.getTime());
+        daysLate = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+        
+        // Hitung Denda: Harga Harian x Jumlah Hari Terlambat
+        const dailyRate = t.totalPrice / t.duration;
+        fineAmount = Math.ceil(dailyRate * daysLate);
+
+      } else if (now > reminderDeadline) {
+        // LEWAT JAM 19:00 TAPI MASIH HARI YANG SAMA -> REMINDER
+        statusType = 'reminder';
+      }
+    }
 
     return { 
       ...t, 
       returnDateObj: returnDate,
       returnDateStr: returnDate.toISOString().split('T')[0],
-      isLate
+      statusType,
+      daysLate,
+      fineAmount
     };
   }).filter(t => {
-    // Filter logic: Show if return date is in range OR if it is LATE (regardless of date range selection, late items are crucial)
     const inRange = t.returnDateStr >= startDate && t.returnDateStr <= endDate;
-    return inRange || t.isLate;
-  }).sort((a, b) => a.returnDateStr.localeCompare(b.returnDateStr));
+    // Tampilkan jika dalam range tanggal ATAU jika sedang bermasalah (reminder/overdue)
+    return inRange || t.statusType !== 'normal';
+  }).sort((a, b) => {
+    // Prioritaskan yang Overdue paling atas, lalu Reminder
+    if (a.statusType === 'overdue' && b.statusType !== 'overdue') return -1;
+    if (b.statusType === 'overdue' && a.statusType !== 'overdue') return 1;
+    if (a.statusType === 'reminder' && b.statusType !== 'reminder') return -1;
+    if (b.statusType === 'reminder' && a.statusType !== 'reminder') return 1;
+    return a.returnDateStr.localeCompare(b.returnDateStr);
+  });
 
-  // Separate the Late Items for the Alert Box
-  const lateItems = returnsInPeriod.filter(t => t.isLate);
-
+  // Filter Items for Alert Boxes
+  const overdueItems = returnsInPeriod.filter(t => t.statusType === 'overdue');
+  const reminderItems = returnsInPeriod.filter(t => t.statusType === 'reminder');
 
   // --- ACTIONS ---
   const handlePrint = () => {
@@ -132,15 +166,11 @@ const AdminReportManager: React.FC = () => {
   };
 
   const handleExportCSV = () => {
-    const headers = ["ID Transaksi", "Tanggal Sewa", "Nama Pelanggan", "WhatsApp", "Item Sewa", "Total Harga", "Sudah Bayar", "Status", "Tanggal Kembali", "Terlambat"];
-    const rows = transactions.map(t => {
-      const rentalDate = new Date(t.rentalDate);
-      const returnDate = new Date(rentalDate);
-      returnDate.setDate(rentalDate.getDate() + (t.duration - 1));
-      const isLate = new Date() > returnDate && t.status === 'rented';
-      
+    const headers = ["ID Transaksi", "Tanggal Sewa", "Nama Pelanggan", "WhatsApp", "Item Sewa", "Total Harga", "Status", "Tanggal Kembali", "Status Keterlambatan", "Denda Estimasi"];
+    const rows = returnsInPeriod.map(t => {
       const itemsList = t.items.map(i => `${i.quantity}x ${i.name}`).join('; ');
-
+      const statusKet = t.statusType === 'overdue' ? `Terlambat ${t.daysLate} Hari` : t.statusType === 'reminder' ? 'Lewat Jam 19:00' : 'Aman';
+      
       return [
         `"${t.id}"`,
         t.rentalDate.split('T')[0],
@@ -148,10 +178,10 @@ const AdminReportManager: React.FC = () => {
         `'${t.customerWhatsapp}`, 
         `"${itemsList}"`,
         t.totalPrice,
-        t.amountPaid || 0,
         t.status,
-        returnDate.toISOString().split('T')[0],
-        isLate ? "YA" : "TIDAK"
+        t.returnDateStr,
+        statusKet,
+        t.fineAmount
       ];
     });
 
@@ -166,15 +196,26 @@ const AdminReportManager: React.FC = () => {
     document.body.removeChild(link);
   };
 
-  // NEW: Send WhatsApp Reminder (NO EMOJI)
-  const sendLateReminder = (t: any) => {
+  // WA: TEMPLATE PENGINGAT (Lewat jam 19:00, belum ganti hari)
+  const sendDeadlineReminder = (t: any) => {
     let phone = t.customerWhatsapp;
     if (phone.startsWith('0')) phone = '62' + phone.slice(1);
     
-    const returnDateStr = t.returnDateObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
     const itemList = t.items.map((i: any) => `- ${i.quantity}x ${i.name}`).join('\n');
     
-    const message = `Halo Kak *${t.customerName}*,\n\nKami dari *Mamas Outdoor Purwokerto* ingin mengingatkan bahwa masa sewa alat berikut:\n\n${itemList}\n\nSeharusnya sudah kembali pada tanggal: *${returnDateStr}*.\n\nMohon segera dikembalikan ya kak untuk menghindari denda keterlambatan yang semakin besar.\n\nJika ada kendala, mohon kabari kami segera.\nTerima kasih!`;
+    const message = `Halo Kak *${t.customerName}*,\n\nKami dari *Mamas Outdoor Purwokerto* menginformasikan bahwa saat ini sudah melewati pukul 19.00 WIB.\n\nMasa sewa alat berikut:\n${itemList}\n\n*Berakhir HARI INI*.\n\nMohon segera dikembalikan malam ini sebelum pergantian hari untuk menghindari perhitungan denda otomatis (1 hari sewa) mulai besok.\n\nJika sedang dalam perjalanan, mohon konfirmasinya.\nTerima kasih.`;
+    
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
+  };
+
+  // WA: TEMPLATE DENDA (Sudah ganti hari)
+  const sendOverdueNotice = (t: any) => {
+    let phone = t.customerWhatsapp;
+    if (phone.startsWith('0')) phone = '62' + phone.slice(1);
+    
+    const itemList = t.items.map((i: any) => `- ${i.quantity}x ${i.name}`).join('\n');
+    
+    const message = `Halo Kak *${t.customerName}*,\n\nKami dari *Mamas Outdoor Purwokerto*.\n\nStatus pengembalian alat:\n${itemList}\n\nSaat ini statusnya *TERLAMBAT ${t.daysLate} HARI*.\n\nSesuai ketentuan, keterlambatan dikenakan biaya sewa harian.\n*Estimasi Denda Saat Ini: Rp${t.fineAmount.toLocaleString('id-ID')}*\n\nMohon segera dikembalikan dan diselesaikan pembayarannya untuk menghentikan akumulasi denda.\n\nTerima kasih.`;
     
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
   };
@@ -242,29 +283,61 @@ const AdminReportManager: React.FC = () => {
         ) : (
           <div className="space-y-8 animate-slide-in-right">
              
-             {/* 0. LATE RETURNS ALERT (NEW FEATURE) */}
-             {lateItems.length > 0 && (
-               <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-xl shadow-sm animate-pulse">
-                  <div className="flex items-start gap-3">
-                     <AlertTriangle className="text-red-500 mt-0.5" size={24} />
-                     <div className="flex-1">
-                        <h4 className="font-bold text-red-800 text-lg">Peringatan Keterlambatan!</h4>
-                        <p className="text-sm text-red-700 mb-2">
-                           Ada <strong>{lateItems.length} transaksi</strong> yang belum kembali melebihi batas waktu sewa. Segera hubungi penyewa.
-                        </p>
-                        <div className="flex flex-wrap gap-2 mt-2">
-                           {lateItems.map(t => (
-                              <button 
-                                key={t.id}
-                                onClick={() => sendLateReminder(t)}
-                                className="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-3 py-1.5 rounded-full transition shadow-sm"
-                              >
-                                 <MessageCircle size={12} /> Ingatkan {t.customerName.split(' ')[0]}
-                              </button>
-                           ))}
-                        </div>
-                     </div>
-                  </div>
+             {/* ALERT BOXES */}
+             {(overdueItems.length > 0 || reminderItems.length > 0) && (
+               <div className="flex flex-col gap-4">
+                 
+                 {/* 1. TERLAMBAT (FINE) */}
+                 {overdueItems.length > 0 && (
+                   <div className="bg-red-50 border-l-4 border-red-600 p-4 rounded-r-xl shadow-sm">
+                      <div className="flex items-start gap-3">
+                         <AlertTriangle className="text-red-600 mt-0.5" size={24} />
+                         <div className="flex-1">
+                            <h4 className="font-bold text-red-800 text-lg">Terlambat & Kena Denda ({overdueItems.length})</h4>
+                            <p className="text-sm text-red-700 mb-2">
+                               Transaksi berikut sudah ganti hari dan terkena denda otomatis.
+                            </p>
+                            <div className="flex flex-wrap gap-2 mt-2">
+                               {overdueItems.map(t => (
+                                  <button 
+                                    key={t.id}
+                                    onClick={() => sendOverdueNotice(t)}
+                                    className="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-3 py-1.5 rounded-full transition shadow-sm"
+                                  >
+                                     <Calculator size={12} /> {t.customerName.split(' ')[0]} (Denda: {t.daysLate} Hari)
+                                  </button>
+                               ))}
+                            </div>
+                         </div>
+                      </div>
+                   </div>
+                 )}
+
+                 {/* 2. REMINDER (LEWAT 19:00) */}
+                 {reminderItems.length > 0 && (
+                   <div className="bg-orange-50 border-l-4 border-orange-500 p-4 rounded-r-xl shadow-sm">
+                      <div className="flex items-start gap-3">
+                         <BellRing className="text-orange-500 mt-0.5" size={24} />
+                         <div className="flex-1">
+                            <h4 className="font-bold text-orange-800 text-lg">Pengingat Batas Waktu ({reminderItems.length})</h4>
+                            <p className="text-sm text-orange-700 mb-2">
+                               Sudah lewat jam 19:00. Segera ingatkan sebelum ganti hari (kena denda).
+                            </p>
+                            <div className="flex flex-wrap gap-2 mt-2">
+                               {reminderItems.map(t => (
+                                  <button 
+                                    key={t.id}
+                                    onClick={() => sendDeadlineReminder(t)}
+                                    className="flex items-center gap-1.5 bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold px-3 py-1.5 rounded-full transition shadow-sm"
+                                  >
+                                     <MessageCircle size={12} /> Ingatkan {t.customerName.split(' ')[0]}
+                                  </button>
+                               ))}
+                            </div>
+                         </div>
+                      </div>
+                   </div>
+                 )}
                </div>
              )}
 
@@ -392,13 +465,30 @@ const AdminReportManager: React.FC = () => {
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                           {returnsInPeriod.map(t => {
+                              const isOverdue = t.statusType === 'overdue';
+                              const isReminder = t.statusType === 'reminder';
+                              
+                              let rowClass = 'hover:bg-gray-50';
+                              if (isOverdue) rowClass = 'bg-red-50 hover:bg-red-100 transition';
+                              else if (isReminder) rowClass = 'bg-orange-50 hover:bg-orange-100 transition';
+
                               return (
-                                <tr key={t.id} className={`hover:bg-gray-50 ${t.isLate ? 'bg-red-50/50' : ''}`}>
+                                <tr key={t.id} className={rowClass}>
                                     <td className="px-6 py-3">
-                                      <span className={`font-bold ${t.isLate ? 'text-red-600' : 'text-gray-700'}`}>
+                                      <span className={`font-bold ${isOverdue ? 'text-red-700' : isReminder ? 'text-orange-700' : 'text-gray-700'}`}>
                                         {new Date(t.returnDateStr).toLocaleDateString('id-ID', {day: 'numeric', month: 'short'})}
                                       </span>
-                                      {t.isLate && <span className="text-[10px] bg-red-100 text-red-600 px-1 rounded ml-2 font-bold">TERLAMBAT</span>}
+                                      {isOverdue && (
+                                        <div className="mt-1">
+                                          <span className="text-[10px] bg-red-200 text-red-800 px-1.5 py-0.5 rounded font-black">LAT {t.daysLate} HARI</span>
+                                          <div className="text-[10px] text-red-600 font-bold mt-0.5">Denda: Rp{t.fineAmount.toLocaleString('id-ID')}</div>
+                                        </div>
+                                      )}
+                                      {isReminder && (
+                                        <span className="block mt-1 text-[10px] bg-orange-200 text-orange-800 px-1.5 py-0.5 rounded font-black w-fit">
+                                          LEWAT JAM 19:00
+                                        </span>
+                                      )}
                                     </td>
                                     <td className="px-6 py-3 font-medium text-gray-800">
                                       {t.customerName} <br/>
@@ -418,17 +508,33 @@ const AdminReportManager: React.FC = () => {
                                     </td>
                                     <td className="px-6 py-3 text-center">
                                       {t.status === 'rented' && (
-                                        <button 
-                                          onClick={() => sendLateReminder(t)}
-                                          className={`p-2 rounded-full transition shadow-sm border ${
-                                            t.isLate 
-                                            ? 'bg-red-600 text-white hover:bg-red-700 border-red-700' 
-                                            : 'bg-white text-green-600 hover:bg-green-50 border-gray-200'
-                                          }`}
-                                          title={t.isLate ? "Kirim Peringatan Denda" : "Ingatkan Pengembalian"}
-                                        >
-                                          {t.isLate ? <BellRing size={16} className="animate-pulse" /> : <MessageCircle size={16} />}
-                                        </button>
+                                        <>
+                                          {isOverdue ? (
+                                             <button 
+                                              onClick={() => sendOverdueNotice(t)}
+                                              className="p-2 rounded-full bg-red-600 text-white hover:bg-red-700 shadow-sm border border-red-700 transition"
+                                              title="Tagih Denda"
+                                             >
+                                                <Calculator size={16} />
+                                             </button>
+                                          ) : isReminder ? (
+                                             <button 
+                                              onClick={() => sendDeadlineReminder(t)}
+                                              className="p-2 rounded-full bg-orange-500 text-white hover:bg-orange-600 shadow-sm border border-orange-600 transition animate-pulse"
+                                              title="Ingatkan Deadline"
+                                             >
+                                                <BellRing size={16} />
+                                             </button>
+                                          ) : (
+                                             <button 
+                                              onClick={() => sendDeadlineReminder(t)}
+                                              className="p-2 rounded-full bg-white text-green-600 hover:bg-green-50 shadow-sm border border-gray-200 transition"
+                                              title="Chat WA Biasa"
+                                             >
+                                                <MessageCircle size={16} />
+                                             </button>
+                                          )}
+                                        </>
                                       )}
                                     </td>
                                 </tr>
