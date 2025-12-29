@@ -8,7 +8,7 @@ interface AdminTransactionManagerProps {
   isLoading: boolean;
   onStatusUpdate: (id: string, status: string) => Promise<void>;
   onDeleteTransaction: (id: string) => Promise<void>;
-  onRefreshData?: () => Promise<void>; // Prop baru
+  onRefreshData?: () => Promise<void>;
 }
 
 const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
@@ -34,30 +34,43 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
     if (!selectedTransaction) return;
     setIsSavingPayment(true);
     
-    // Panggil API
+    // 1. Panggil API untuk update ke Supabase
     const result = await updateTransactionPayment(selectedTransaction.id, editPaymentAmount);
     
     if (result.success) {
-      // 1. Refresh Data Tabel Utama (Jika ada prop refresh)
+      alert("Pembayaran disimpan & Status diperbarui otomatis!");
+
+      // 2. Refresh Data Tabel Utama
       if (onRefreshData) {
         await onRefreshData();
       }
 
-      // 2. Update Data di Modal saat ini agar terlihat perubahannya (Instant Feedback)
+      // 3. Update Tampilan di Modal saat ini
       const updatedTrx = { ...selectedTransaction, amountPaid: editPaymentAmount };
       
-      // Update status lokal jika ada perubahan status otomatis dari backend
+      // Update status jika ada perubahan otomatis dari backend
       if (result.newStatus) {
         updatedTrx.status = result.newStatus as any;
       }
 
       setSelectedTransaction(updatedTrx);
       
-      alert("Pembayaran berhasil disimpan & Status diperbarui!");
     } else {
       alert(`Gagal update pembayaran: ${result.error || 'Terjadi kesalahan sistem'}`);
     }
     setIsSavingPayment(false);
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'pending': return 'bg-red-50 text-red-600 border-red-100';
+      case 'partial_payment': return 'bg-orange-50 text-orange-600 border-orange-100';
+      case 'booked': return 'bg-blue-50 text-blue-600 border-blue-100'; // Lunas / Booking
+      case 'rented': return 'bg-purple-50 text-purple-600 border-purple-100'; // Sedang Sewa (Diambil)
+      case 'completed': return 'bg-green-50 text-green-600 border-green-100';
+      case 'cancelled': return 'bg-gray-100 text-gray-500 border-gray-200';
+      default: return 'bg-gray-50 text-gray-600';
+    }
   };
 
   return (
@@ -78,8 +91,8 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                 <th className="px-6 py-4">ID / Tanggal</th>
                 <th className="px-6 py-4">Penyewa</th>
                 <th className="px-6 py-4">Keuangan</th>
-                <th className="px-6 py-4">Status Sewa</th>
-                <th className="px-6 py-4 text-center">Aksi</th>
+                <th className="px-6 py-4">Status & Aksi</th>
+                <th className="px-6 py-4 text-center">Detail</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -108,8 +121,8 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                         ) : paid === 0 ? (
                            <span className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded font-bold uppercase">Belum Bayar</span>
                         ) : (
-                           <span className="text-[10px] bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded font-bold uppercase">
-                             Kurang Rp{(total - paid).toLocaleString('id-ID')}
+                           <span className="text-[10px] bg-orange-100 text-orange-700 px-2 py-0.5 rounded font-bold uppercase">
+                             Cicil: Rp{paid.toLocaleString('id-ID')}
                            </span>
                         )}
                       </div>
@@ -118,16 +131,14 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                       <select
                         value={trx.status}
                         onChange={(e) => onStatusUpdate(trx.id, e.target.value)}
-                        className={`text-xs border rounded px-2 py-1.5 focus:ring-nature-500 outline-none w-36 font-bold cursor-pointer transition
-                          ${trx.status === 'completed' ? 'bg-green-50 border-green-200 text-green-700' :
-                          trx.status === 'active' ? 'bg-blue-50 border-blue-200 text-blue-700' :
-                          trx.status === 'cancelled' ? 'bg-red-50 border-red-200 text-red-700' :
-                          'bg-yellow-50 border-yellow-200 text-yellow-700'}`}
+                        className={`text-xs border rounded px-2 py-1.5 focus:ring-nature-500 outline-none w-40 font-bold cursor-pointer transition capitalize ${getStatusBadge(trx.status)}`}
                       >
-                        <option value="pending">Belum Bayar</option>
-                        <option value="active">Belum Lunas / Sewa</option>
-                        <option value="completed">Selesai</option>
-                        <option value="cancelled">Dibatalkan</option>
+                        <option value="pending" className="text-gray-600">Belum Bayar</option>
+                        <option value="partial_payment" className="text-orange-600">Cicil (Belum Lunas)</option>
+                        <option value="booked" className="text-blue-600">Booking (Siap Ambil)</option>
+                        <option value="rented" className="text-purple-600">Sedang Sewa</option>
+                        <option value="completed" className="text-green-600">Selesai (Kembali)</option>
+                        <option value="cancelled" className="text-red-600">Dibatalkan</option>
                       </select>
                     </td>
                     <td className="px-6 py-4 align-middle text-center">
@@ -135,7 +146,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                         onClick={() => setSelectedTransaction(trx)}
                         className="inline-flex items-center gap-1 bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-xs font-bold transition"
                       >
-                        <Eye size={14} /> Detail
+                        <Eye size={14} />
                       </button>
                     </td>
                   </tr>
@@ -196,11 +207,16 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                         Update
                       </button>
                     </div>
-                    <div className="mt-2 text-right">
-                       <span className="text-xs font-bold text-gray-500">Sisa Tagihan: </span>
-                       <span className={`text-sm font-bold ${selectedTransaction.totalPrice - editPaymentAmount > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                         Rp{(selectedTransaction.totalPrice - editPaymentAmount).toLocaleString('id-ID')}
-                       </span>
+                    <div className="mt-2 flex justify-between items-center">
+                       <p className="text-[10px] text-gray-500 italic max-w-[60%]">
+                         *Update pembayaran otomatis mengubah status ke <b>Cicil</b> atau <b>Booking</b>. Status <b>Sedang Sewa</b> & <b>Selesai</b> harus diubah manual.
+                       </p>
+                       <div className="text-right">
+                         <span className="text-xs font-bold text-gray-500">Sisa Tagihan: </span>
+                         <span className={`text-sm font-bold ${selectedTransaction.totalPrice - editPaymentAmount > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                           Rp{(selectedTransaction.totalPrice - editPaymentAmount).toLocaleString('id-ID')}
+                         </span>
+                       </div>
                     </div>
                  </div>
 
@@ -225,14 +241,12 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                           <p><span className="font-semibold w-24 inline-block">Durasi:</span> {selectedTransaction.duration} Hari</p>
                           <p>
                               <span className="font-semibold w-24 inline-block">Status:</span>
-                              <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase
-                                  ${selectedTransaction.status === 'completed' ? 'bg-green-100 text-green-700' :
-                                  selectedTransaction.status === 'active' ? 'bg-blue-100 text-blue-700' :
-                                  selectedTransaction.status === 'cancelled' ? 'bg-red-100 text-red-700' :
-                                  'bg-yellow-100 text-yellow-700'}`}>
+                              <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase border ${getStatusBadge(selectedTransaction.status)}`}>
                                   {selectedTransaction.status === 'completed' ? 'Selesai' : 
-                                   selectedTransaction.status === 'active' ? 'Sedang Sewa' : 
-                                   selectedTransaction.status === 'cancelled' ? 'Batal' : 'Belum Bayar'}
+                                   selectedTransaction.status === 'rented' ? 'Sedang Sewa' :
+                                   selectedTransaction.status === 'booked' ? 'Booking' :
+                                   selectedTransaction.status === 'partial_payment' ? 'Cicil' :
+                                   selectedTransaction.status === 'cancelled' ? 'Batal' : 'Pending'}
                               </span>
                           </p>
                        </div>

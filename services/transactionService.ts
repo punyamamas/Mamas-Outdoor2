@@ -58,7 +58,7 @@ export const getTransactions = async (): Promise<Transaction[]> => {
 export const updateTransactionPayment = async (id: string, amount: number): Promise<{ success: boolean; error?: string; newStatus?: string }> => {
   if (!supabase) return { success: false, error: "Supabase client not initialized" };
 
-  // 1. Ambil data transaksi saat ini untuk pengecekan
+  // 1. Ambil data transaksi saat ini
   const { data: currentTrx, error: fetchError } = await supabase
     .from('transactions')
     .select('status, total_price')
@@ -72,14 +72,22 @@ export const updateTransactionPayment = async (id: string, amount: number): Prom
   // 2. Tentukan Status Baru secara Otomatis
   let newStatus = currentTrx.status;
 
-  // Logika Otomatisasi Status:
-  // - Jangan ubah jika status sudah 'completed' (Selesai) atau 'cancelled' (Batal) untuk menjaga integritas stok.
-  // - Hanya mainkan logika antara 'pending' dan 'active'.
-  if (currentTrx.status !== 'completed' && currentTrx.status !== 'cancelled') {
-    if (amount === 0) {
-      newStatus = 'pending'; // Jika 0, set ke Belum Bayar
-    } else if (amount > 0) {
-      newStatus = 'active';  // Jika ada pembayaran masuk, set ke Sedang Sewa/Belum Lunas
+  // RULE: 
+  // Kita HANYA ubah status otomatis jika status saat ini adalah:
+  // 'pending' (Belum Bayar), 'partial_payment' (Cicil), atau 'booked' (Lunas/Booking).
+  // 
+  // JANGAN ubah status jika barang sudah 'rented' (Sedang Sewa), 'completed' (Selesai), atau 'cancelled' (Batal).
+  // Karena status 'rented' dan 'completed' itu penanda fisik barang, bukan sekedar keuangan.
+  
+  const manualPhysicalStatuses = ['rented', 'completed', 'cancelled'];
+  
+  if (!manualPhysicalStatuses.includes(currentTrx.status)) {
+    if (amount <= 0) {
+      newStatus = 'pending'; // 1. Belum Bayar
+    } else if (amount < currentTrx.total_price) {
+      newStatus = 'partial_payment'; // 2. Cicil / Belum Lunas
+    } else {
+      newStatus = 'booked';  // 3. Lunas / Booking (Siap Ambil)
     }
   }
 
@@ -131,12 +139,19 @@ export const updateTransactionStatus = async (id: string, newStatus: string): Pr
   }
 
   // 3. Handle Stock Logic based on status change
-  const isFinalStatus = (s: string) => s === 'completed' || s === 'cancelled';
+  // Logic: 
+  // - Barang keluar gudang (checkout/pending/booked/rented) -> Stok Berkurang (Sudah terjadi saat createTransaction)
+  // - Barang kembali ke gudang (completed/cancelled) -> Stok Kembali
   
-  if (isFinalStatus(newStatus) && !isFinalStatus(oldStatus)) {
+  const isFinalStatus = (s: string) => s === 'completed' || s === 'cancelled';
+  const isActiveStatus = (s: string) => ['pending', 'partial_payment', 'booked', 'rented'].includes(s);
+
+  // Jika berubah DARI status aktif KE status final (Selesai/Batal) -> KEMBALIKAN STOK
+  if (isActiveStatus(oldStatus) && isFinalStatus(newStatus)) {
       await processStockRestoration(items);
   }
-  else if (isFinalStatus(oldStatus) && !isFinalStatus(newStatus)) {
+  // Jika berubah DARI status final (Selesai/Batal) KE status aktif (salah pencet batal, dibalikin ke sewa) -> KURANGI STOK LAGI
+  else if (isFinalStatus(oldStatus) && isActiveStatus(newStatus)) {
       await processStockReduction(items);
   }
 
@@ -163,6 +178,7 @@ export const deleteTransaction = async (id: string): Promise<boolean> => {
 
   if (deleteError || !deletedData || deletedData.length === 0) return false;
 
+  // Jika menghapus transaksi yang statusnya masih 'sewa/booking' (bukan selesai/batal), stok harus dikembalikan
   if (trx.status !== 'completed' && trx.status !== 'cancelled') {
     await processStockRestoration(trx.items as CartItem[]);
   }

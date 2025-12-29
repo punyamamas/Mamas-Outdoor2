@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { X, Calendar, Package, Clock, History, CheckCircle, AlertCircle } from 'lucide-react';
+import { X, Calendar, Package, Clock, History, CheckCircle, AlertCircle, Loader } from 'lucide-react';
 import { Transaction } from '../types';
 
 interface HistoryDrawerProps {
@@ -25,6 +25,18 @@ const HistoryDrawer: React.FC<HistoryDrawerProps> = ({ isOpen, onClose }) => {
       }
     }
   }, [isOpen]);
+
+  const getStatusDisplay = (status: string) => {
+    switch(status) {
+      case 'pending': return { label: 'Belum Bayar', color: 'bg-red-100 text-red-700', icon: AlertCircle };
+      case 'partial_payment': return { label: 'Belum Lunas (Cicil)', color: 'bg-orange-100 text-orange-700', icon: Loader };
+      case 'booked': return { label: 'Lunas (Siap Ambil)', color: 'bg-blue-100 text-blue-700', icon: CheckCircle };
+      case 'rented': return { label: 'Sedang Disewa', color: 'bg-purple-100 text-purple-700', icon: Package };
+      case 'completed': return { label: 'Selesai', color: 'bg-green-100 text-green-700', icon: CheckCircle };
+      case 'cancelled': return { label: 'Dibatalkan', color: 'bg-gray-100 text-gray-700', icon: X };
+      default: return { label: status, color: 'bg-gray-100 text-gray-700', icon: AlertCircle };
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -61,20 +73,18 @@ const HistoryDrawer: React.FC<HistoryDrawerProps> = ({ isOpen, onClose }) => {
             ) : (
               <div className="space-y-4">
                 {history.map((trx) => {
-                  const paid = trx.amountPaid || 0;
-                  const isPaidOff = paid >= trx.totalPrice;
+                  const statusInfo = getStatusDisplay(trx.status);
+                  const StatusIcon = statusInfo.icon;
                   
                   return (
                     <div key={trx.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition">
                       {/* Card Header */}
                       <div className="px-5 py-3 border-b border-gray-50 flex justify-between items-center bg-gray-50/50">
                         <div className="text-xs text-gray-500 font-medium">
-                          Order ID: #{trx.id.slice(0, 8)}
+                          #{trx.id.slice(0, 8)}
                         </div>
-                        <div className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded-full tracking-wide flex items-center gap-1
-                          ${trx.status === 'completed' ? 'bg-green-100 text-green-700' : 
-                            trx.status === 'cancelled' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
-                          {trx.status === 'completed' ? 'Selesai' : trx.status === 'cancelled' ? 'Dibatalkan' : 'Aktif'}
+                        <div className={`px-2 py-1 text-[10px] font-bold uppercase rounded-full tracking-wide flex items-center gap-1 ${statusInfo.color}`}>
+                          <StatusIcon size={10} /> {statusInfo.label}
                         </div>
                       </div>
 
@@ -92,17 +102,6 @@ const HistoryDrawer: React.FC<HistoryDrawerProps> = ({ isOpen, onClose }) => {
                           <div className="text-right">
                             <p className="text-xs text-gray-400 mb-1">Total Biaya</p>
                             <p className="text-adventure-600 font-bold text-lg">Rp{trx.totalPrice.toLocaleString('id-ID')}</p>
-                            <div className="mt-1 flex justify-end">
-                               {isPaidOff ? (
-                                 <span className="flex items-center gap-1 text-[10px] text-green-600 font-bold bg-green-50 px-2 py-0.5 rounded">
-                                   <CheckCircle size={10}/> Lunas
-                                 </span>
-                               ) : (
-                                 <span className="flex items-center gap-1 text-[10px] text-orange-600 font-bold bg-orange-50 px-2 py-0.5 rounded">
-                                   <AlertCircle size={10}/> Belum Lunas
-                                 </span>
-                               )}
-                            </div>
                           </div>
                         </div>
 

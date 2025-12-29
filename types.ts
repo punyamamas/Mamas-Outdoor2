@@ -70,7 +70,9 @@ export interface Transaction {
   totalPrice: number; // Mapped from total_price
   amountPaid?: number; // New Field: Total yang sudah dibayar
   items: CartItem[];
-  status: 'pending' | 'active' | 'completed' | 'cancelled'; 
+  // Status Update: 
+  // pending (Belum Bayar) -> partial_payment (Cicil) -> booked (Lunas/Booking) -> rented (Sedang Sewa) -> completed (Selesai)
+  status: 'pending' | 'partial_payment' | 'booked' | 'rented' | 'completed' | 'cancelled'; 
   paymentMethod?: 'transfer' | 'cash'; 
 }
 
