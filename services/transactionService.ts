@@ -245,7 +245,7 @@ const calculateItemPriceForDuration = (item: CartItem, duration: number): number
     else unitPrice = p7 + ((duration - 7) * (p2 * 0.4)); 
 
     return unitPrice;
-};
+  };
 
 // NEW: Update Customer Data & Duration (Recalculate Price)
 export const updateTransactionDetails = async (
@@ -381,118 +381,186 @@ export const deleteTransaction = async (id: string): Promise<boolean> => {
 
 // FUNCTION TO PRINT INVOICE
 export const printInvoice = (trx: Transaction) => {
-  const printWindow = window.open('', '', 'width=800,height=600');
+  const printWindow = window.open('', '', 'width=400,height=800');
   if (!printWindow) return alert('Izinkan pop-up untuk mencetak nota');
 
-  const returnDate = new Date(trx.rentalDate);
-  returnDate.setDate(returnDate.getDate() + (trx.duration - 1));
-  const returnDateStr = returnDate.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-  const rentalDateStr = new Date(trx.rentalDate).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  // Format Tanggal dan Waktu
+  const dateObj = new Date(trx.created_at || new Date());
+  const dateStr = dateObj.toLocaleDateString('id-ID'); // 28/12/2025
+  const timeStr = dateObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }); // 21:43
 
   const paid = trx.amountPaid || 0;
   const remaining = Math.max(0, trx.totalPrice - paid);
-  const statusLabel = remaining <= 0 ? 'LUNAS' : paid > 0 ? 'BELUM LUNAS (DP)' : 'BELUM BAYAR';
+  const change = Math.max(0, paid - trx.totalPrice);
+  
+  // Status Logic
+  const statusLabel = remaining <= 0 ? 'Lunas' : 'Belum Lunas';
+  const paymentMethodDisplay = trx.paymentMethod === 'transfer' ? 'Transfer' : 'Cash';
+  
+  // Format Mata Uang Helper
+  const fmt = (val: number) => val.toLocaleString('id-ID');
 
-  const itemsHtml = trx.items.map((item, idx) => `
-    <tr class="item-row">
-      <td style="padding: 8px 0; border-bottom: 1px dashed #eee;">
-        <div style="font-weight: bold; font-size: 14px;">${item.name}</div>
-        <div style="font-size: 11px; color: #666;">
-          ${item.selectedSize ? `Size: ${item.selectedSize} ` : ''} 
-          ${item.selectedColor ? `| Warna: ${item.selectedColor}` : ''}
-        </div>
-      </td>
-      <td style="text-align: center; padding: 8px 0; border-bottom: 1px dashed #eee;">${item.quantity}</td>
-      <td style="text-align: right; padding: 8px 0; border-bottom: 1px dashed #eee;">
-         Rp${(calculateItemPriceForDuration(item, trx.duration) * item.quantity).toLocaleString('id-ID')}
-      </td>
-    </tr>
-  `).join('');
+  const itemsHtml = trx.items.map((item) => {
+    const unitPrice = calculateItemPriceForDuration(item, trx.duration);
+    const totalPrice = unitPrice * item.quantity;
+    
+    // Check if variant info exists
+    const variantInfo = item.selectedSize || item.selectedColor 
+      ? `(${[item.selectedSize, item.selectedColor].filter(Boolean).join('/')})` 
+      : '';
+
+    return `
+    <div class="item-row">
+      <div class="item-name">${trx.duration}H ${item.name.toUpperCase()} ${variantInfo}</div>
+      <div class="item-calc">
+        <span>${item.quantity} x ${fmt(unitPrice)}</span>
+        <span>${fmt(totalPrice)}</span>
+      </div>
+    </div>
+    `;
+  }).join('');
 
   const htmlContent = `
+    <!DOCTYPE html>
     <html>
       <head>
-        <title>Nota Sewa #${trx.id.slice(0,6)} - Mamas Outdoor</title>
+        <title>Struk Pembayaran #${trx.id.slice(0,6)}</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <style>
-          body { font-family: 'Courier New', Courier, monospace; padding: 20px; max-width: 400px; margin: 0 auto; color: #333; }
-          .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #333; padding-bottom: 10px; }
-          .brand { font-size: 24px; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; }
-          .sub-brand { font-size: 12px; margin-top: 5px; }
-          .info-table { width: 100%; font-size: 12px; margin-bottom: 15px; }
-          .info-table td { padding: 2px 0; }
-          .items-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-          .items-table th { text-align: left; border-bottom: 1px solid #333; padding-bottom: 5px; font-size: 12px; text-transform: uppercase; }
-          .total-section { border-top: 2px solid #333; padding-top: 10px; font-size: 14px; }
-          .row { display: flex; justify-content: space-between; margin-bottom: 5px; }
-          .grand-total { font-weight: bold; font-size: 16px; margin-top: 5px; border-top: 1px dashed #333; pt-2; }
-          .footer { text-align: center; margin-top: 30px; font-size: 10px; color: #666; border-top: 1px solid #eee; padding-top: 10px; }
-          .stamp { border: 2px solid #333; display: inline-block; padding: 5px 10px; font-weight: bold; transform: rotate(-5deg); margin-top: 10px; font-size: 18px; }
+          @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700&display=swap');
+          
+          body { 
+            font-family: 'Roboto Mono', monospace, sans-serif; 
+            padding: 20px; 
+            max-width: 320px; /* Lebar standar thermal printer */
+            margin: 0 auto; 
+            color: #333; 
+            background: #fff;
+            font-size: 11px;
+            line-height: 1.4;
+          }
+          
+          .header { text-align: center; margin-bottom: 10px; }
+          
+          /* Logo Box Merah */
+          .logo-box {
+            background: #DC0000;
+            width: 70px;
+            height: 70px;
+            margin: 0 auto 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px; /* Sedikit rounded biar manis dikit */
+          }
+          .logo-svg { width: 40px; height: 40px; fill: white; }
+          
+          .brand-name { font-size: 16px; font-weight: 700; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px;}
+          .address { font-size: 10px; color: #555; margin-bottom: 2px; }
+          .wa { font-size: 10px; font-weight: bold; }
+          
+          .dashed-line { 
+            border-bottom: 1px dashed #000; 
+            margin: 10px 0; 
+            width: 100%;
+          }
+
+          .meta-table { width: 100%; font-size: 10px; }
+          .meta-table td { padding: 1px 0; vertical-align: top; }
+          .meta-label { width: 30%; }
+          .meta-val { text-align: right; font-weight: 500; }
+
+          .item-row { margin-bottom: 8px; }
+          .item-name { font-weight: 700; font-size: 11px; margin-bottom: 2px; }
+          .item-calc { display: flex; justify-content: space-between; font-size: 11px; color: #444; }
+
+          .summary-table { width: 100%; font-size: 11px; margin-top: 5px; }
+          .summary-table td { padding: 2px 0; }
+          .sum-label { text-align: left; }
+          .sum-val { text-align: right; font-weight: bold; }
+          
+          .grand-total { font-size: 14px; font-weight: 800; border-top: 1px dashed #000; padding-top: 5px; margin-top: 5px; }
+
+          .footer { text-align: center; margin-top: 20px; font-size: 9px; color: #666; font-style: italic; }
+          
           @media print {
-            body { max-width: 100%; }
+            body { margin: 0; padding: 10px; width: 100%; }
             .no-print { display: none; }
           }
         </style>
       </head>
       <body>
         <div class="header">
-          <div class="brand">Mamas Outdoor</div>
-          <div class="sub-brand">Jl. Kampus Grendeng No. 123, Purwokerto</div>
-          <div class="sub-brand">WA: 0812-3456-7890</div>
-        </div>
-
-        <table class="info-table">
-          <tr><td><strong>No. Nota:</strong></td><td style="text-align:right">#${trx.id.slice(0,8)}</td></tr>
-          <tr><td><strong>Tanggal:</strong></td><td style="text-align:right">${new Date().toLocaleDateString('id-ID')}</td></tr>
-          <tr><td><strong>Penyewa:</strong></td><td style="text-align:right">${trx.customerName}</td></tr>
-          <tr><td><strong>WhatsApp:</strong></td><td style="text-align:right">${trx.customerWhatsapp}</td></tr>
-          <tr><td><strong>Durasi:</strong></td><td style="text-align:right">${trx.duration} Hari</td></tr>
-        </table>
-
-        <div style="border: 1px dashed #333; padding: 10px; margin-bottom: 20px; background: #f9f9f9;">
-           <div style="font-size: 12px; font-weight: bold; margin-bottom: 5px;">Jadwal Sewa:</div>
-           <div class="row" style="font-size: 12px;"><span>Ambil:</span> <span>${rentalDateStr}</span></div>
-           <div class="row" style="font-size: 12px;"><span>Kembali:</span> <span>${returnDateStr}</span></div>
-        </div>
-
-        <table class="items-table">
-          <thead>
-            <tr>
-              <th width="60%">Barang</th>
-              <th width="15%" style="text-align: center;">Qty</th>
-              <th width="25%" style="text-align: right;">Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${itemsHtml}
-          </tbody>
-        </table>
-
-        <div class="total-section">
-          <div class="row"><span>Subtotal:</span> <span>Rp${trx.totalPrice.toLocaleString('id-ID')}</span></div>
-          <div class="row grand-total"><span>TOTAL:</span> <span>Rp${trx.totalPrice.toLocaleString('id-ID')}</span></div>
-          <div class="row" style="margin-top: 10px; color: #444;"><span>Bayar:</span> <span>Rp${paid.toLocaleString('id-ID')}</span></div>
-          <div class="row" style="font-weight: bold; color: ${remaining > 0 ? 'red' : 'green'};">
-            <span>SISA TAGIHAN:</span> <span>Rp${remaining.toLocaleString('id-ID')}</span>
+          <div class="logo-box">
+             <!-- SVG Logo Gunung Sederhana -->
+             <svg class="logo-svg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2L2 19H22L12 2ZM12 6L18.5 17H5.5L12 6Z" fill="white"/>
+                <circle cx="12" cy="9" r="2" fill="white"/>
+             </svg>
           </div>
+          <div class="brand-name">MAMAS OUTDOOR</div>
+          <div class="address">Jalan Cenderawasih, RT 3/RW 7, Dukuhbandong,</div>
+          <div class="address">Grendeng, Kec. Purwokerto Utara, Banyumas</div>
+          <div class="address">Jawa Tengah, Indonesia 53122</div>
+          <div class="wa">No. WhatsApp 085137411145</div>
         </div>
 
-        <div style="text-align: center; margin-top: 20px;">
-           <div class="stamp" style="color: ${remaining <= 0 ? '#000' : 'red'}; border-color: ${remaining <= 0 ? '#000' : 'red'};">
-             ${statusLabel}
-           </div>
+        <div class="dashed-line"></div>
+
+        <table class="meta-table">
+          <tr><td class="meta-label">No Nota</td><td class="meta-val">TRX/${trx.id.slice(0, 8).toUpperCase()}</td></tr>
+          <tr><td class="meta-label">Antrian</td><td class="meta-val">5</td></tr>
+          <tr><td class="meta-label">Pelanggan</td><td class="meta-val">MO-${trx.id.slice(0,4)} ${trx.customerName}</td></tr>
+          <tr><td class="meta-label">Tanggal</td><td class="meta-val">${dateStr} - ${timeStr}</td></tr>
+          <tr><td class="meta-label">Kasir</td><td class="meta-val">Admin Mamas Outdoor</td></tr>
+          <tr><td class="meta-label">Pegawai</td><td class="meta-val">-</td></tr>
+        </table>
+
+        <div class="dashed-line"></div>
+
+        <!-- ITEMS -->
+        <div class="items-container">
+          ${itemsHtml}
         </div>
 
+        <div class="dashed-line"></div>
+
+        <!-- SUMMARY -->
+        <table class="summary-table">
+          <tr>
+             <td class="sum-label">Status</td>
+             <td class="sum-val">${statusLabel}</td>
+          </tr>
+          <tr>
+             <td class="sum-label">Metode Bayar</td>
+             <td class="sum-val">${paymentMethodDisplay}</td>
+          </tr>
+          <tr>
+             <td class="sum-label" style="padding-top:10px;">Total</td>
+             <td class="sum-val" style="padding-top:10px;">${fmt(trx.totalPrice)}</td>
+          </tr>
+          <tr>
+             <td class="sum-label">DiBayar</td>
+             <td class="sum-val">${fmt(paid)}</td>
+          </tr>
+          <tr>
+             <td class="sum-label">Kembalian</td>
+             <td class="sum-val">${fmt(change)}</td>
+          </tr>
+        </table>
+
+        <div class="dashed-line"></div>
+        
         <div class="footer">
-          <p>Syarat & Ketentuan:</p>
-          <p>1. Wajib meningalkan kartu identitas asli.</p>
-          <p>2. Denda keterlambatan berlaku harian.</p>
-          <p>3. Simpan nota ini sebagai bukti pengambilan & pengembalian.</p>
-          <br/>
-          <p>~ Terima Kasih & Salam Lestari ~</p>
+           <p>Terima Kasih atas Kunjungan Anda</p>
+           <p>Simpan struk ini sebagai bukti pembayaran yang sah.</p>
+           <p>Barang yang sudah disewa wajib dijaga dengan baik.</p>
         </div>
 
         <script>
-          window.onload = function() { window.print(); }
+          window.onload = function() { 
+            setTimeout(function(){ window.print(); }, 500); 
+          }
         </script>
       </body>
     </html>
