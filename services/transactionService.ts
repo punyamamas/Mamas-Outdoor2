@@ -66,34 +66,44 @@ export const recordPaymentLog = async (log: Omit<PaymentLog, 'id' | 'created_at'
     console.error('Error recording payment log:', error);
     // Jika error karena tabel belum ada, alert admin (Dev mode only info)
     if (error.code === '42P01') { 
-      alert("Tabel 'payment_logs' belum dibuat di Supabase. Silakan buat tabel payment_logs(id, created_at, transaction_id, amount, payment_method, type, description)");
+      // Error akan ditangkap UI AdminFinanceManager juga
+      console.warn("Tabel payment_logs belum dibuat.");
     }
     return false;
   }
   return true;
 };
 
-// NEW: Get Payment Logs by Date Range
-export const getPaymentLogs = async (startDate: string, endDate: string): Promise<PaymentLog[]> => {
-  if (!supabase) return [];
+// NEW: Get Payment Logs by Date Range (Fixed Timezone Issue)
+export const getPaymentLogs = async (startDate: string, endDate: string): Promise<{ data: PaymentLog[], error: any }> => {
+  if (!supabase) return { data: [], error: null };
 
-  // Adjust endDate to include the full day
-  const endDateTime = new Date(endDate);
-  endDateTime.setHours(23, 59, 59, 999);
+  // Parse YYYY-MM-DD string to Local Date Objects explicitly
+  // startDate input is expected to be YYYY-MM-DD
+  const [sy, sm, sd] = startDate.split('-').map(Number);
+  const [ey, em, ed] = endDate.split('-').map(Number);
+
+  // Construct Local Midnight for Start (00:00:00)
+  const startLocal = new Date(sy, sm - 1, sd, 0, 0, 0, 0);
+  
+  // Construct Local End of Day for End (23:59:59)
+  const endLocal = new Date(ey, em - 1, ed, 23, 59, 59, 999);
 
   const { data, error } = await supabase
     .from('payment_logs')
     .select('*')
-    .gte('created_at', new Date(startDate).toISOString())
-    .lte('created_at', endDateTime.toISOString())
+    // Convert Local Date object to ISO String (which Supabase expects as UTC)
+    // This ensures that "00:00 Local" becomes the correct UTC timestamp query
+    .gte('created_at', startLocal.toISOString())
+    .lte('created_at', endLocal.toISOString())
     .order('created_at', { ascending: false });
 
   if (error) {
     console.error('Error fetching logs:', error);
-    return [];
+    return { data: [], error };
   }
   
-  return data as PaymentLog[];
+  return { data: data as PaymentLog[], error: null };
 };
 
 

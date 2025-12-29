@@ -1,12 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { DollarSign, Wallet, CreditCard, ArrowUpRight, ArrowDownLeft, Plus, Calendar, Loader2, Save } from 'lucide-react';
+import { DollarSign, Wallet, CreditCard, ArrowUpRight, ArrowDownLeft, Plus, Calendar, Loader2, Save, Database, AlertTriangle, Copy, Check } from 'lucide-react';
 import { PaymentLog } from '../types';
 import { getPaymentLogs, recordPaymentLog } from '../services/transactionService';
 
 const AdminFinanceManager: React.FC = () => {
-  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  // FIX: Initialize date with Local Time, not UTC
+  const [selectedDate, setSelectedDate] = useState<string>(() => {
+    const d = new Date();
+    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+    return d.toISOString().split('T')[0];
+  });
+
   const [logs, setLogs] = useState<PaymentLog[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Error Handling State
+  const [dbError, setDbError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   
   // Manual Entry State
   const [isManualEntryOpen, setIsManualEntryOpen] = useState(false);
@@ -20,8 +30,21 @@ const AdminFinanceManager: React.FC = () => {
 
   const fetchLogs = async () => {
     setIsLoading(true);
-    const data = await getPaymentLogs(selectedDate, selectedDate);
-    setLogs(data);
+    setDbError(null);
+    const { data, error } = await getPaymentLogs(selectedDate, selectedDate);
+    
+    if (error) {
+      // Check for specific Postgres error "relation does not exist" (code 42P01)
+      if (error.code === '42P01') {
+        setDbError('missing_table');
+      } else {
+        setDbError(error.message || 'Terjadi kesalahan saat mengambil data.');
+      }
+      setLogs([]);
+    } else {
+      setLogs(data);
+    }
+    
     setIsLoading(false);
   };
 
@@ -43,6 +66,22 @@ const AdminFinanceManager: React.FC = () => {
     fetchLogs();
   };
 
+  const copySQL = () => {
+    const sql = `create table public.payment_logs (
+  id uuid default gen_random_uuid() primary key,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  transaction_id text,
+  amount numeric not null,
+  payment_method text not null,
+  type text not null,
+  description text,
+  category text
+);`;
+    navigator.clipboard.writeText(sql);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   // Calculations
   const totalIn = logs.filter(l => l.type === 'IN').reduce((acc, curr) => acc + curr.amount, 0);
   const totalOut = logs.filter(l => l.type === 'OUT').reduce((acc, curr) => acc + curr.amount, 0);
@@ -52,6 +91,51 @@ const AdminFinanceManager: React.FC = () => {
                   - logs.filter(l => l.payment_method === 'cash' && l.type === 'OUT').reduce((acc, curr) => acc + curr.amount, 0);
   
   const totalTransfer = logs.filter(l => l.payment_method === 'transfer' && l.type === 'IN').reduce((acc, curr) => acc + curr.amount, 0);
+
+  // Jika error karena tabel belum ada, tampilkan panduan
+  if (dbError === 'missing_table') {
+    return (
+      <div className="bg-white rounded-2xl shadow-sm border border-orange-200 p-8 flex flex-col items-center text-center max-w-2xl mx-auto mt-10">
+         <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 mb-4">
+           <Database size={32} />
+         </div>
+         <h2 className="text-xl font-bold text-gray-900 mb-2">Setup Database Diperlukan</h2>
+         <p className="text-gray-600 mb-6">
+           Fitur keuangan memerlukan tabel baru bernama <code>payment_logs</code> di Supabase Anda. <br/>
+           Silakan jalankan perintah SQL berikut di <strong>Supabase SQL Editor</strong>:
+         </p>
+         
+         <div className="bg-gray-900 rounded-xl p-4 w-full text-left relative group">
+           <pre className="text-gray-300 text-xs font-mono overflow-x-auto">
+{`create table public.payment_logs (
+  id uuid default gen_random_uuid() primary key,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  transaction_id text,
+  amount numeric not null,
+  payment_method text not null, -- 'cash' or 'transfer'
+  type text not null, -- 'IN' or 'OUT'
+  description text,
+  category text
+);`}
+           </pre>
+           <button 
+             onClick={copySQL}
+             className="absolute top-2 right-2 p-2 bg-white/10 hover:bg-white/20 rounded-lg text-white transition flex items-center gap-2 text-xs font-bold"
+           >
+             {copied ? <Check size={14}/> : <Copy size={14}/>} {copied ? 'Copied' : 'Copy SQL'}
+           </button>
+         </div>
+
+         <button 
+           onClick={fetchLogs}
+           className="mt-8 bg-nature-600 hover:bg-nature-700 text-white px-6 py-2 rounded-lg font-bold flex items-center gap-2"
+         >
+           <Loader2 size={16} className={isLoading ? 'animate-spin' : 'hidden'} />
+           Sudah Saya Jalankan, Refresh!
+         </button>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden min-h-[600px] flex flex-col">
