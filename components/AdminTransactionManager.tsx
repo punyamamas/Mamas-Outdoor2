@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ClipboardList, Loader2, Calendar, Eye, Trash2, X, User, CreditCard, Banknote, ArrowRightLeft, Save, Calculator, CheckCircle, RotateCcw, Wallet, Edit, Plus, Minus, Search, ShoppingBag, Printer } from 'lucide-react';
 import { Transaction, Product, CartItem } from '../types';
-import { updateTransactionPayment, updateTransactionItems, printInvoice } from '../services/transactionService';
+import { updateTransactionPayment, updateTransactionItems, updateTransactionDetails, printInvoice } from '../services/transactionService';
 
 interface AdminTransactionManagerProps {
   transactions: Transaction[];
@@ -34,13 +34,25 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
   const [isSavingItems, setIsSavingItems] = useState(false);
   const [itemSearchTerm, setItemSearchTerm] = useState('');
 
+  // --- EDIT CUSTOMER INFO STATES ---
+  const [isEditingInfo, setIsEditingInfo] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editWa, setEditWa] = useState('');
+  const [editDuration, setEditDuration] = useState(2);
+  const [isSavingInfo, setIsSavingInfo] = useState(false);
+
   // Reset input ke 0 setiap kali modal dibuka
   useEffect(() => {
     if (selectedTransaction) {
       setCashInput(0); 
       setTransferInput(0);
       setIsEditingItems(false);
+      setIsEditingInfo(false);
+      
       setEditedItems(selectedTransaction.items);
+      setEditName(selectedTransaction.customerName);
+      setEditWa(selectedTransaction.customerWhatsapp);
+      setEditDuration(selectedTransaction.duration);
     }
   }, [selectedTransaction]);
 
@@ -184,6 +196,23 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
           alert("Gagal mengupdate item transaksi.");
       }
       setIsSavingItems(false);
+  };
+
+  const handleSaveInfo = async () => {
+    if (!selectedTransaction) return;
+    if (editDuration < 2) return alert("Durasi minimal 2 hari");
+    
+    setIsSavingInfo(true);
+    const success = await updateTransactionDetails(selectedTransaction.id, editName, editWa, editDuration);
+    
+    if (success) {
+        if (onRefreshData) await onRefreshData();
+        alert("Data penyewa & durasi berhasil diupdate! Total harga telah dihitung ulang.");
+        setSelectedTransaction(null); // Tutup modal untuk refresh
+    } else {
+        alert("Gagal mengupdate data.");
+    }
+    setIsSavingInfo(false);
   };
 
   const getStatusBadge = (status: string) => {
@@ -416,27 +445,61 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                            </div>
                         </div>
 
-                        {/* Customer Info */}
+                        {/* Customer Info (EDITABLE) */}
                         <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
-                           <h4 className="text-xs font-bold uppercase text-gray-400 mb-3 flex items-center gap-2"><User size={14}/> Kontak Penyewa</h4>
-                           <div className="flex items-center justify-between">
-                              <div>
-                                <p className="font-bold text-gray-800">{selectedTransaction.customerName}</p>
-                                <p className="text-sm text-gray-500">{selectedTransaction.customerWhatsapp}</p>
-                              </div>
-                              <div className="flex gap-2">
-                                 <button 
-                                    onClick={() => printInvoice(selectedTransaction)}
-                                    className="text-nature-600 bg-nature-50 p-2 rounded-lg hover:bg-nature-100 transition border border-nature-200"
-                                    title="Cetak Nota"
-                                 >
-                                    <Printer size={16} />
-                                 </button>
-                                 <a href={`https://wa.me/${selectedTransaction.customerWhatsapp}`} target="_blank" rel="noreferrer" className="text-blue-600 bg-blue-50 p-2 rounded-lg hover:bg-blue-100 transition border border-blue-200">
-                                       <ArrowRightLeft size={16} />
-                                 </a>
-                              </div>
+                           <div className="flex justify-between items-center mb-3">
+                              <h4 className="text-xs font-bold uppercase text-gray-400 flex items-center gap-2"><User size={14}/> Kontak & Durasi</h4>
+                              {!isEditingInfo ? (
+                                <button onClick={() => setIsEditingInfo(true)} className="text-[10px] bg-gray-100 hover:bg-gray-200 text-gray-600 px-2 py-1 rounded font-bold flex items-center gap-1">
+                                  <Edit size={10} /> Edit Data
+                                </button>
+                              ) : (
+                                <div className="flex gap-2">
+                                  <button onClick={() => setIsEditingInfo(false)} className="text-[10px] bg-gray-200 text-gray-600 px-2 py-1 rounded font-bold">Batal</button>
+                                  <button onClick={handleSaveInfo} disabled={isSavingInfo} className="text-[10px] bg-green-600 text-white px-2 py-1 rounded font-bold flex items-center gap-1">
+                                    {isSavingInfo ? <Loader2 size={10} className="animate-spin"/> : <Save size={10}/>} Simpan
+                                  </button>
+                                </div>
+                              )}
                            </div>
+                           
+                           {isEditingInfo ? (
+                             <div className="space-y-2">
+                                <div>
+                                  <label className="text-[10px] font-bold text-gray-500">Nama Penyewa</label>
+                                  <input className="w-full border rounded px-2 py-1 text-sm" value={editName} onChange={e => setEditName(e.target.value)} />
+                                </div>
+                                <div>
+                                  <label className="text-[10px] font-bold text-gray-500">WhatsApp</label>
+                                  <input className="w-full border rounded px-2 py-1 text-sm" value={editWa} onChange={e => setEditWa(e.target.value)} />
+                                </div>
+                                <div>
+                                  <label className="text-[10px] font-bold text-gray-500">Durasi (Hari)</label>
+                                  <input type="number" min="2" className="w-full border rounded px-2 py-1 text-sm" value={editDuration} onChange={e => setEditDuration(parseInt(e.target.value)||2)} />
+                                  <p className="text-[10px] text-orange-500 italic mt-0.5">*Total harga akan dihitung ulang otomatis.</p>
+                                </div>
+                             </div>
+                           ) : (
+                             <div className="flex items-center justify-between">
+                                <div>
+                                  <p className="font-bold text-gray-800">{selectedTransaction.customerName}</p>
+                                  <p className="text-sm text-gray-500">{selectedTransaction.customerWhatsapp}</p>
+                                  <p className="text-xs font-bold text-nature-600 mt-1 bg-nature-50 inline-block px-2 py-0.5 rounded">Sewa {selectedTransaction.duration} Hari</p>
+                                </div>
+                                <div className="flex gap-2">
+                                  <button 
+                                      onClick={() => printInvoice(selectedTransaction)}
+                                      className="text-nature-600 bg-nature-50 p-2 rounded-lg hover:bg-nature-100 transition border border-nature-200"
+                                      title="Cetak Nota"
+                                  >
+                                      <Printer size={16} />
+                                  </button>
+                                  <a href={`https://wa.me/${selectedTransaction.customerWhatsapp}`} target="_blank" rel="noreferrer" className="text-blue-600 bg-blue-50 p-2 rounded-lg hover:bg-blue-100 transition border border-blue-200">
+                                        <ArrowRightLeft size={16} />
+                                  </a>
+                                </div>
+                             </div>
+                           )}
                         </div>
                     </div>
 

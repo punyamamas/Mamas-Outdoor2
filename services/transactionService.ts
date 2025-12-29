@@ -55,11 +55,9 @@ export const getTransactions = async (): Promise<Transaction[]> => {
 };
 
 // NEW: Sync Local History with Server Data
-// Returns object with success status to differentiate between "Deleted on Server" vs "Network Error"
 export const refreshTransactions = async (localIds: string[]): Promise<{ success: boolean, data: Transaction[] }> => {
   if (!supabase || localIds.length === 0) return { success: true, data: [] };
 
-  // Fetch data terbaru berdasarkan ID yang ada di local storage user
   const { data, error } = await supabase
     .from('transactions')
     .select('*')
@@ -67,7 +65,6 @@ export const refreshTransactions = async (localIds: string[]): Promise<{ success
 
   if (error) {
     console.error('Error refreshing history:', error);
-    // Return false so UI knows not to wipe local data
     return { success: false, data: [] };
   }
 
@@ -77,7 +74,7 @@ export const refreshTransactions = async (localIds: string[]): Promise<{ success
   };
 };
 
-// NEW: Record Payment Log (Mencatat arus uang masuk/keluar ke tabel logs)
+// NEW: Record Payment Log 
 export const recordPaymentLog = async (log: Omit<PaymentLog, 'id' | 'created_at'>): Promise<boolean> => {
   if (!supabase) return false;
 
@@ -87,9 +84,7 @@ export const recordPaymentLog = async (log: Omit<PaymentLog, 'id' | 'created_at'
 
   if (error) {
     console.error('Error recording payment log:', error);
-    // Jika error karena tabel belum ada, alert admin (Dev mode only info)
     if (error.code === '42P01') { 
-      // Error akan ditangkap UI AdminFinanceManager juga
       console.warn("Tabel payment_logs belum dibuat.");
     }
     return false;
@@ -97,18 +92,13 @@ export const recordPaymentLog = async (log: Omit<PaymentLog, 'id' | 'created_at'
   return true;
 };
 
-// NEW: Get Payment Logs by Date Range (Fixed Timezone Issue)
+// NEW: Get Payment Logs by Date Range
 export const getPaymentLogs = async (startDate: string, endDate: string): Promise<{ data: PaymentLog[], error: any }> => {
   if (!supabase) return { data: [], error: null };
 
-  // Parse YYYY-MM-DD string to Local Date Objects explicitly
   const [sy, sm, sd] = startDate.split('-').map(Number);
   const [ey, em, ed] = endDate.split('-').map(Number);
-
-  // Construct Local Midnight for Start (00:00:00)
   const startLocal = new Date(sy, sm - 1, sd, 0, 0, 0, 0);
-  
-  // Construct Local End of Day for End (23:59:59)
   const endLocal = new Date(ey, em - 1, ed, 23, 59, 59, 999);
 
   const { data, error } = await supabase
@@ -135,7 +125,6 @@ export const updateTransactionPayment = async (
 ): Promise<{ success: boolean; error?: string; newStatus?: string }> => {
   if (!supabase) return { success: false, error: "Supabase client not initialized" };
 
-  // 1. Ambil data transaksi saat ini
   const { data: currentTrx, error: fetchError } = await supabase
     .from('transactions')
     .select('status, total_price, amount_paid')
@@ -146,7 +135,6 @@ export const updateTransactionPayment = async (
     return { success: false, error: "Transaksi tidak ditemukan" };
   }
 
-  // 2. RECORD LOG KEUANGAN (Jika ada detail log)
   if (logDetails) {
     const { cashAmount, transferAmount, description } = logDetails;
     
@@ -173,7 +161,6 @@ export const updateTransactionPayment = async (
     }
   }
 
-  // 3. Tentukan Status Baru secara Otomatis
   let newStatus = currentTrx.status;
   const manualPhysicalStatuses = ['rented', 'completed', 'cancelled'];
   
@@ -187,7 +174,6 @@ export const updateTransactionPayment = async (
     }
   }
 
-  // 4. Update ke Database Transaksi
   const { error } = await supabase
     .from('transactions')
     .update({ 
@@ -215,7 +201,6 @@ export const updateTransactionStatus = async (id: string, newStatus: string): Pr
     .single();
 
   if (fetchError || !trx) {
-     console.error("Error fetching transaction for status update", fetchError);
      return false;
   }
 
@@ -227,10 +212,7 @@ export const updateTransactionStatus = async (id: string, newStatus: string): Pr
     .update({ status: newStatus })
     .eq('id', id);
 
-  if (error) {
-    console.error('Error updating transaction status:', error);
-    return false;
-  }
+  if (error) return false;
 
   const isFinalStatus = (s: string) => s === 'completed' || s === 'cancelled';
   const isActiveStatus = (s: string) => ['pending', 'partial_payment', 'booked', 'rented'].includes(s);
@@ -265,6 +247,52 @@ const calculateItemPriceForDuration = (item: CartItem, duration: number): number
     return unitPrice;
 };
 
+// NEW: Update Customer Data & Duration (Recalculate Price)
+export const updateTransactionDetails = async (
+  id: string, 
+  name: string, 
+  whatsapp: string, 
+  duration: number
+): Promise<boolean> => {
+  if (!supabase) return false;
+
+  // 1. Get current items to recalculate price
+  const { data: trx, error: fetchError } = await supabase
+    .from('transactions')
+    .select('items')
+    .eq('id', id)
+    .single();
+
+  if (fetchError || !trx) return false;
+
+  const items = trx.items as CartItem[];
+  
+  // 2. Recalculate Total Price based on new Duration
+  let newTotalPrice = 0;
+  for (const item of items) {
+      const unitPrice = calculateItemPriceForDuration(item, duration);
+      newTotalPrice += (unitPrice * item.quantity);
+  }
+
+  // 3. Update Database
+  const { error } = await supabase
+    .from('transactions')
+    .update({
+      customer_name: name,
+      customer_whatsapp: whatsapp,
+      duration: duration,
+      total_price: newTotalPrice
+    })
+    .eq('id', id);
+
+  if (error) {
+    console.error("Error updating transaction details:", error);
+    return false;
+  }
+
+  return true;
+};
+
 // NEW: Edit Transaction Items (Change Qty, Add/Remove)
 export const updateTransactionItems = async (
   transactionId: string,
@@ -293,8 +321,6 @@ export const updateTransactionItems = async (
   }
 
   // 3. Handle Stock Rotation if active transaction
-  // Logic: Restore all OLD stock -> Deduct all NEW stock
-  // This handles removal, addition, and quantity changes cleanly
   const isActive = ['pending', 'partial_payment', 'booked', 'rented'].includes(status);
   
   if (isActive) {
@@ -303,7 +329,6 @@ export const updateTransactionItems = async (
   }
 
   // 4. Update Transaction
-  // Note: We do not change amount_paid here, just the items and total obligation
   const { error } = await supabase
     .from('transactions')
     .update({
@@ -337,9 +362,7 @@ export const deleteTransaction = async (id: string): Promise<boolean> => {
     .delete()
     .eq('transaction_id', id);
   
-  if (logsError) {
-      console.warn("Gagal menghapus log keuangan terkait:", logsError);
-  }
+  if (logsError) console.warn("Gagal menghapus log keuangan terkait:", logsError);
 
   const { data: deletedData, error: deleteError } = await supabase
     .from('transactions')
@@ -422,10 +445,11 @@ export const printInvoice = (trx: Transaction) => {
           <tr><td><strong>Tanggal:</strong></td><td style="text-align:right">${new Date().toLocaleDateString('id-ID')}</td></tr>
           <tr><td><strong>Penyewa:</strong></td><td style="text-align:right">${trx.customerName}</td></tr>
           <tr><td><strong>WhatsApp:</strong></td><td style="text-align:right">${trx.customerWhatsapp}</td></tr>
+          <tr><td><strong>Durasi:</strong></td><td style="text-align:right">${trx.duration} Hari</td></tr>
         </table>
 
         <div style="border: 1px dashed #333; padding: 10px; margin-bottom: 20px; background: #f9f9f9;">
-           <div style="font-size: 12px; font-weight: bold; margin-bottom: 5px;">Jadwal Sewa (${trx.duration} Hari):</div>
+           <div style="font-size: 12px; font-weight: bold; margin-bottom: 5px;">Jadwal Sewa:</div>
            <div class="row" style="font-size: 12px;"><span>Ambil:</span> <span>${rentalDateStr}</span></div>
            <div class="row" style="font-size: 12px;"><span>Kembali:</span> <span>${returnDateStr}</span></div>
         </div>
