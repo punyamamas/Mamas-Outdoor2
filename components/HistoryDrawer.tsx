@@ -14,27 +14,44 @@ const HistoryDrawer: React.FC<HistoryDrawerProps> = ({ isOpen, onClose }) => {
 
   // Load history whenever the drawer opens AND Sync with Database
   useEffect(() => {
+    let intervalId: any;
+
     if (isOpen) {
       loadAndSyncHistory();
+      
+      // AUTO REFRESH: Setiap 5 detik, cek status terbaru ke server (Polling Sederhana)
+      intervalId = setInterval(() => {
+        loadAndSyncHistory(true); // true = silent refresh (tanpa loading spinner)
+      }, 5000);
     }
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
   }, [isOpen]);
 
-  const loadAndSyncHistory = async () => {
+  const loadAndSyncHistory = async (silent = false) => {
     const savedHistory = localStorage.getItem('mamasHistory');
     if (!savedHistory) {
       setHistory([]);
       return;
     }
 
-    setIsSyncing(true); // Start loading UI
+    if (!silent) setIsSyncing(true);
+    
     try {
       const parsedLocal = JSON.parse(savedHistory) as Transaction[];
       
       // 1. Load Local Data First (Instant Feedback)
-      setHistory(parsedLocal.sort((a, b) => new Date(b.rentalDate).getTime() - new Date(a.rentalDate).getTime()));
+      if (!silent) {
+        setHistory(parsedLocal.sort((a, b) => new Date(b.rentalDate).getTime() - new Date(a.rentalDate).getTime()));
+      }
       
       // 2. Sync WITH SERVER
+      // Filter ID yang valid (bukan timestamp dummy lama, tapi ID dari server)
+      // Supabase ID biasanya panjang atau UUID, timestamp biasanya angka murni
       const localIds = parsedLocal.map(t => t.id);
+      
       if (localIds.length > 0) {
         const freshData = await refreshTransactions(localIds);
         
@@ -56,7 +73,7 @@ const HistoryDrawer: React.FC<HistoryDrawerProps> = ({ isOpen, onClose }) => {
     } catch (e) {
       console.error("Failed to parse history", e);
     } finally {
-      setIsSyncing(false); // Stop loading UI
+      if (!silent) setIsSyncing(false);
     }
   };
 
@@ -107,7 +124,7 @@ const HistoryDrawer: React.FC<HistoryDrawerProps> = ({ isOpen, onClose }) => {
             </div>
             <div className="flex items-center gap-2">
                <button 
-                 onClick={loadAndSyncHistory} 
+                 onClick={() => loadAndSyncHistory(false)} 
                  className={`p-2 rounded-full hover:bg-white/50 text-nature-600 transition ${isSyncing ? 'animate-spin' : ''}`}
                  title="Refresh Status"
                >

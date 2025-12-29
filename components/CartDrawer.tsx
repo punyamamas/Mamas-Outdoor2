@@ -98,40 +98,34 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
       const returnDateFormatted = formatReturnDate(returnDateObj);
 
       // 1. Simpan Transaksi ke Database (Supabase)
-      await createTransaction(userDetails, cartItems, total);
+      // FIX: Capture result transaction yang berisi ID ASLI dari database
+      const createdTrx = await createTransaction(userDetails, cartItems, total);
+
+      if (!createdTrx) {
+        throw new Error("Gagal membuat transaksi di database.");
+      }
 
       // 2. Process Stock Reduction (Database Update)
       await processStockReduction(cartItems);
 
-      // 3. Refresh Data Global
+      // 3. Refresh Data Global (agar stok di katalog berkurang realtime)
       await onRefreshData();
 
-      // 4. Save Transaction to Local History
-      const localTransaction: Transaction = {
-        id: Date.now().toString(),
-        created_at: new Date().toISOString(),
-        customerName: userDetails.name,
-        customerWhatsapp: userDetails.whatsapp,
-        customerCampus: '-', // Default since deleted
-        rentalDate: userDetails.rentalDate,
-        duration: userDetails.duration,
-        totalPrice: total,
-        amountPaid: 0, // Initial payment is 0 until confirmed
-        items: [...cartItems],
-        status: 'pending',
-        paymentMethod: userDetails.paymentMethod
-      };
-
+      // 4. Save Transaction to Local History (Gunakan createdTrx yang punya ID asli)
       const existingHistory = localStorage.getItem('mamasHistory');
       const history = existingHistory ? JSON.parse(existingHistory) : [];
-      history.push(localTransaction);
+      
+      // Push data asli dari server, bukan data dummy lokal
+      history.push(createdTrx);
+      
       localStorage.setItem('mamasHistory', JSON.stringify(history));
 
       // 5. Construct WhatsApp Message
       const dpAmount = Math.ceil(total * 0.5); // DP 50%
       const remainingAmount = total - dpAmount;
+      const trxIdShort = createdTrx.id.slice(0, 8); // Ambil potongan ID asli
 
-      const header = `*Halo Mamas Outdoor! Saya mau sewa dong.*\n\n`;
+      const header = `*Halo Mamas Outdoor! Saya mau sewa dong.*\n*(Order ID: #${trxIdShort})*\n\n`;
       const buyerInfo = `*Data Penyewa:*\nNama: ${userDetails.name}\nWA: ${userDetails.whatsapp}\n\n*Jadwal Sewa:*\nAmbil: ${userDetails.rentalDate}\nDurasi: ${userDetails.duration} Hari\nKembali: ${returnDateFormatted}\n\n`;
       
       const itemsList = cartItems.map((item, idx) => {
@@ -168,7 +162,7 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
 
     } catch (error) {
       console.error("Checkout Error:", error);
-      alert("Terjadi kesalahan saat memproses pesanan. Silakan coba lagi atau hubungi admin manual.");
+      alert("Terjadi kesalahan koneksi saat memproses pesanan. Pastikan internet lancar.");
       setIsProcessing(false);
     }
   };
