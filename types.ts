@@ -68,12 +68,24 @@ export interface Transaction {
   rentalDate: string; // Mapped from rental_date
   duration: number;
   totalPrice: number; // Mapped from total_price
-  amountPaid?: number; // New Field: Total yang sudah dibayar
+  amountPaid: number; // New Field: Total yang sudah dibayar
   items: CartItem[];
   // Status Update: 
   // pending (Belum Bayar) -> partial_payment (Cicil) -> booked (Lunas/Booking) -> rented (Sedang Sewa) -> completed (Selesai)
   status: 'pending' | 'partial_payment' | 'booked' | 'rented' | 'completed' | 'cancelled'; 
   paymentMethod?: 'transfer' | 'cash'; 
+}
+
+// NEW: Interface untuk mencatat log keuangan (Kas Kecil / Arus Kas Harian)
+export interface PaymentLog {
+  id: string;
+  created_at: string;
+  transaction_id?: string; // Optional, bisa null jika transaksi manual (misal: beli bensin)
+  amount: number;
+  payment_method: 'cash' | 'transfer';
+  type: 'IN' | 'OUT'; // Pemasukan atau Pengeluaran
+  description: string; // Contoh: "DP Sewa Tenda #123" atau "Beli Token Listrik"
+  category?: string; // Operasional, Sewa, Lain-lain
 }
 
 export enum GeminiModel {

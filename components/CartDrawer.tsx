@@ -116,6 +116,7 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
         rentalDate: userDetails.rentalDate,
         duration: userDetails.duration,
         totalPrice: total,
+        amountPaid: 0, // Initial payment is 0 until confirmed
         items: [...cartItems],
         status: 'pending',
         paymentMethod: userDetails.paymentMethod

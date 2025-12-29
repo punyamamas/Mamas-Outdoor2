@@ -10,6 +10,7 @@ import AdminCategoryManager from './AdminCategoryManager';
 import AdminProductManager from './AdminProductManager';
 import AdminWarehouseManager from './AdminWarehouseManager';
 import AdminTransactionManager from './AdminTransactionManager';
+import AdminFinanceManager from './AdminFinanceManager';
 
 interface AdminDashboardProps {
   products: Product[];
@@ -38,7 +39,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'warehouse' | 'categories' | 'transactions'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'warehouse' | 'categories' | 'transactions' | 'finance'>('dashboard');
   const [isRefreshing, setIsRefreshing] = useState(false);
   
   // Transaction State
@@ -138,12 +139,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row">
-      <AdminSidebar activeTab={activeTab} setActiveTab={setActiveTab} onLogout={onBackToHome} />
+      <AdminSidebar activeTab={activeTab} setActiveTab={setActiveTab as any} onLogout={onBackToHome} />
 
       <main className="flex-1 overflow-y-auto max-h-screen">
         <header className="bg-white border-b border-gray-200 px-8 py-5 flex justify-between items-center sticky top-0 z-30">
           <h1 className="text-2xl font-bold text-gray-800 capitalize">
-            {activeTab === 'warehouse' ? 'Laporan Inventaris' : `${activeTab} Overview`}
+            {activeTab === 'warehouse' ? 'Laporan Inventaris' : 
+             activeTab === 'finance' ? 'Keuangan & Kas' : `${activeTab} Overview`}
           </h1>
           <div className="flex items-center gap-4">
              <button onClick={handleRefreshData} disabled={isRefreshing} className="p-2 text-gray-500 hover:text-nature-600 hover:bg-gray-100 rounded-lg transition disabled:animate-spin" title="Refresh Data">
@@ -188,8 +190,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 isLoading={isLoadingTransactions} 
                 onStatusUpdate={handleTransactionStatusUpdate}
                 onDeleteTransaction={handleDeleteTransaction}
-                onRefreshData={fetchTransactions} // Pass the refresh function
+                onRefreshData={fetchTransactions}
              />
+          )}
+
+          {activeTab === 'finance' && (
+             <AdminFinanceManager />
           )}
         </div>
       </main>

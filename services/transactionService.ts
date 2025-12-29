@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { Transaction, CartItem, UserDetails } from '../types';
+import { Transaction, CartItem, UserDetails, PaymentLog } from '../types';
 import { processStockReduction, processStockRestoration } from './productService';
 
 // Create new transaction (Checkout)
@@ -54,14 +54,62 @@ export const getTransactions = async (): Promise<Transaction[]> => {
   return data.map(mapDbToTransaction);
 };
 
-// Update Nominal Pembayaran (Manual) & Auto Status
-export const updateTransactionPayment = async (id: string, amount: number): Promise<{ success: boolean; error?: string; newStatus?: string }> => {
+// NEW: Record Payment Log (Mencatat arus uang masuk/keluar ke tabel logs)
+export const recordPaymentLog = async (log: Omit<PaymentLog, 'id' | 'created_at'>): Promise<boolean> => {
+  if (!supabase) return false;
+
+  const { error } = await supabase
+    .from('payment_logs')
+    .insert([log]);
+
+  if (error) {
+    console.error('Error recording payment log:', error);
+    // Jika error karena tabel belum ada, alert admin (Dev mode only info)
+    if (error.code === '42P01') { 
+      alert("Tabel 'payment_logs' belum dibuat di Supabase. Silakan buat tabel payment_logs(id, created_at, transaction_id, amount, payment_method, type, description)");
+    }
+    return false;
+  }
+  return true;
+};
+
+// NEW: Get Payment Logs by Date Range
+export const getPaymentLogs = async (startDate: string, endDate: string): Promise<PaymentLog[]> => {
+  if (!supabase) return [];
+
+  // Adjust endDate to include the full day
+  const endDateTime = new Date(endDate);
+  endDateTime.setHours(23, 59, 59, 999);
+
+  const { data, error } = await supabase
+    .from('payment_logs')
+    .select('*')
+    .gte('created_at', new Date(startDate).toISOString())
+    .lte('created_at', endDateTime.toISOString())
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching logs:', error);
+    return [];
+  }
+  
+  return data as PaymentLog[];
+};
+
+
+// Update Nominal Pembayaran (Manual) & Auto Status & RECORD LOG
+export const updateTransactionPayment = async (
+  id: string, 
+  newTotalPaid: number,
+  // Params tambahan untuk logging
+  logDetails?: { cashAmount: number; transferAmount: number; description: string }
+): Promise<{ success: boolean; error?: string; newStatus?: string }> => {
   if (!supabase) return { success: false, error: "Supabase client not initialized" };
 
   // 1. Ambil data transaksi saat ini
   const { data: currentTrx, error: fetchError } = await supabase
     .from('transactions')
-    .select('status, total_price')
+    .select('status, total_price, amount_paid')
     .eq('id', id)
     .single();
 
@@ -69,33 +117,53 @@ export const updateTransactionPayment = async (id: string, amount: number): Prom
     return { success: false, error: "Transaksi tidak ditemukan" };
   }
 
-  // 2. Tentukan Status Baru secara Otomatis
-  let newStatus = currentTrx.status;
+  // 2. RECORD LOG KEUANGAN (Jika ada detail log)
+  // Ini mencatat "Uang Masuk HARI INI", terpisah dari "Total Bayar Transaksi"
+  if (logDetails) {
+    const { cashAmount, transferAmount, description } = logDetails;
+    
+    if (cashAmount > 0) {
+      await recordPaymentLog({
+        transaction_id: id,
+        amount: cashAmount,
+        payment_method: 'cash',
+        type: 'IN',
+        description: `Cash: ${description}`,
+        category: 'Sewa'
+      });
+    }
 
-  // RULE: 
-  // Kita HANYA ubah status otomatis jika status saat ini adalah:
-  // 'pending' (Belum Bayar), 'partial_payment' (Cicil), atau 'booked' (Lunas/Booking).
-  // 
-  // JANGAN ubah status jika barang sudah 'rented' (Sedang Sewa), 'completed' (Selesai), atau 'cancelled' (Batal).
-  // Karena status 'rented' dan 'completed' itu penanda fisik barang, bukan sekedar keuangan.
-  
-  const manualPhysicalStatuses = ['rented', 'completed', 'cancelled'];
-  
-  if (!manualPhysicalStatuses.includes(currentTrx.status)) {
-    if (amount <= 0) {
-      newStatus = 'pending'; // 1. Belum Bayar
-    } else if (amount < currentTrx.total_price) {
-      newStatus = 'partial_payment'; // 2. Cicil / Belum Lunas
-    } else {
-      newStatus = 'booked';  // 3. Lunas / Booking (Siap Ambil)
+    if (transferAmount > 0) {
+      await recordPaymentLog({
+        transaction_id: id,
+        amount: transferAmount,
+        payment_method: 'transfer',
+        type: 'IN',
+        description: `Transfer: ${description}`,
+        category: 'Sewa'
+      });
     }
   }
 
-  // 3. Update ke Database
+  // 3. Tentukan Status Baru secara Otomatis
+  let newStatus = currentTrx.status;
+  const manualPhysicalStatuses = ['rented', 'completed', 'cancelled'];
+  
+  if (!manualPhysicalStatuses.includes(currentTrx.status)) {
+    if (newTotalPaid <= 0) {
+      newStatus = 'pending'; 
+    } else if (newTotalPaid < currentTrx.total_price) {
+      newStatus = 'partial_payment';
+    } else {
+      newStatus = 'booked';  
+    }
+  }
+
+  // 4. Update ke Database Transaksi (Update Total Akumulasi)
   const { error } = await supabase
     .from('transactions')
     .update({ 
-      amount_paid: amount,
+      amount_paid: newTotalPaid,
       status: newStatus 
     })
     .eq('id', id);
@@ -139,18 +207,12 @@ export const updateTransactionStatus = async (id: string, newStatus: string): Pr
   }
 
   // 3. Handle Stock Logic based on status change
-  // Logic: 
-  // - Barang keluar gudang (checkout/pending/booked/rented) -> Stok Berkurang (Sudah terjadi saat createTransaction)
-  // - Barang kembali ke gudang (completed/cancelled) -> Stok Kembali
-  
   const isFinalStatus = (s: string) => s === 'completed' || s === 'cancelled';
   const isActiveStatus = (s: string) => ['pending', 'partial_payment', 'booked', 'rented'].includes(s);
 
-  // Jika berubah DARI status aktif KE status final (Selesai/Batal) -> KEMBALIKAN STOK
   if (isActiveStatus(oldStatus) && isFinalStatus(newStatus)) {
       await processStockRestoration(items);
   }
-  // Jika berubah DARI status final (Selesai/Batal) KE status aktif (salah pencet batal, dibalikin ke sewa) -> KURANGI STOK LAGI
   else if (isFinalStatus(oldStatus) && isActiveStatus(newStatus)) {
       await processStockReduction(items);
   }
@@ -178,7 +240,6 @@ export const deleteTransaction = async (id: string): Promise<boolean> => {
 
   if (deleteError || !deletedData || deletedData.length === 0) return false;
 
-  // Jika menghapus transaksi yang statusnya masih 'sewa/booking' (bukan selesai/batal), stok harus dikembalikan
   if (trx.status !== 'completed' && trx.status !== 'cancelled') {
     await processStockRestoration(trx.items as CartItem[]);
   }

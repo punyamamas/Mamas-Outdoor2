@@ -60,9 +60,22 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
     if (!selectedTransaction) return;
     setIsSavingPayment(true);
     
-    // Kirim TOTAL AKHIR (Akumulasi) ke backend
-    // Catatan: Backend saat ini hanya menyimpan total nominal, belum history split cash/transfer (perlu update schema DB jika ingin detail history)
-    const result = await updateTransactionPayment(selectedTransaction.id, finalPaid);
+    // KETERANGAN UNTUK LOG KEUANGAN
+    const isDP = prevPaid === 0 && remaining > 0;
+    const isPelunasan = remaining <= 0;
+    const desc = isDP ? "Pembayaran DP" : isPelunasan ? "Pelunasan" : "Cicilan Tambahan";
+
+    // Update Transaction & Create Log
+    const result = await updateTransactionPayment(
+      selectedTransaction.id, 
+      finalPaid,
+      // Pass log details
+      {
+        cashAmount: cashInput,
+        transferAmount: transferInput,
+        description: `${desc} (${selectedTransaction.customerName})`
+      }
+    );
     
     if (result.success) {
       // 1. Refresh Data Tabel Utama
@@ -81,7 +94,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
       setCashInput(0);
       setTransferInput(0);
       
-      alert(`Pembayaran tersimpan! Sisa tagihan sekarang: Rp${Math.max(0, total - finalPaid).toLocaleString('id-ID')}`);
+      alert(`Pembayaran tersimpan & tercatat di Keuangan! Sisa tagihan sekarang: Rp${Math.max(0, total - finalPaid).toLocaleString('id-ID')}`);
       
     } else {
       alert(`Gagal update pembayaran: ${result.error || 'Terjadi kesalahan sistem'}`);
