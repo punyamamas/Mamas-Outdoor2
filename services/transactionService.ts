@@ -411,6 +411,9 @@ export const printInvoice = (trx: Transaction) => {
   // Format Mata Uang Helper
   const fmt = (val: number) => val.toLocaleString('id-ID');
 
+  // URL Logo yang Anda berikan
+  const logoUrl = "https://res.cloudinary.com/damvnje5b/image/upload/v1740929656/Mamas_Outdoor_Logo_Primary_Red_White_Icon_only_n8jxtu.png";
+
   const itemsHtml = trx.items.map((item) => {
     const unitPrice = calculateItemPriceForDuration(item, trx.duration);
     const totalPrice = unitPrice * item.quantity;
@@ -442,36 +445,34 @@ export const printInvoice = (trx: Transaction) => {
           
           /* SETUP HALAMAN CETAK 80mm */
           @page {
-            size: 80mm auto; /* Lebar 80mm, tinggi otomatis */
-            margin: 0mm; /* Nol margin agar driver printer mengatur area cetak */
+            size: 80mm auto; 
+            margin: 0mm; 
           }
 
           body { 
             font-family: 'Roboto Mono', monospace, sans-serif; 
-            padding: 5px; /* Sedikit padding agar tidak mepet tepi */
-            width: 78mm; /* Lebar konten, sedikit kurang dari 80mm untuk aman */
+            padding: 5px;
+            width: 78mm;
             margin: 0 auto; 
-            color: #000; /* Hitam pekat untuk thermal */
+            color: #000;
             background: #fff;
-            font-size: 12px; /* Ukuran font standar thermal */
+            font-size: 12px;
             line-height: 1.4;
             position: relative;
           }
           
           .header { text-align: center; margin-bottom: 10px; }
           
-          /* Logo Box Merah (Akan jadi hitam/abu di thermal) */
-          .logo-box {
-            background: #000; /* Hitam agar jelas di thermal */
+          /* Style untuk Logo Image - Hitam Putih High Contrast untuk Thermal */
+          .logo-img {
             width: 70px;
-            height: 70px;
-            margin: 0 auto 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 4px; 
+            height: auto;
+            margin: 0 auto 5px;
+            display: block;
+            /* Penting: Ubah ke grayscale agar printer thermal bisa membacanya dengan jelas */
+            /* Sebagian printer thermal akan mencetak 'merah' sebagai abu-abu/hitam */
+            filter: grayscale(100%) contrast(150%);
           }
-          .logo-svg { width: 40px; height: 40px; fill: white; }
           
           .brand-name { font-size: 18px; font-weight: 900; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px;}
           .address { font-size: 11px; color: #000; margin-bottom: 2px; }
@@ -505,7 +506,7 @@ export const printInvoice = (trx: Transaction) => {
 
           .footer-text { text-align: justify; margin-top: 15px; font-size: 11px; color: #000; line-height: 1.3; font-style: italic; }
 
-          /* STAMP CSS (CAP LUNAS) - High Contrast for Thermal */
+          /* STAMP CSS (CAP LUNAS) */
           .stamp-container {
              position: absolute;
              top: 45%;
@@ -513,7 +514,6 @@ export const printInvoice = (trx: Transaction) => {
              transform: translate(-50%, -50%) rotate(-15deg);
              z-index: 10;
              pointer-events: none;
-             /* Opacity dikurangi agar tidak menutupi teks barang */
              opacity: 0.25; 
           }
           .stamp {
@@ -529,7 +529,6 @@ export const printInvoice = (trx: Transaction) => {
              display: inline-block;
           }
           
-          /* Print Specific Adjustments */
           @media print {
             body { margin: 0; width: 80mm; padding: 0 2mm; }
             .no-print { display: none; }
@@ -537,19 +536,14 @@ export const printInvoice = (trx: Transaction) => {
         </style>
       </head>
       <body>
-        <!-- STAMP OVERLAY -->
         <div class="stamp-container">
            <div class="stamp">${statusLabel}</div>
         </div>
 
         <div class="header">
-          <div class="logo-box">
-             <!-- SVG Logo Gunung Sederhana -->
-             <svg class="logo-svg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 2L2 19H22L12 2ZM12 6L18.5 17H5.5L12 6Z" fill="white"/>
-                <circle cx="12" cy="9" r="2" fill="white"/>
-             </svg>
-          </div>
+          <!-- LOGO IMAGE MENGGANTIKAN SVG -->
+          <img src="${logoUrl}" alt="Mamas Outdoor Logo" class="logo-img" id="invoiceLogo" />
+          
           <div class="brand-name">MAMAS OUTDOOR</div>
           <div class="address">Jalan Cenderawasih, RT 3/RW 7, Dukuhbandong,</div>
           <div class="address">Grendeng, Kec. Purwokerto Utara, Banyumas</div>
@@ -570,14 +564,12 @@ export const printInvoice = (trx: Transaction) => {
 
         <div class="dashed-line"></div>
 
-        <!-- ITEMS -->
         <div class="items-container">
           ${itemsHtml}
         </div>
 
         <div class="dashed-line"></div>
 
-        <!-- SUMMARY -->
         <table class="summary-table">
           <tr>
              <td class="sum-label">Status</td>
@@ -603,7 +595,6 @@ export const printInvoice = (trx: Transaction) => {
 
         <div class="dashed-line"></div>
         
-        <!-- NEW FOOTER INFO SECTION -->
         <div class="footer-info">
            <div class="footer-row">
               <span class="footer-label">Tanggal Pinjam :</span>
@@ -625,8 +616,27 @@ export const printInvoice = (trx: Transaction) => {
         </div>
 
         <script>
-          window.onload = function() { 
-            setTimeout(function(){ window.print(); }, 800); 
+          // Logic: Tunggu gambar logo selesai loading baru print
+          // Ini mencegah logo hilang saat print otomatis
+          window.onload = function() {
+            var img = document.getElementById('invoiceLogo');
+            
+            function doPrint() {
+               window.focus();
+               setTimeout(function(){ window.print(); }, 500);
+            }
+
+            if (img.complete) {
+               doPrint();
+            } else {
+               img.onload = doPrint;
+               img.onerror = doPrint; // Print anyway if logo fails
+            }
+          }
+          
+          // Otomatis tutup window setelah print dialog ditutup (print/cancel)
+          window.onafterprint = function() {
+             window.close();
           }
         </script>
       </body>
