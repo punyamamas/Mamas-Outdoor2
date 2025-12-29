@@ -242,6 +242,17 @@ export const deleteTransaction = async (id: string): Promise<boolean> => {
 
   if (fetchError || !trx) return false;
 
+  // STEP BARU: Hapus juga semua log keuangan (payment_logs) yang terkait transaksi ini
+  const { error: logsError } = await supabase
+    .from('payment_logs')
+    .delete()
+    .eq('transaction_id', id);
+  
+  if (logsError) {
+      console.warn("Gagal menghapus log keuangan terkait:", logsError);
+      // Lanjut saja, mungkin karena tabel belum ada atau permission
+  }
+
   const { data: deletedData, error: deleteError } = await supabase
     .from('transactions')
     .delete()
