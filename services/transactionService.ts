@@ -54,6 +54,32 @@ export const getTransactions = async (): Promise<Transaction[]> => {
   return data.map(mapDbToTransaction);
 };
 
+// NEW: Get Transactions by Date Range for Reporting
+export const getTransactionsByDateRange = async (startDate: string, endDate: string): Promise<Transaction[]> => {
+  if (!supabase) return [];
+
+  // Setup time to cover full day
+  const start = new Date(startDate);
+  start.setHours(0, 0, 0, 0);
+  
+  const end = new Date(endDate);
+  end.setHours(23, 59, 59, 999);
+
+  const { data, error } = await supabase
+    .from('transactions')
+    .select('*')
+    .gte('rental_date', start.toISOString().split('T')[0]) // Filter berdasarkan tanggal sewa
+    .lte('rental_date', end.toISOString().split('T')[0])
+    .order('rental_date', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching report transactions:', error);
+    return [];
+  }
+
+  return data.map(mapDbToTransaction);
+};
+
 // NEW: Sync Local History with Server Data
 export const refreshTransactions = async (localIds: string[]): Promise<{ success: boolean, data: Transaction[] }> => {
   if (!supabase || localIds.length === 0) return { success: true, data: [] };

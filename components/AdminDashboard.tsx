@@ -11,6 +11,7 @@ import AdminProductManager from './AdminProductManager';
 import AdminWarehouseManager from './AdminWarehouseManager';
 import AdminTransactionManager from './AdminTransactionManager';
 import AdminFinanceManager from './AdminFinanceManager';
+import AdminReportManager from './AdminReportManager';
 
 interface AdminDashboardProps {
   products: Product[];
@@ -39,7 +40,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'warehouse' | 'categories' | 'transactions' | 'finance'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'warehouse' | 'categories' | 'transactions' | 'finance' | 'reports'>('dashboard');
   const [isRefreshing, setIsRefreshing] = useState(false);
   
   // Transaction State
@@ -145,7 +146,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         <header className="bg-white border-b border-gray-200 px-8 py-5 flex justify-between items-center sticky top-0 z-30">
           <h1 className="text-2xl font-bold text-gray-800 capitalize">
             {activeTab === 'warehouse' ? 'Laporan Inventaris' : 
-             activeTab === 'finance' ? 'Keuangan & Kas' : `${activeTab} Overview`}
+             activeTab === 'finance' ? 'Keuangan & Kas' : 
+             activeTab === 'reports' ? 'Analisis Bisnis' : 
+             `${activeTab} Overview`}
           </h1>
           <div className="flex items-center gap-4">
              <button onClick={handleRefreshData} disabled={isRefreshing} className="p-2 text-gray-500 hover:text-nature-600 hover:bg-gray-100 rounded-lg transition disabled:animate-spin" title="Refresh Data">
@@ -197,6 +200,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
           {activeTab === 'finance' && (
              <AdminFinanceManager />
+          )}
+
+          {activeTab === 'reports' && (
+             <AdminReportManager />
           )}
         </div>
       </main>
