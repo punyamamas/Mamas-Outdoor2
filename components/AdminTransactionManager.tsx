@@ -31,19 +31,16 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
   const handleSavePayment = async () => {
     if (!selectedTransaction) return;
     setIsSavingPayment(true);
-    const success = await updateTransactionPayment(selectedTransaction.id, editPaymentAmount);
+    const result = await updateTransactionPayment(selectedTransaction.id, editPaymentAmount);
     
-    if (success) {
+    if (result.success) {
       // Update local state untuk refleksi instan
       const updatedTrx = { ...selectedTransaction, amountPaid: editPaymentAmount };
       setSelectedTransaction(updatedTrx);
-      
-      // Trigger refresh manual atau update parent state jika perlu (disini kita hanya update tampilan modal & alert)
       alert("Pembayaran berhasil diupdate!");
-      
-      // Note: Idealnya panggil fungsi refresh dari parent, tapi update UI lokal cukup untuk feedback cepat
     } else {
-      alert("Gagal update pembayaran.");
+      // Tampilkan error detail (misal: column does not exist)
+      alert(`Gagal update pembayaran: ${result.error || 'Terjadi kesalahan sistem'}`);
     }
     setIsSavingPayment(false);
   };

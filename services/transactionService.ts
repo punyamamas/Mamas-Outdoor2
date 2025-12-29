@@ -54,9 +54,9 @@ export const getTransactions = async (): Promise<Transaction[]> => {
   return data.map(mapDbToTransaction);
 };
 
-// Update Nominal Pembayaran (Manual)
-export const updateTransactionPayment = async (id: string, amount: number): Promise<boolean> => {
-  if (!supabase) return false;
+// Update Nominal Pembayaran (Manual) - Return object with error message
+export const updateTransactionPayment = async (id: string, amount: number): Promise<{ success: boolean; error?: string }> => {
+  if (!supabase) return { success: false, error: "Supabase client not initialized" };
 
   const { error } = await supabase
     .from('transactions')
@@ -65,9 +65,9 @@ export const updateTransactionPayment = async (id: string, amount: number): Prom
 
   if (error) {
     console.error('Error updating payment amount:', error);
-    return false;
+    return { success: false, error: error.message };
   }
-  return true;
+  return { success: true };
 };
 
 // Update transaction status & Handle Stock Logic
