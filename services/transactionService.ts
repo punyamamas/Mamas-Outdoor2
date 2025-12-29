@@ -79,7 +79,6 @@ export const getPaymentLogs = async (startDate: string, endDate: string): Promis
   if (!supabase) return { data: [], error: null };
 
   // Parse YYYY-MM-DD string to Local Date Objects explicitly
-  // startDate input is expected to be YYYY-MM-DD
   const [sy, sm, sd] = startDate.split('-').map(Number);
   const [ey, em, ed] = endDate.split('-').map(Number);
 
@@ -92,8 +91,6 @@ export const getPaymentLogs = async (startDate: string, endDate: string): Promis
   const { data, error } = await supabase
     .from('payment_logs')
     .select('*')
-    // Convert Local Date object to ISO String (which Supabase expects as UTC)
-    // This ensures that "00:00 Local" becomes the correct UTC timestamp query
     .gte('created_at', startLocal.toISOString())
     .lte('created_at', endLocal.toISOString())
     .order('created_at', { ascending: false });
@@ -111,7 +108,6 @@ export const getPaymentLogs = async (startDate: string, endDate: string): Promis
 export const updateTransactionPayment = async (
   id: string, 
   newTotalPaid: number,
-  // Params tambahan untuk logging
   logDetails?: { cashAmount: number; transferAmount: number; description: string }
 ): Promise<{ success: boolean; error?: string; newStatus?: string }> => {
   if (!supabase) return { success: false, error: "Supabase client not initialized" };
@@ -128,7 +124,6 @@ export const updateTransactionPayment = async (
   }
 
   // 2. RECORD LOG KEUANGAN (Jika ada detail log)
-  // Ini mencatat "Uang Masuk HARI INI", terpisah dari "Total Bayar Transaksi"
   if (logDetails) {
     const { cashAmount, transferAmount, description } = logDetails;
     
@@ -169,7 +164,7 @@ export const updateTransactionPayment = async (
     }
   }
 
-  // 4. Update ke Database Transaksi (Update Total Akumulasi)
+  // 4. Update ke Database Transaksi
   const { error } = await supabase
     .from('transactions')
     .update({ 
@@ -190,7 +185,6 @@ export const updateTransactionPayment = async (
 export const updateTransactionStatus = async (id: string, newStatus: string): Promise<boolean> => {
   if (!supabase) return false;
 
-  // 1. Get current status & items
   const { data: trx, error: fetchError } = await supabase
     .from('transactions')
     .select('status, items')
@@ -205,7 +199,6 @@ export const updateTransactionStatus = async (id: string, newStatus: string): Pr
   const oldStatus = trx.status;
   const items = trx.items as CartItem[];
 
-  // 2. Update status in Database
   const { error } = await supabase
     .from('transactions')
     .update({ status: newStatus })
@@ -216,7 +209,6 @@ export const updateTransactionStatus = async (id: string, newStatus: string): Pr
     return false;
   }
 
-  // 3. Handle Stock Logic based on status change
   const isFinalStatus = (s: string) => s === 'completed' || s === 'cancelled';
   const isActiveStatus = (s: string) => ['pending', 'partial_payment', 'booked', 'rented'].includes(s);
 
@@ -225,6 +217,81 @@ export const updateTransactionStatus = async (id: string, newStatus: string): Pr
   }
   else if (isFinalStatus(oldStatus) && isActiveStatus(newStatus)) {
       await processStockReduction(items);
+  }
+
+  return true;
+};
+
+// HELPER: Hitung harga item berdasarkan durasi
+const calculateItemPriceForDuration = (item: CartItem, duration: number): number => {
+    const p2 = item.price2Days || 0;
+    const p3 = item.price3Days || 0;
+    const p4 = item.price4Days || 0;
+    const p5 = item.price5Days || 0;
+    const p6 = item.price6Days || 0;
+    const p7 = item.price7Days || 0;
+
+    let unitPrice = 0;
+    if (duration <= 2) unitPrice = p2;
+    else if (duration === 3) unitPrice = p3;
+    else if (duration === 4) unitPrice = p4;
+    else if (duration === 5) unitPrice = p5;
+    else if (duration === 6) unitPrice = p6;
+    else unitPrice = p7 + ((duration - 7) * (p2 * 0.4)); 
+
+    return unitPrice;
+};
+
+// NEW: Edit Transaction Items (Change Qty, Add/Remove)
+export const updateTransactionItems = async (
+  transactionId: string,
+  newItems: CartItem[]
+): Promise<boolean> => {
+  if (!supabase) return false;
+
+  // 1. Get current transaction details
+  const { data: trx, error: fetchError } = await supabase
+    .from('transactions')
+    .select('*')
+    .eq('id', transactionId)
+    .single();
+
+  if (fetchError || !trx) return false;
+
+  const oldItems = trx.items as CartItem[];
+  const duration = trx.duration;
+  const status = trx.status;
+
+  // 2. Calculate New Total Price
+  let newTotalPrice = 0;
+  for (const item of newItems) {
+      const unitPrice = calculateItemPriceForDuration(item, duration);
+      newTotalPrice += (unitPrice * item.quantity);
+  }
+
+  // 3. Handle Stock Rotation if active transaction
+  // Logic: Restore all OLD stock -> Deduct all NEW stock
+  // This handles removal, addition, and quantity changes cleanly
+  const isActive = ['pending', 'partial_payment', 'booked', 'rented'].includes(status);
+  
+  if (isActive) {
+      await processStockRestoration(oldItems);
+      await processStockReduction(newItems);
+  }
+
+  // 4. Update Transaction
+  // Note: We do not change amount_paid here, just the items and total obligation
+  const { error } = await supabase
+    .from('transactions')
+    .update({
+        items: newItems,
+        total_price: newTotalPrice
+    })
+    .eq('id', transactionId);
+
+  if (error) {
+      console.error("Error updating transaction items:", error);
+      return false;
   }
 
   return true;
@@ -242,7 +309,6 @@ export const deleteTransaction = async (id: string): Promise<boolean> => {
 
   if (fetchError || !trx) return false;
 
-  // STEP BARU: Hapus juga semua log keuangan (payment_logs) yang terkait transaksi ini
   const { error: logsError } = await supabase
     .from('payment_logs')
     .delete()
@@ -250,7 +316,6 @@ export const deleteTransaction = async (id: string): Promise<boolean> => {
   
   if (logsError) {
       console.warn("Gagal menghapus log keuangan terkait:", logsError);
-      // Lanjut saja, mungkin karena tabel belum ada atau permission
   }
 
   const { data: deletedData, error: deleteError } = await supabase

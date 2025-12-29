@@ -188,6 +188,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
              <AdminTransactionManager 
                 transactions={transactions} 
                 isLoading={isLoadingTransactions} 
+                products={products}
                 onStatusUpdate={handleTransactionStatusUpdate}
                 onDeleteTransaction={handleDeleteTransaction}
                 onRefreshData={fetchTransactions}
