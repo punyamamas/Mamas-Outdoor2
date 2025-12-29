@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Trash2, Calendar, Phone, User, School, ArrowRight, AlertCircle, Loader2, Clock, CreditCard, Banknote } from 'lucide-react';
+import { X, Trash2, Calendar, Phone, User, ArrowRight, AlertCircle, Loader2, Clock, CreditCard, Banknote } from 'lucide-react';
 import { CartItem, UserDetails, Transaction } from '../types';
 import { WA_NUMBER } from '../constants';
 import { processStockReduction } from '../services/productService';
@@ -30,7 +30,6 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
   const [userDetails, setUserDetails] = useState<UserDetails>({
     name: '',
     whatsapp: '',
-    campus: '',
     rentalDate: new Date().toISOString().split('T')[0],
     duration: 2,
     paymentMethod: 'cash' // Default ke Cash
@@ -66,9 +65,6 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
     return item.stock || 0;
   };
 
-  // Helper untuk menghitung tanggal kembali
-  // Logika Mamas Outdoor: Ambil sekarang (H), Balik besok (H+1) = 2 Hari.
-  // Rumus: Tanggal Kembali = Tanggal Ambil + (Durasi - 1)
   const getReturnDate = (startDateStr: string, duration: number): Date => {
     const date = new Date(startDateStr);
     date.setDate(date.getDate() + (duration - 1));
@@ -116,7 +112,7 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
         created_at: new Date().toISOString(),
         customerName: userDetails.name,
         customerWhatsapp: userDetails.whatsapp,
-        customerCampus: userDetails.campus,
+        customerCampus: '-', // Default since deleted
         rentalDate: userDetails.rentalDate,
         duration: userDetails.duration,
         totalPrice: total,
@@ -131,9 +127,11 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
       localStorage.setItem('mamasHistory', JSON.stringify(history));
 
       // 5. Construct WhatsApp Message
-      const paymentLabel = userDetails.paymentMethod === 'transfer' ? 'Transfer (DP)' : 'Cash di Outlet';
+      const dpAmount = Math.ceil(total * 0.5); // DP 50%
+      const remainingAmount = total - dpAmount;
+
       const header = `*Halo Mamas Outdoor! Saya mau sewa dong.*\n\n`;
-      const buyerInfo = `*Data Penyewa:*\nNama: ${userDetails.name}\nKampus: ${userDetails.campus}\nWA: ${userDetails.whatsapp}\n\n*Jadwal Sewa:*\nAmbil: ${userDetails.rentalDate}\nDurasi: ${userDetails.duration} Hari\nKembali: ${returnDateFormatted}\n\n`;
+      const buyerInfo = `*Data Penyewa:*\nNama: ${userDetails.name}\nWA: ${userDetails.whatsapp}\n\n*Jadwal Sewa:*\nAmbil: ${userDetails.rentalDate}\nDurasi: ${userDetails.duration} Hari\nKembali: ${returnDateFormatted}\n\n`;
       
       const itemsList = cartItems.map((item, idx) => {
         const priceForDuration = getItemPriceForDuration(item, userDetails.duration);
@@ -142,7 +140,16 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
         return `${idx + 1}. ${item.name}${sizeLabel}${colorLabel} (${item.quantity}x)\n   @ Rp${priceForDuration.toLocaleString('id-ID')} (Paket ${userDetails.duration} Hari)`;
       }).join('\n');
 
-      const footer = `\n\n*Total Estimasi: Rp${total.toLocaleString('id-ID')}*\n*Metode Bayar: ${paymentLabel}*`;
+      let footer = `\n\n*Total Tagihan: Rp${total.toLocaleString('id-ID')}*`;
+      
+      if (userDetails.paymentMethod === 'transfer') {
+        footer += `\n*Metode Bayar: Transfer (DP 50%)*`;
+        footer += `\n---------------------------`;
+        footer += `\n*Wajib DP: Rp${dpAmount.toLocaleString('id-ID')}*`;
+        footer += `\n*Pelunasan: Rp${remainingAmount.toLocaleString('id-ID')} (Saat Ambil)*`;
+      } else {
+        footer += `\n*Metode Bayar: Cash di Outlet*`;
+      }
       
       const fullMessage = encodeURIComponent(header + buyerInfo + "*List Alat:*\n" + itemsList + footer);
       
@@ -172,6 +179,7 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
   if (!isOpen) return null;
 
   const returnDateDisplay = formatReturnDate(getReturnDate(userDetails.rentalDate, userDetails.duration));
+  const dpValue = Math.ceil(total * 0.5);
 
   return (
     <div className="fixed inset-0 z-[60] overflow-hidden">
@@ -197,7 +205,7 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
                 {cartItems.length === 0 ? (
                   <div className="h-full flex flex-col items-center justify-center text-center space-y-4 text-gray-500">
                     <div className="bg-gray-100 p-4 rounded-full">
-                       <School size={40} className="text-gray-400" />
+                       <CreditCard size={40} className="text-gray-400" />
                     </div>
                     <p>Keranjangmu masih kosong nih.</p>
                     <button onClick={onClose} className="text-nature-600 font-medium hover:underline">
@@ -290,19 +298,7 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Asal Kampus / Instansi</label>
-                  <div className="relative">
-                    <School className="absolute left-3 top-3 text-gray-400" size={18} />
-                    <input 
-                      type="text" 
-                      className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-nature-500 focus:border-transparent outline-none transition"
-                      placeholder="Contoh: UNSOED"
-                      value={userDetails.campus}
-                      onChange={e => setUserDetails({...userDetails, campus: e.target.value})}
-                    />
-                  </div>
-                </div>
+                {/* Kolom Asal Instansi Dihapus sesuai permintaan */}
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Nomor WhatsApp</label>
@@ -368,7 +364,7 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
                       }`}
                     >
                       <CreditCard size={24} className="mb-1" />
-                      <span className="text-xs font-bold">Transfer (DP)</span>
+                      <span className="text-xs font-bold">Transfer (DP 50%)</span>
                     </button>
                   </div>
                   
@@ -379,6 +375,12 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
                        <ul className="list-disc pl-4 space-y-1 text-xs">
                          <li><strong>BRI:</strong> 1234-5678-9000 (Mamas Outdoor)</li>
                          <li><strong>BCA:</strong> 098-765-4321 (Mamas Outdoor)</li>
+                         <li className="mt-2 pt-2 border-t border-blue-200 font-bold">
+                            Total Tagihan: Rp{total.toLocaleString('id-ID')}
+                         </li>
+                         <li className="text-nature-600 font-black">
+                            Wajib DP (50%): Rp{dpValue.toLocaleString('id-ID')}
+                         </li>
                          <li><em>Harap lampirkan bukti transfer di chat WhatsApp nanti.</em></li>
                        </ul>
                     </div>

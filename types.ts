@@ -52,10 +52,10 @@ export interface CartItem extends Product {
 export interface UserDetails {
   name: string;
   whatsapp: string;
-  campus: string; 
+  // campus removed
   rentalDate: string;
   duration: number;
-  paymentMethod: 'transfer' | 'cash'; // Added payment method
+  paymentMethod: 'transfer' | 'cash'; 
 }
 
 // Updated Transaction Interface
@@ -64,13 +64,13 @@ export interface Transaction {
   created_at?: string;
   customerName: string; // Mapped from customer_name
   customerWhatsapp: string; // Mapped from customer_whatsapp
-  customerCampus: string; // Mapped from customer_campus
+  customerCampus: string; // Mapped from customer_campus (Keep this for history/compatibility)
   rentalDate: string; // Mapped from rental_date
   duration: number;
   totalPrice: number; // Mapped from total_price
   items: CartItem[];
   status: 'pending' | 'active' | 'completed' | 'cancelled'; 
-  paymentMethod?: 'transfer' | 'cash'; // Added payment method (optional for backward compatibility)
+  paymentMethod?: 'transfer' | 'cash'; 
 }
 
 export enum GeminiModel {

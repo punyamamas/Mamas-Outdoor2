@@ -13,7 +13,7 @@ export const createTransaction = async (
   const payload = {
     customer_name: userDetails.name,
     customer_whatsapp: userDetails.whatsapp,
-    customer_campus: userDetails.campus,
+    customer_campus: '-', // Default value since input is removed
     rental_date: userDetails.rentalDate,
     duration: userDetails.duration,
     total_price: totalPrice,
@@ -152,7 +152,7 @@ const mapDbToTransaction = (dbItem: any): Transaction => {
     created_at: dbItem.created_at,
     customerName: dbItem.customer_name,
     customerWhatsapp: dbItem.customer_whatsapp,
-    customerCampus: dbItem.customer_campus,
+    customerCampus: dbItem.customer_campus || '-', // Fallback
     rentalDate: dbItem.rental_date,
     duration: dbItem.duration,
     totalPrice: dbItem.total_price,
