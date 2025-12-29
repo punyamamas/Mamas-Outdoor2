@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ClipboardList, Loader2, Calendar, Phone, Eye, Trash2, X, User, FileText, CreditCard, Banknote, ArrowRightLeft, DollarSign, Save, Calculator, Percent, CheckCircle, RotateCcw } from 'lucide-react';
+import { ClipboardList, Loader2, Calendar, Phone, Eye, Trash2, X, User, FileText, CreditCard, Banknote, ArrowRightLeft, DollarSign, Save, Calculator, Percent, CheckCircle, RotateCcw, Wallet } from 'lucide-react';
 import { Transaction } from '../types';
 import { updateTransactionPayment } from '../services/transactionService';
 
@@ -20,41 +20,48 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
 }) => {
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   
-  // State: Nominal yang SEDANG diketik (Pembayaran Baru), bukan total akumulasi
-  const [paymentInput, setPaymentInput] = useState<number>(0);
+  // State: Nominal yang SEDANG diketik (Pembayaran Baru) - DIBAGI DUA
+  const [cashInput, setCashInput] = useState<number>(0);
+  const [transferInput, setTransferInput] = useState<number>(0);
+  
   const [isSavingPayment, setIsSavingPayment] = useState(false);
 
   // Reset input ke 0 setiap kali modal dibuka
   useEffect(() => {
     if (selectedTransaction) {
-      setPaymentInput(0); 
+      setCashInput(0); 
+      setTransferInput(0);
     }
   }, [selectedTransaction]);
 
   // Kalkulasi Realtime untuk Tampilan Kasir
   const calculateFinancials = () => {
-    if (!selectedTransaction) return { total: 0, prevPaid: 0, finalPaid: 0, remaining: 0, isLunas: false, isKembalian: false };
+    if (!selectedTransaction) return { total: 0, prevPaid: 0, finalPaid: 0, remaining: 0, isLunas: false, isKembalian: false, currentInputTotal: 0 };
 
     const total = selectedTransaction.totalPrice;
     const prevPaid = selectedTransaction.amountPaid || 0;
     
+    // Total Masuk Sesi Ini = Cash + Transfer
+    const currentInputTotal = cashInput + transferInput;
+
     // Total Akhir = Uang yang sudah masuk duluan + Uang yang baru diinput sekarang
-    const finalPaid = prevPaid + paymentInput;
+    const finalPaid = prevPaid + currentInputTotal;
     
     const remaining = total - finalPaid;
     const isLunas = remaining <= 0;
     const isKembalian = remaining < 0;
 
-    return { total, prevPaid, finalPaid, remaining, isLunas, isKembalian };
+    return { total, prevPaid, finalPaid, remaining, isLunas, isKembalian, currentInputTotal };
   };
 
-  const { total, prevPaid, finalPaid, remaining, isLunas, isKembalian } = calculateFinancials();
+  const { total, prevPaid, finalPaid, remaining, isLunas, isKembalian, currentInputTotal } = calculateFinancials();
 
   const handleSavePayment = async () => {
     if (!selectedTransaction) return;
     setIsSavingPayment(true);
     
     // Kirim TOTAL AKHIR (Akumulasi) ke backend
+    // Catatan: Backend saat ini hanya menyimpan total nominal, belum history split cash/transfer (perlu update schema DB jika ingin detail history)
     const result = await updateTransactionPayment(selectedTransaction.id, finalPaid);
     
     if (result.success) {
@@ -71,7 +78,8 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
       };
       
       setSelectedTransaction(updatedTrx);
-      setPaymentInput(0); // Reset input agar admin bisa input lagi jika perlu
+      setCashInput(0);
+      setTransferInput(0);
       
       alert(`Pembayaran tersimpan! Sisa tagihan sekarang: Rp${Math.max(0, total - finalPaid).toLocaleString('id-ID')}`);
       
@@ -184,7 +192,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
       {selectedTransaction && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setSelectedTransaction(null)}></div>
-           <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden animate-slide-in-right md:animate-none flex flex-col max-h-[95vh]">
+           <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden animate-slide-in-right md:animate-none flex flex-col max-h-[95vh]">
               
               {/* Header */}
               <div className="bg-nature-900 px-6 py-4 flex justify-between items-center text-white shrink-0">
@@ -199,9 +207,9 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                  
                  {/* 1. SECTION SUMMARY TAGIHAN */}
                  <div className="bg-gray-50 border border-gray-200 p-5 rounded-2xl mb-6 shadow-sm">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                      {/* Kiri: History */}
-                      <div className="space-y-4">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                      {/* Kolom 1: History Tagihan */}
+                      <div className="space-y-4 lg:border-r border-gray-200 lg:pr-8">
                         <div className="flex justify-between items-center border-b border-gray-200 pb-2">
                            <span className="text-sm font-bold text-gray-600">Total Tagihan</span>
                            <span className="text-lg font-black text-gray-900">Rp{total.toLocaleString('id-ID')}</span>
@@ -219,47 +227,68 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                         </div>
                       </div>
 
-                      {/* Kanan: Input Pembayaran BARU */}
-                      <div className="bg-white p-4 rounded-xl border-2 border-nature-100 relative">
-                        <label className="block text-xs font-black text-nature-700 uppercase mb-2 tracking-wide">
-                           + Tambah Pembayaran (Sekarang)
-                        </label>
-                        <div className="relative mb-3">
-                           <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">Rp</span>
-                           <input 
-                             type="number" 
-                             autoFocus
-                             className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:border-nature-500 focus:ring-4 focus:ring-nature-100 outline-none font-bold text-2xl text-gray-900"
-                             placeholder="0"
-                             value={paymentInput === 0 ? '' : paymentInput}
-                             onChange={(e) => setPaymentInput(Number(e.target.value))}
-                           />
-                        </div>
-                        
-                        {/* Quick Buttons */}
-                        <div className="flex gap-2">
-                           <button 
-                             onClick={() => setPaymentInput(total - prevPaid)}
-                             className="flex-1 bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 py-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1"
-                           >
-                             <CheckCircle size={12}/> Lunasi Sisa (Rp{(total-prevPaid).toLocaleString('id-ID')})
-                           </button>
-                           {prevPaid === 0 && (
-                             <button 
-                               onClick={() => setPaymentInput(Math.ceil(total * 0.5))}
-                               className="px-3 bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 py-2 rounded-lg text-xs font-bold transition"
-                             >
-                               DP 50%
-                             </button>
-                           )}
-                           <button 
-                              onClick={() => setPaymentInput(0)}
-                              className="px-3 bg-gray-100 text-gray-500 hover:bg-gray-200 rounded-lg text-xs font-bold"
-                              title="Reset Input"
-                           >
-                              <RotateCcw size={14}/>
-                           </button>
-                        </div>
+                      {/* Kolom 2: Input Pembayaran SPLIT */}
+                      <div className="lg:col-span-2">
+                         <label className="block text-xs font-black text-nature-700 uppercase mb-3 tracking-wide flex items-center gap-2">
+                           <Banknote size={16}/> Masukan Pembayaran Baru
+                         </label>
+                         
+                         <div className="grid grid-cols-2 gap-4">
+                            {/* Input Cash */}
+                            <div className="bg-white p-3 rounded-xl border-2 border-green-100 focus-within:border-green-500 transition shadow-sm">
+                               <label className="flex items-center gap-2 text-xs font-bold text-green-700 mb-2">
+                                  <Wallet size={14}/> Tunai (Cash)
+                               </label>
+                               <div className="relative">
+                                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">Rp</span>
+                                  <input 
+                                    type="number" 
+                                    className="w-full pl-9 pr-2 py-2 text-lg font-bold outline-none text-gray-800 placeholder-gray-200"
+                                    placeholder="0"
+                                    value={cashInput === 0 ? '' : cashInput}
+                                    onChange={(e) => setCashInput(Number(e.target.value))}
+                                  />
+                               </div>
+                               <button 
+                                 onClick={() => setCashInput(total - prevPaid - transferInput)}
+                                 className="mt-2 w-full text-[10px] font-bold bg-green-50 text-green-600 py-1 rounded hover:bg-green-100"
+                               >
+                                 Lunasi Cash
+                               </button>
+                            </div>
+
+                            {/* Input Transfer */}
+                            <div className="bg-white p-3 rounded-xl border-2 border-blue-100 focus-within:border-blue-500 transition shadow-sm">
+                               <label className="flex items-center gap-2 text-xs font-bold text-blue-700 mb-2">
+                                  <CreditCard size={14}/> Transfer (TF)
+                               </label>
+                               <div className="relative">
+                                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">Rp</span>
+                                  <input 
+                                    type="number" 
+                                    className="w-full pl-9 pr-2 py-2 text-lg font-bold outline-none text-gray-800 placeholder-gray-200"
+                                    placeholder="0"
+                                    value={transferInput === 0 ? '' : transferInput}
+                                    onChange={(e) => setTransferInput(Number(e.target.value))}
+                                  />
+                               </div>
+                               <button 
+                                 onClick={() => setTransferInput(total - prevPaid - cashInput)}
+                                 className="mt-2 w-full text-[10px] font-bold bg-blue-50 text-blue-600 py-1 rounded hover:bg-blue-100"
+                               >
+                                 Lunasi TF
+                               </button>
+                            </div>
+                         </div>
+
+                         {/* Total Input Summary */}
+                         <div className="mt-4 flex justify-between items-center bg-gray-100 p-2 rounded-lg">
+                            <div className="text-xs font-medium text-gray-500 flex gap-2">
+                               <button onClick={() => { setCashInput(0); setTransferInput(0); }} className="hover:text-red-500"><RotateCcw size={14}/></button>
+                               <span>Total Masuk (Sesi Ini):</span>
+                            </div>
+                            <div className="font-black text-gray-800 text-lg">Rp{currentInputTotal.toLocaleString('id-ID')}</div>
+                         </div>
                       </div>
                     </div>
 
@@ -267,7 +296,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                     <div className={`mt-6 p-4 rounded-xl flex items-center justify-between border-2 transition-all duration-300 ${isLunas ? 'bg-green-50 border-green-200' : 'bg-gray-100 border-gray-200'}`}>
                        <div>
                           <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">
-                             Status Setelah Bayar
+                             Status Akhir
                           </p>
                           <div className={`text-xl font-black flex items-center gap-2 ${isLunas ? 'text-green-600' : 'text-orange-500'}`}>
                              {isLunas ? (
@@ -279,7 +308,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                        </div>
                        <button 
                          onClick={handleSavePayment}
-                         disabled={isSavingPayment || paymentInput === 0}
+                         disabled={isSavingPayment || currentInputTotal === 0}
                          className="bg-nature-900 hover:bg-nature-800 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-xl font-bold text-sm shadow-lg flex items-center gap-2 transition transform active:scale-95"
                        >
                          {isSavingPayment ? <Loader2 className="animate-spin" size={18}/> : <Save size={18}/>}
