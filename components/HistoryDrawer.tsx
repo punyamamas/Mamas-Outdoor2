@@ -49,25 +49,27 @@ const HistoryDrawer: React.FC<HistoryDrawerProps> = ({ isOpen, onClose }) => {
       
       // 2. Sync WITH SERVER
       // Filter ID yang valid (bukan timestamp dummy lama, tapi ID dari server)
-      // Supabase ID biasanya panjang atau UUID, timestamp biasanya angka murni
       const localIds = parsedLocal.map(t => t.id);
       
       if (localIds.length > 0) {
-        const freshData = await refreshTransactions(localIds);
+        const result = await refreshTransactions(localIds);
         
-        if (freshData.length > 0) {
-          // Merge logic: Update local data with server data
-          const merged = parsedLocal.map(localTrx => {
-            const fresh = freshData.find(f => f.id === localTrx.id);
-            return fresh ? fresh : localTrx;
-          });
-
-          // Sort again
-          const sorted = merged.sort((a, b) => new Date(b.rentalDate).getTime() - new Date(a.rentalDate).getTime());
+        if (result.success) {
+          // LOGIKA PENTING:
+          // Jika koneksi sukses, kita PERCAYA SEPENUHNYA pada server.
+          // Jika server hanya mengembalikan 2 data padahal kita kirim 3 ID, berarti 1 ID sudah dihapus admin.
+          // Maka kita timpa data lokal dengan data server.
+          // Ini juga otomatis mengupdate status, item, harga, dll jika diedit admin.
+          
+          const freshData = result.data;
+          
+          // Sort terbaru diatas
+          const sorted = freshData.sort((a, b) => new Date(b.rentalDate).getTime() - new Date(a.rentalDate).getTime());
           
           setHistory(sorted);
           localStorage.setItem('mamasHistory', JSON.stringify(sorted));
         }
+        // Jika result.success = false (misal internet mati), kita diamkan saja (tetap pakai data lokal/cache).
       }
 
     } catch (e) {

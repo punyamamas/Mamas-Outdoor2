@@ -55,8 +55,9 @@ export const getTransactions = async (): Promise<Transaction[]> => {
 };
 
 // NEW: Sync Local History with Server Data
-export const refreshTransactions = async (localIds: string[]): Promise<Transaction[]> => {
-  if (!supabase || localIds.length === 0) return [];
+// Returns object with success status to differentiate between "Deleted on Server" vs "Network Error"
+export const refreshTransactions = async (localIds: string[]): Promise<{ success: boolean, data: Transaction[] }> => {
+  if (!supabase || localIds.length === 0) return { success: true, data: [] };
 
   // Fetch data terbaru berdasarkan ID yang ada di local storage user
   const { data, error } = await supabase
@@ -66,10 +67,14 @@ export const refreshTransactions = async (localIds: string[]): Promise<Transacti
 
   if (error) {
     console.error('Error refreshing history:', error);
-    return [];
+    // Return false so UI knows not to wipe local data
+    return { success: false, data: [] };
   }
 
-  return data.map(mapDbToTransaction);
+  return { 
+    success: true, 
+    data: data.map(mapDbToTransaction) 
+  };
 };
 
 // NEW: Record Payment Log (Mencatat arus uang masuk/keluar ke tabel logs)
