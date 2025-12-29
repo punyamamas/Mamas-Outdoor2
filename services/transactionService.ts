@@ -333,6 +333,128 @@ export const deleteTransaction = async (id: string): Promise<boolean> => {
   return true;
 };
 
+// FUNCTION TO PRINT INVOICE
+export const printInvoice = (trx: Transaction) => {
+  const printWindow = window.open('', '', 'width=800,height=600');
+  if (!printWindow) return alert('Izinkan pop-up untuk mencetak nota');
+
+  const returnDate = new Date(trx.rentalDate);
+  returnDate.setDate(returnDate.getDate() + (trx.duration - 1));
+  const returnDateStr = returnDate.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  const rentalDateStr = new Date(trx.rentalDate).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+  const paid = trx.amountPaid || 0;
+  const remaining = Math.max(0, trx.totalPrice - paid);
+  const statusLabel = remaining <= 0 ? 'LUNAS' : paid > 0 ? 'BELUM LUNAS (DP)' : 'BELUM BAYAR';
+
+  const itemsHtml = trx.items.map((item, idx) => `
+    <tr class="item-row">
+      <td style="padding: 8px 0; border-bottom: 1px dashed #eee;">
+        <div style="font-weight: bold; font-size: 14px;">${item.name}</div>
+        <div style="font-size: 11px; color: #666;">
+          ${item.selectedSize ? `Size: ${item.selectedSize} ` : ''} 
+          ${item.selectedColor ? `| Warna: ${item.selectedColor}` : ''}
+        </div>
+      </td>
+      <td style="text-align: center; padding: 8px 0; border-bottom: 1px dashed #eee;">${item.quantity}</td>
+      <td style="text-align: right; padding: 8px 0; border-bottom: 1px dashed #eee;">
+         Rp${(calculateItemPriceForDuration(item, trx.duration) * item.quantity).toLocaleString('id-ID')}
+      </td>
+    </tr>
+  `).join('');
+
+  const htmlContent = `
+    <html>
+      <head>
+        <title>Nota Sewa #${trx.id.slice(0,6)} - Mamas Outdoor</title>
+        <style>
+          body { font-family: 'Courier New', Courier, monospace; padding: 20px; max-width: 400px; margin: 0 auto; color: #333; }
+          .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #333; padding-bottom: 10px; }
+          .brand { font-size: 24px; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; }
+          .sub-brand { font-size: 12px; margin-top: 5px; }
+          .info-table { width: 100%; font-size: 12px; margin-bottom: 15px; }
+          .info-table td { padding: 2px 0; }
+          .items-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+          .items-table th { text-align: left; border-bottom: 1px solid #333; padding-bottom: 5px; font-size: 12px; text-transform: uppercase; }
+          .total-section { border-top: 2px solid #333; padding-top: 10px; font-size: 14px; }
+          .row { display: flex; justify-content: space-between; margin-bottom: 5px; }
+          .grand-total { font-weight: bold; font-size: 16px; margin-top: 5px; border-top: 1px dashed #333; pt-2; }
+          .footer { text-align: center; margin-top: 30px; font-size: 10px; color: #666; border-top: 1px solid #eee; padding-top: 10px; }
+          .stamp { border: 2px solid #333; display: inline-block; padding: 5px 10px; font-weight: bold; transform: rotate(-5deg); margin-top: 10px; font-size: 18px; }
+          @media print {
+            body { max-width: 100%; }
+            .no-print { display: none; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div class="brand">Mamas Outdoor</div>
+          <div class="sub-brand">Jl. Kampus Grendeng No. 123, Purwokerto</div>
+          <div class="sub-brand">WA: 0812-3456-7890</div>
+        </div>
+
+        <table class="info-table">
+          <tr><td><strong>No. Nota:</strong></td><td style="text-align:right">#${trx.id.slice(0,8)}</td></tr>
+          <tr><td><strong>Tanggal:</strong></td><td style="text-align:right">${new Date().toLocaleDateString('id-ID')}</td></tr>
+          <tr><td><strong>Penyewa:</strong></td><td style="text-align:right">${trx.customerName}</td></tr>
+          <tr><td><strong>WhatsApp:</strong></td><td style="text-align:right">${trx.customerWhatsapp}</td></tr>
+        </table>
+
+        <div style="border: 1px dashed #333; padding: 10px; margin-bottom: 20px; background: #f9f9f9;">
+           <div style="font-size: 12px; font-weight: bold; margin-bottom: 5px;">Jadwal Sewa (${trx.duration} Hari):</div>
+           <div class="row" style="font-size: 12px;"><span>Ambil:</span> <span>${rentalDateStr}</span></div>
+           <div class="row" style="font-size: 12px;"><span>Kembali:</span> <span>${returnDateStr}</span></div>
+        </div>
+
+        <table class="items-table">
+          <thead>
+            <tr>
+              <th width="60%">Barang</th>
+              <th width="15%" style="text-align: center;">Qty</th>
+              <th width="25%" style="text-align: right;">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${itemsHtml}
+          </tbody>
+        </table>
+
+        <div class="total-section">
+          <div class="row"><span>Subtotal:</span> <span>Rp${trx.totalPrice.toLocaleString('id-ID')}</span></div>
+          <div class="row grand-total"><span>TOTAL:</span> <span>Rp${trx.totalPrice.toLocaleString('id-ID')}</span></div>
+          <div class="row" style="margin-top: 10px; color: #444;"><span>Bayar:</span> <span>Rp${paid.toLocaleString('id-ID')}</span></div>
+          <div class="row" style="font-weight: bold; color: ${remaining > 0 ? 'red' : 'green'};">
+            <span>SISA TAGIHAN:</span> <span>Rp${remaining.toLocaleString('id-ID')}</span>
+          </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 20px;">
+           <div class="stamp" style="color: ${remaining <= 0 ? '#000' : 'red'}; border-color: ${remaining <= 0 ? '#000' : 'red'};">
+             ${statusLabel}
+           </div>
+        </div>
+
+        <div class="footer">
+          <p>Syarat & Ketentuan:</p>
+          <p>1. Wajib meningalkan kartu identitas asli.</p>
+          <p>2. Denda keterlambatan berlaku harian.</p>
+          <p>3. Simpan nota ini sebagai bukti pengambilan & pengembalian.</p>
+          <br/>
+          <p>~ Terima Kasih & Salam Lestari ~</p>
+        </div>
+
+        <script>
+          window.onload = function() { window.print(); }
+        </script>
+      </body>
+    </html>
+  `;
+
+  printWindow.document.write(htmlContent);
+  printWindow.document.close();
+};
+
 // Helper Mapper
 const mapDbToTransaction = (dbItem: any): Transaction => {
   return {

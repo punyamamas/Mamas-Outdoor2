@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { X, Calendar, Package, Clock, History, CheckCircle, AlertCircle, Loader } from 'lucide-react';
+import { X, Calendar, Package, Clock, History, CheckCircle, AlertCircle, Loader, Printer } from 'lucide-react';
 import { Transaction } from '../types';
+import { printInvoice } from '../services/transactionService';
 
 interface HistoryDrawerProps {
   isOpen: boolean;
@@ -106,7 +107,7 @@ const HistoryDrawer: React.FC<HistoryDrawerProps> = ({ isOpen, onClose }) => {
                         </div>
 
                         {/* Items List */}
-                        <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+                        <div className="bg-gray-50 rounded-lg p-3 space-y-2 mb-4">
                           {trx.items.map((item, idx) => (
                             <div key={idx} className="flex justify-between items-center text-sm">
                               <div className="flex items-center gap-2 text-gray-700">
@@ -117,6 +118,13 @@ const HistoryDrawer: React.FC<HistoryDrawerProps> = ({ isOpen, onClose }) => {
                             </div>
                           ))}
                         </div>
+
+                        <button 
+                          onClick={() => printInvoice(trx)}
+                          className="w-full py-2.5 rounded-lg border border-gray-200 text-gray-700 font-bold text-sm hover:bg-gray-50 hover:text-nature-600 transition flex items-center justify-center gap-2"
+                        >
+                          <Printer size={16} /> Lihat Nota Transaksi
+                        </button>
                       </div>
                     </div>
                   );

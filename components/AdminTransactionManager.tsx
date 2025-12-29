@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { ClipboardList, Loader2, Calendar, Eye, Trash2, X, User, CreditCard, Banknote, ArrowRightLeft, Save, Calculator, CheckCircle, RotateCcw, Wallet, Edit, Plus, Minus, Search, ShoppingBag } from 'lucide-react';
+import { ClipboardList, Loader2, Calendar, Eye, Trash2, X, User, CreditCard, Banknote, ArrowRightLeft, Save, Calculator, CheckCircle, RotateCcw, Wallet, Edit, Plus, Minus, Search, ShoppingBag, Printer } from 'lucide-react';
 import { Transaction, Product, CartItem } from '../types';
-import { updateTransactionPayment, updateTransactionItems } from '../services/transactionService';
+import { updateTransactionPayment, updateTransactionItems, printInvoice } from '../services/transactionService';
 
 interface AdminTransactionManagerProps {
   transactions: Transaction[];
@@ -424,9 +424,18 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                                 <p className="font-bold text-gray-800">{selectedTransaction.customerName}</p>
                                 <p className="text-sm text-gray-500">{selectedTransaction.customerWhatsapp}</p>
                               </div>
-                              <a href={`https://wa.me/${selectedTransaction.customerWhatsapp}`} target="_blank" rel="noreferrer" className="text-blue-600 bg-blue-50 p-2 rounded-lg hover:bg-blue-100 transition">
-                                    <ArrowRightLeft size={16} />
-                              </a>
+                              <div className="flex gap-2">
+                                 <button 
+                                    onClick={() => printInvoice(selectedTransaction)}
+                                    className="text-nature-600 bg-nature-50 p-2 rounded-lg hover:bg-nature-100 transition border border-nature-200"
+                                    title="Cetak Nota"
+                                 >
+                                    <Printer size={16} />
+                                 </button>
+                                 <a href={`https://wa.me/${selectedTransaction.customerWhatsapp}`} target="_blank" rel="noreferrer" className="text-blue-600 bg-blue-50 p-2 rounded-lg hover:bg-blue-100 transition border border-blue-200">
+                                       <ArrowRightLeft size={16} />
+                                 </a>
+                              </div>
                            </div>
                         </div>
                     </div>
