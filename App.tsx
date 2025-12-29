@@ -12,7 +12,7 @@ import { PRODUCTS, CATEGORIES as CONSTANT_CATEGORIES } from './constants';
 import { CartItem, Product, Category } from './types';
 import { getProducts, addProduct, updateProduct, deleteProduct } from './services/productService';
 import { getCategories, addCategory, updateCategory, deleteCategory } from './services/categoryService';
-import { MapPin, Star, Plus, Check, School, Github, Loader2, Flame, Lock, Calendar, Users, ArrowRight as ArrowIcon, ChevronDown, ShieldCheck, Zap, ShoppingCart, Info, Weight, Tent, Wind, ArrowUpDown } from 'lucide-react';
+import { MapPin, Star, Plus, Check, School, Github, Loader2, Flame, Lock, Calendar, Users, ArrowRight as ArrowIcon, ChevronDown, ShieldCheck, Zap, ShoppingCart, Info, Weight, Tent, Wind, ArrowUpDown, Search, XCircle } from 'lucide-react';
 
 function App() {
   const [currentPage, setCurrentPage] = useState<'home' | 'admin'>('home');
@@ -26,6 +26,9 @@ function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('Semua');
   
+  // State untuk pencarian
+  const [searchQuery, setSearchQuery] = useState('');
+
   // State untuk sorting
   const [sortBy, setSortBy] = useState<'default' | 'price_low' | 'price_high' | 'name'>('default');
   
@@ -268,12 +271,15 @@ function App() {
 
   // --- Filtering & Sorting Logic ---
   
-  // 1. Filter
-  const filteredProducts = selectedCategory === 'Semua' 
-    ? products 
-    : products.filter(p => p.category === selectedCategory);
+  // 1. Filter Logic (Category + Search)
+  const filteredProducts = products.filter(p => {
+    const matchesCategory = selectedCategory === 'Semua' || p.category === selectedCategory;
+    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          p.category.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
 
-  // 2. Sort
+  // 2. Sort Logic
   const sortedProducts = [...filteredProducts].sort((a, b) => {
     switch (sortBy) {
       case 'price_low':
@@ -363,7 +369,7 @@ function App() {
           <img 
             src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=2000&auto=format&fit=crop" 
             alt="Gunung Slamet Peak" 
-            className="w-full h-full object-cover transition-transform duration-[20s] ease-in-out group-hover/hero:scale-110"
+            className="w-full h-full object-cover transition-transform duration-[20s] ease-in-out group-hover:scale-110"
           />
           <div className="absolute inset-0 bg-gradient-to-b from-gray-900/90 via-gray-900/50 to-gray-50/10"></div>
           <div className="absolute inset-0 bg-black/20"></div>
@@ -454,13 +460,35 @@ function App() {
 
       {/* Catalog Section Revamped */}
       <section id="katalog" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 bg-white">
-        <div className="text-center mb-12">
+        <div className="text-center mb-8">
           <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-4 tracking-tight">
             Pilih <span className="text-transparent bg-clip-text bg-gradient-to-r from-nature-600 to-red-500">Gear Andalan</span>
           </h2>
           <p className="text-gray-500 text-lg max-w-2xl mx-auto">
             Koleksi lengkap, bersih, dan terawat. Siap menemanimu menaklukkan puncak impian.
           </p>
+        </div>
+
+        {/* SEARCH BAR */}
+        <div className="max-w-xl mx-auto mb-8 px-4 relative group">
+           <div className="relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-nature-600 transition" size={20} />
+              <input
+                type="text"
+                placeholder="Cari alat gunung (misal: Tenda, Carrier)..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-12 pr-10 py-3 bg-gray-50 border border-gray-200 rounded-full focus:ring-2 focus:ring-nature-500 focus:border-transparent outline-none transition text-gray-800 font-medium"
+              />
+              {searchQuery && (
+                <button 
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1"
+                >
+                  <XCircle size={18} />
+                </button>
+              )}
+           </div>
         </div>
 
         {/* Dynamic Category Filter */}
@@ -520,6 +548,20 @@ function App() {
             {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
               <div key={i} className="bg-gray-100 rounded-3xl h-[400px] animate-pulse"></div>
             ))}
+          </div>
+        ) : sortedProducts.length === 0 ? (
+          <div className="text-center py-20 bg-gray-50 rounded-3xl border border-dashed border-gray-200">
+             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Search size={32} className="text-gray-400" />
+             </div>
+             <h3 className="text-lg font-bold text-gray-700">Produk tidak ditemukan</h3>
+             <p className="text-gray-500">Coba kata kunci lain atau kategori berbeda.</p>
+             <button 
+               onClick={() => { setSearchQuery(''); setSelectedCategory('Semua'); }}
+               className="mt-4 text-nature-600 font-bold hover:underline"
+             >
+               Reset Filter
+             </button>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
