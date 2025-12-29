@@ -467,7 +467,7 @@ export const printInvoice = (trx: Transaction) => {
           .logo-img {
             width: 70px;
             height: auto;
-            margin: 0 auto 5px;
+            margin: 15px auto 5px; /* UPDATE: Menambahkan margin top 15px */
             display: block;
             /* Penting: Ubah ke grayscale agar printer thermal bisa membacanya dengan jelas */
             /* Sebagian printer thermal akan mencetak 'merah' sebagai abu-abu/hitam */
