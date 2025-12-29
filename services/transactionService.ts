@@ -54,6 +54,24 @@ export const getTransactions = async (): Promise<Transaction[]> => {
   return data.map(mapDbToTransaction);
 };
 
+// NEW: Sync Local History with Server Data
+export const refreshTransactions = async (localIds: string[]): Promise<Transaction[]> => {
+  if (!supabase || localIds.length === 0) return [];
+
+  // Fetch data terbaru berdasarkan ID yang ada di local storage user
+  const { data, error } = await supabase
+    .from('transactions')
+    .select('*')
+    .in('id', localIds);
+
+  if (error) {
+    console.error('Error refreshing history:', error);
+    return [];
+  }
+
+  return data.map(mapDbToTransaction);
+};
+
 // NEW: Record Payment Log (Mencatat arus uang masuk/keluar ke tabel logs)
 export const recordPaymentLog = async (log: Omit<PaymentLog, 'id' | 'created_at'>): Promise<boolean> => {
   if (!supabase) return false;
