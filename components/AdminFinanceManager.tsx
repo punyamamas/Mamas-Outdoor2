@@ -76,7 +76,12 @@ const AdminFinanceManager: React.FC = () => {
   type text not null,
   description text,
   category text
-);`;
+);
+
+alter table public.payment_logs enable row level security;
+
+create policy "Enable all access for anon" on public.payment_logs
+for all using (true) with check (true);`;
     navigator.clipboard.writeText(sql);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -96,17 +101,17 @@ const AdminFinanceManager: React.FC = () => {
   if (dbError === 'missing_table') {
     return (
       <div className="bg-white rounded-2xl shadow-sm border border-orange-200 p-8 flex flex-col items-center text-center max-w-2xl mx-auto mt-10">
-         <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 mb-4">
+         <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 mb-4 animate-bounce">
            <Database size={32} />
          </div>
-         <h2 className="text-xl font-bold text-gray-900 mb-2">Setup Database Diperlukan</h2>
-         <p className="text-gray-600 mb-6">
-           Fitur keuangan memerlukan tabel baru bernama <code>payment_logs</code> di Supabase Anda. <br/>
-           Silakan jalankan perintah SQL berikut di <strong>Supabase SQL Editor</strong>:
+         <h2 className="text-xl font-bold text-gray-900 mb-2">Waduh, Databasenya Belum Kenalan Nih!</h2>
+         <p className="text-gray-600 mb-6 text-sm leading-relaxed">
+           Sistem keuangan butuh tempat penyimpanan baru bro. <br/>
+           Jangan panik, cukup <strong>Copy kode di bawah</strong> terus jalankan di menu <strong>SQL Editor</strong> Supabase lu.
          </p>
          
-         <div className="bg-gray-900 rounded-xl p-4 w-full text-left relative group">
-           <pre className="text-gray-300 text-xs font-mono overflow-x-auto">
+         <div className="bg-gray-900 rounded-xl p-4 w-full text-left relative group border border-gray-700">
+           <pre className="text-gray-300 text-[10px] font-mono overflow-x-auto whitespace-pre-wrap">
 {`create table public.payment_logs (
   id uuid default gen_random_uuid() primary key,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
@@ -116,23 +121,39 @@ const AdminFinanceManager: React.FC = () => {
   type text not null, -- 'IN' or 'OUT'
   description text,
   category text
-);`}
+);
+
+alter table public.payment_logs enable row level security;
+
+create policy "Enable all access for anon" on public.payment_logs
+for all using (true) with check (true);`}
            </pre>
            <button 
              onClick={copySQL}
              className="absolute top-2 right-2 p-2 bg-white/10 hover:bg-white/20 rounded-lg text-white transition flex items-center gap-2 text-xs font-bold"
            >
-             {copied ? <Check size={14}/> : <Copy size={14}/>} {copied ? 'Copied' : 'Copy SQL'}
+             {copied ? <Check size={14}/> : <Copy size={14}/>} {copied ? 'Udah Dicopy!' : 'Copy SQL'}
            </button>
          </div>
 
-         <button 
-           onClick={fetchLogs}
-           className="mt-8 bg-nature-600 hover:bg-nature-700 text-white px-6 py-2 rounded-lg font-bold flex items-center gap-2"
-         >
-           <Loader2 size={16} className={isLoading ? 'animate-spin' : 'hidden'} />
-           Sudah Saya Jalankan, Refresh!
-         </button>
+         <div className="mt-6 flex flex-col gap-2 w-full">
+            <a 
+              href="https://supabase.com/dashboard/project/_/sql" 
+              target="_blank"
+              rel="noreferrer"
+              className="bg-gray-800 hover:bg-gray-900 text-white px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition"
+            >
+              Buka Supabase SQL Editor 
+              <ArrowUpRight size={16} />
+            </a>
+            <button 
+              onClick={fetchLogs}
+              className="bg-nature-600 hover:bg-nature-700 text-white px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition"
+            >
+              <Loader2 size={16} className={isLoading ? 'animate-spin' : 'hidden'} />
+              Udah Dijalankan? Refresh Disini
+            </button>
+         </div>
       </div>
     );
   }
