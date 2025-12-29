@@ -145,6 +145,7 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
       if (userDetails.paymentMethod === 'transfer') {
         footer += `\n*Metode Bayar: Transfer (DP 50%)*`;
         footer += `\n---------------------------`;
+        footer += `\n*Rekening DP: BSI 7279048215 (Umar Abdulloh)*`;
         footer += `\n*Wajib DP: Rp${dpAmount.toLocaleString('id-ID')}*`;
         footer += `\n*Pelunasan: Rp${remainingAmount.toLocaleString('id-ID')} (Saat Ambil)*`;
       } else {
@@ -373,8 +374,7 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
                     <div className="mt-3 bg-blue-50 p-3 rounded-lg border border-blue-100 text-sm text-blue-800 animate-slide-in-right">
                        <p className="font-bold mb-1">Rekening Pembayaran DP:</p>
                        <ul className="list-disc pl-4 space-y-1 text-xs">
-                         <li><strong>BRI:</strong> 1234-5678-9000 (Mamas Outdoor)</li>
-                         <li><strong>BCA:</strong> 098-765-4321 (Mamas Outdoor)</li>
+                         <li><strong>BSI:</strong> 7279048215 (a.n Umar Abdulloh)</li>
                          <li className="mt-2 pt-2 border-t border-blue-200 font-bold">
                             Total Tagihan: Rp{total.toLocaleString('id-ID')}
                          </li>
