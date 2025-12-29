@@ -381,7 +381,8 @@ export const deleteTransaction = async (id: string): Promise<boolean> => {
 
 // FUNCTION TO PRINT INVOICE
 export const printInvoice = (trx: Transaction) => {
-  const printWindow = window.open('', '', 'width=400,height=800');
+  // Buka window baru, ukuran disesuaikan tapi browser akan handle print preview
+  const printWindow = window.open('', '', 'width=800,height=800');
   if (!printWindow) return alert('Izinkan pop-up untuk mencetak nota');
 
   // Format Tanggal dan Waktu
@@ -404,7 +405,7 @@ export const printInvoice = (trx: Transaction) => {
   // Status Logic & Cap Text
   const isLunas = remaining <= 0;
   const statusLabel = isLunas ? 'LUNAS' : 'BELUM LUNAS';
-  const stampColor = isLunas ? '#22c55e' : '#ef4444'; // Green or Red
+  const stampColor = isLunas ? '#000000' : '#000000'; // Gunakan hitam pekat untuk thermal printer
   const paymentMethodDisplay = trx.paymentMethod === 'transfer' ? 'Transfer' : 'Cash';
   
   // Format Mata Uang Helper
@@ -439,23 +440,29 @@ export const printInvoice = (trx: Transaction) => {
         <style>
           @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700;900&display=swap');
           
+          /* SETUP HALAMAN CETAK 80mm */
+          @page {
+            size: 80mm auto; /* Lebar 80mm, tinggi otomatis */
+            margin: 0mm; /* Nol margin agar driver printer mengatur area cetak */
+          }
+
           body { 
             font-family: 'Roboto Mono', monospace, sans-serif; 
-            padding: 20px; 
-            max-width: 320px; /* Lebar standar thermal printer */
+            padding: 5px; /* Sedikit padding agar tidak mepet tepi */
+            width: 78mm; /* Lebar konten, sedikit kurang dari 80mm untuk aman */
             margin: 0 auto; 
-            color: #333; 
+            color: #000; /* Hitam pekat untuk thermal */
             background: #fff;
-            font-size: 11px;
+            font-size: 12px; /* Ukuran font standar thermal */
             line-height: 1.4;
             position: relative;
           }
           
           .header { text-align: center; margin-bottom: 10px; }
           
-          /* Logo Box Merah */
+          /* Logo Box Merah (Akan jadi hitam/abu di thermal) */
           .logo-box {
-            background: #DC0000;
+            background: #000; /* Hitam agar jelas di thermal */
             width: 70px;
             height: 70px;
             margin: 0 auto 10px;
@@ -466,9 +473,9 @@ export const printInvoice = (trx: Transaction) => {
           }
           .logo-svg { width: 40px; height: 40px; fill: white; }
           
-          .brand-name { font-size: 16px; font-weight: 700; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px;}
-          .address { font-size: 10px; color: #555; margin-bottom: 2px; }
-          .wa { font-size: 10px; font-weight: bold; }
+          .brand-name { font-size: 18px; font-weight: 900; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px;}
+          .address { font-size: 11px; color: #000; margin-bottom: 2px; }
+          .wa { font-size: 11px; font-weight: bold; margin-top: 4px;}
           
           .dashed-line { 
             border-bottom: 1px dashed #000; 
@@ -476,28 +483,29 @@ export const printInvoice = (trx: Transaction) => {
             width: 100%;
           }
 
-          .meta-table { width: 100%; font-size: 10px; }
+          .meta-table { width: 100%; font-size: 11px; }
           .meta-table td { padding: 1px 0; vertical-align: top; }
-          .meta-label { width: 30%; }
+          .meta-label { width: 35%; }
           .meta-val { text-align: right; font-weight: 500; }
 
+          .items-container { margin-top: 10px; margin-bottom: 10px; }
           .item-row { margin-bottom: 8px; }
-          .item-name { font-weight: 700; font-size: 11px; margin-bottom: 2px; }
-          .item-calc { display: flex; justify-content: space-between; font-size: 11px; color: #444; }
+          .item-name { font-weight: 700; font-size: 12px; margin-bottom: 2px; }
+          .item-calc { display: flex; justify-content: space-between; font-size: 12px; color: #000; }
 
-          .summary-table { width: 100%; font-size: 11px; margin-top: 5px; }
+          .summary-table { width: 100%; font-size: 12px; margin-top: 5px; }
           .summary-table td { padding: 2px 0; }
           .sum-label { text-align: left; }
           .sum-val { text-align: right; font-weight: bold; }
           
-          .footer-info { margin-top: 10px; margin-bottom: 10px; font-size: 10px; }
+          .footer-info { margin-top: 10px; margin-bottom: 10px; font-size: 11px; }
           .footer-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
           .footer-label { font-weight: 500; }
           .footer-val { font-weight: bold; }
 
-          .footer-text { text-align: justify; margin-top: 15px; font-size: 10px; color: #444; line-height: 1.3; }
+          .footer-text { text-align: justify; margin-top: 15px; font-size: 11px; color: #000; line-height: 1.3; font-style: italic; }
 
-          /* STAMP CSS (CAP LUNAS) */
+          /* STAMP CSS (CAP LUNAS) - High Contrast for Thermal */
           .stamp-container {
              position: absolute;
              top: 45%;
@@ -505,10 +513,11 @@ export const printInvoice = (trx: Transaction) => {
              transform: translate(-50%, -50%) rotate(-15deg);
              z-index: 10;
              pointer-events: none;
-             opacity: 0.25;
+             /* Opacity dikurangi agar tidak menutupi teks barang */
+             opacity: 0.25; 
           }
           .stamp {
-             border: 4px solid ${stampColor};
+             border: 5px solid ${stampColor};
              color: ${stampColor};
              padding: 10px 20px;
              font-size: 32px;
@@ -520,8 +529,9 @@ export const printInvoice = (trx: Transaction) => {
              display: inline-block;
           }
           
+          /* Print Specific Adjustments */
           @media print {
-            body { margin: 0; padding: 10px; width: 100%; }
+            body { margin: 0; width: 80mm; padding: 0 2mm; }
             .no-print { display: none; }
           }
         </style>
@@ -606,7 +616,7 @@ export const printInvoice = (trx: Transaction) => {
            <div class="footer-row" style="margin-top: 8px;">
               <span class="footer-label">Identitas Jaminan :</span>
            </div>
-           <div style="border-bottom: 1px dotted #999; height: 16px; width: 100%; margin-bottom: 4px;"></div>
+           <div style="border-bottom: 1px dotted #000; height: 24px; width: 100%; margin-bottom: 4px;"></div>
         </div>
 
         <div class="footer-text">
@@ -616,7 +626,7 @@ export const printInvoice = (trx: Transaction) => {
 
         <script>
           window.onload = function() { 
-            setTimeout(function(){ window.print(); }, 500); 
+            setTimeout(function(){ window.print(); }, 800); 
           }
         </script>
       </body>
