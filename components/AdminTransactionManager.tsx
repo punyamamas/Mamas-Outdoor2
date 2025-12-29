@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ClipboardList, Loader2, Calendar, Phone, Eye, Trash2, X, User, FileText, CreditCard, Banknote, ArrowRightLeft, DollarSign, Save, Calculator, Percent, CheckCircle } from 'lucide-react';
+import { ClipboardList, Loader2, Calendar, Phone, Eye, Trash2, X, User, FileText, CreditCard, Banknote, ArrowRightLeft, DollarSign, Save, Calculator, Percent, CheckCircle, RotateCcw } from 'lucide-react';
 import { Transaction } from '../types';
 import { updateTransactionPayment } from '../services/transactionService';
 
@@ -20,39 +20,60 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
 }) => {
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   
-  // State lokal untuk edit pembayaran di modal
-  const [editPaymentAmount, setEditPaymentAmount] = useState<number>(0);
+  // State: Nominal yang SEDANG diketik (Pembayaran Baru), bukan total akumulasi
+  const [paymentInput, setPaymentInput] = useState<number>(0);
   const [isSavingPayment, setIsSavingPayment] = useState(false);
 
+  // Reset input ke 0 setiap kali modal dibuka
   useEffect(() => {
     if (selectedTransaction) {
-      setEditPaymentAmount(selectedTransaction.amountPaid || 0);
+      setPaymentInput(0); 
     }
   }, [selectedTransaction]);
+
+  // Kalkulasi Realtime untuk Tampilan Kasir
+  const calculateFinancials = () => {
+    if (!selectedTransaction) return { total: 0, prevPaid: 0, finalPaid: 0, remaining: 0, isLunas: false, isKembalian: false };
+
+    const total = selectedTransaction.totalPrice;
+    const prevPaid = selectedTransaction.amountPaid || 0;
+    
+    // Total Akhir = Uang yang sudah masuk duluan + Uang yang baru diinput sekarang
+    const finalPaid = prevPaid + paymentInput;
+    
+    const remaining = total - finalPaid;
+    const isLunas = remaining <= 0;
+    const isKembalian = remaining < 0;
+
+    return { total, prevPaid, finalPaid, remaining, isLunas, isKembalian };
+  };
+
+  const { total, prevPaid, finalPaid, remaining, isLunas, isKembalian } = calculateFinancials();
 
   const handleSavePayment = async () => {
     if (!selectedTransaction) return;
     setIsSavingPayment(true);
     
-    // 1. Panggil API untuk update ke Supabase
-    const result = await updateTransactionPayment(selectedTransaction.id, editPaymentAmount);
+    // Kirim TOTAL AKHIR (Akumulasi) ke backend
+    const result = await updateTransactionPayment(selectedTransaction.id, finalPaid);
     
     if (result.success) {
-      // 2. Refresh Data Tabel Utama
+      // 1. Refresh Data Tabel Utama
       if (onRefreshData) {
         await onRefreshData();
       }
 
-      // 3. Update Tampilan di Modal saat ini
-      const updatedTrx = { ...selectedTransaction, amountPaid: editPaymentAmount };
+      // 2. Update State Lokal (Agar modal mencerminkan perubahan tanpa tutup)
+      const updatedTrx = { 
+        ...selectedTransaction, 
+        amountPaid: finalPaid,
+        status: result.newStatus ? (result.newStatus as any) : selectedTransaction.status
+      };
       
-      // Update status jika ada perubahan otomatis dari backend
-      if (result.newStatus) {
-        updatedTrx.status = result.newStatus as any;
-      }
-
       setSelectedTransaction(updatedTrx);
-      alert("Pembayaran berhasil disimpan!");
+      setPaymentInput(0); // Reset input agar admin bisa input lagi jika perlu
+      
+      alert(`Pembayaran tersimpan! Sisa tagihan sekarang: Rp${Math.max(0, total - finalPaid).toLocaleString('id-ID')}`);
       
     } else {
       alert(`Gagal update pembayaran: ${result.error || 'Terjadi kesalahan sistem'}`);
@@ -71,10 +92,6 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
       default: return 'bg-gray-50 text-gray-600';
     }
   };
-
-  // Helper Calculations for Cashier View
-  const remainingBill = selectedTransaction ? selectedTransaction.totalPrice - editPaymentAmount : 0;
-  const isPaidOff = remainingBill <= 0;
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
@@ -101,8 +118,8 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
             <tbody className="divide-y divide-gray-100">
               {transactions.map(trx => {
                 const paid = trx.amountPaid || 0;
-                const total = trx.totalPrice;
-                const isPaidOff = paid >= total;
+                const totalTrx = trx.totalPrice;
+                const isPaidOffTrx = paid >= totalTrx;
                 
                 return (
                   <tr key={trx.id} className="hover:bg-gray-50 transition">
@@ -117,15 +134,15 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                       <div className="text-xs text-gray-500">{trx.customerWhatsapp}</div>
                     </td>
                     <td className="px-6 py-4 align-middle">
-                      <div className="font-bold text-nature-700">Rp{total.toLocaleString('id-ID')}</div>
+                      <div className="font-bold text-nature-700">Rp{totalTrx.toLocaleString('id-ID')}</div>
                       <div className="mt-1">
-                        {isPaidOff ? (
+                        {isPaidOffTrx ? (
                            <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded font-bold uppercase">Lunas</span>
                         ) : paid === 0 ? (
                            <span className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded font-bold uppercase">Belum Bayar</span>
                         ) : (
                            <span className="text-[10px] bg-orange-100 text-orange-700 px-2 py-0.5 rounded font-bold uppercase">
-                             Cicil: Rp{paid.toLocaleString('id-ID')}
+                             Sisa: Rp{(totalTrx - paid).toLocaleString('id-ID')}
                            </span>
                         )}
                       </div>
@@ -163,103 +180,122 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
         </div>
       )}
 
-      {/* MODAL DETAIL & KASIR */}
+      {/* MODAL KASIR INTERAKTIF */}
       {selectedTransaction && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setSelectedTransaction(null)}></div>
-           <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden animate-slide-in-right md:animate-none flex flex-col max-h-[90vh]">
+           <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden animate-slide-in-right md:animate-none flex flex-col max-h-[95vh]">
               
+              {/* Header */}
               <div className="bg-nature-900 px-6 py-4 flex justify-between items-center text-white shrink-0">
                  <div>
-                    <h3 className="text-lg font-bold flex items-center gap-2"><Calculator size={20} /> Kasir & Detail</h3>
-                    <p className="text-xs text-nature-200 font-mono mt-0.5">TRX ID: #{selectedTransaction.id.slice(0,8)}</p>
+                    <h3 className="text-lg font-bold flex items-center gap-2"><Calculator size={20} /> Kasir Pembayaran</h3>
+                    <p className="text-xs text-nature-200 font-mono mt-0.5">#{selectedTransaction.id.slice(0,8)} - {selectedTransaction.customerName}</p>
                  </div>
                  <button onClick={() => setSelectedTransaction(null)} className="hover:bg-white/10 p-1 rounded-full transition"><X size={24} /></button>
               </div>
 
               <div className="p-6 overflow-y-auto custom-scrollbar">
                  
-                 {/* BAGIAN KASIR (CASHIER SECTION) */}
-                 <div className="bg-gray-50 border border-gray-200 p-5 rounded-2xl mb-8 shadow-sm">
-                    <div className="flex items-center gap-2 mb-4 text-gray-700 font-bold uppercase text-xs tracking-wider">
-                      <Banknote size={16}/> Input Pembayaran
+                 {/* 1. SECTION SUMMARY TAGIHAN */}
+                 <div className="bg-gray-50 border border-gray-200 p-5 rounded-2xl mb-6 shadow-sm">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      {/* Kiri: History */}
+                      <div className="space-y-4">
+                        <div className="flex justify-between items-center border-b border-gray-200 pb-2">
+                           <span className="text-sm font-bold text-gray-600">Total Tagihan</span>
+                           <span className="text-lg font-black text-gray-900">Rp{total.toLocaleString('id-ID')}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                           <span className="text-sm font-bold text-gray-500">Sudah Dibayar</span>
+                           <span className="text-base font-bold text-green-600 flex items-center gap-1">
+                             {prevPaid > 0 && <CheckCircle size={14}/>}
+                             Rp{prevPaid.toLocaleString('id-ID')}
+                           </span>
+                        </div>
+                        <div className="flex justify-between items-center bg-white p-2 rounded-lg border border-dashed border-gray-300">
+                           <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Sisa Kekurangan</span>
+                           <span className="text-base font-bold text-red-600">Rp{(total - prevPaid).toLocaleString('id-ID')}</span>
+                        </div>
+                      </div>
+
+                      {/* Kanan: Input Pembayaran BARU */}
+                      <div className="bg-white p-4 rounded-xl border-2 border-nature-100 relative">
+                        <label className="block text-xs font-black text-nature-700 uppercase mb-2 tracking-wide">
+                           + Tambah Pembayaran (Sekarang)
+                        </label>
+                        <div className="relative mb-3">
+                           <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">Rp</span>
+                           <input 
+                             type="number" 
+                             autoFocus
+                             className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:border-nature-500 focus:ring-4 focus:ring-nature-100 outline-none font-bold text-2xl text-gray-900"
+                             placeholder="0"
+                             value={paymentInput === 0 ? '' : paymentInput}
+                             onChange={(e) => setPaymentInput(Number(e.target.value))}
+                           />
+                        </div>
+                        
+                        {/* Quick Buttons */}
+                        <div className="flex gap-2">
+                           <button 
+                             onClick={() => setPaymentInput(total - prevPaid)}
+                             className="flex-1 bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 py-2 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1"
+                           >
+                             <CheckCircle size={12}/> Lunasi Sisa (Rp{(total-prevPaid).toLocaleString('id-ID')})
+                           </button>
+                           {prevPaid === 0 && (
+                             <button 
+                               onClick={() => setPaymentInput(Math.ceil(total * 0.5))}
+                               className="px-3 bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 py-2 rounded-lg text-xs font-bold transition"
+                             >
+                               DP 50%
+                             </button>
+                           )}
+                           <button 
+                              onClick={() => setPaymentInput(0)}
+                              className="px-3 bg-gray-100 text-gray-500 hover:bg-gray-200 rounded-lg text-xs font-bold"
+                              title="Reset Input"
+                           >
+                              <RotateCcw size={14}/>
+                           </button>
+                        </div>
+                      </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                      {/* Kolom Kiri: Input */}
-                      <div className="space-y-4">
-                        <div>
-                          <label className="block text-xs font-bold text-gray-500 mb-1">Nominal Masuk (Rp)</label>
-                          <div className="relative">
-                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">Rp</span>
-                            <input 
-                              type="number" 
-                              className="w-full pl-12 pr-4 py-3 border-2 border-gray-300 rounded-xl focus:border-nature-500 focus:ring-0 outline-none font-bold text-xl text-gray-800 transition"
-                              value={editPaymentAmount}
-                              onChange={(e) => setEditPaymentAmount(Number(e.target.value))}
-                              onFocus={(e) => e.target.select()} // Auto block saat diklik
-                            />
+                    {/* Footer Result Calculation */}
+                    <div className={`mt-6 p-4 rounded-xl flex items-center justify-between border-2 transition-all duration-300 ${isLunas ? 'bg-green-50 border-green-200' : 'bg-gray-100 border-gray-200'}`}>
+                       <div>
+                          <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">
+                             Status Setelah Bayar
+                          </p>
+                          <div className={`text-xl font-black flex items-center gap-2 ${isLunas ? 'text-green-600' : 'text-orange-500'}`}>
+                             {isLunas ? (
+                                <>LUNAS {isKembalian && <span className="text-sm font-medium text-gray-500">(Kembali Rp{Math.abs(remaining).toLocaleString('id-ID')})</span>}</>
+                             ) : (
+                                <>BELUM LUNAS <span className="text-sm font-medium text-gray-500">(Kurang Rp{remaining.toLocaleString('id-ID')})</span></>
+                             )}
                           </div>
-                        </div>
-
-                        {/* Tombol Cepat (Quick Actions) */}
-                        <div className="grid grid-cols-2 gap-2">
-                           <button 
-                             onClick={() => setEditPaymentAmount(Math.ceil(selectedTransaction.totalPrice * 0.5))}
-                             className="flex items-center justify-center gap-1 bg-white border border-gray-200 hover:border-blue-400 hover:text-blue-600 py-2 rounded-lg text-xs font-bold transition"
-                           >
-                             <Percent size={12}/> DP 50%
-                           </button>
-                           <button 
-                             onClick={() => setEditPaymentAmount(selectedTransaction.totalPrice)}
-                             className="flex items-center justify-center gap-1 bg-white border border-gray-200 hover:border-green-400 hover:text-green-600 py-2 rounded-lg text-xs font-bold transition"
-                           >
-                             <CheckCircle size={12}/> LUNAS
-                           </button>
-                        </div>
-                      </div>
-
-                      {/* Kolom Kanan: Summary (Realtime Calc) */}
-                      <div className="bg-white rounded-xl border border-gray-200 p-4 flex flex-col justify-between">
-                         <div className="flex justify-between items-center border-b border-gray-100 pb-2 mb-2">
-                            <span className="text-xs text-gray-500 font-medium">Total Tagihan</span>
-                            <span className="font-bold text-gray-800">Rp{selectedTransaction.totalPrice.toLocaleString('id-ID')}</span>
-                         </div>
-                         
-                         <div className="text-center py-2">
-                            <span className="text-xs font-bold text-gray-400 uppercase tracking-widest block mb-1">
-                              {isPaidOff ? 'Status Lunas' : 'Sisa Tagihan'}
-                            </span>
-                            <span className={`text-3xl font-black tracking-tight ${isPaidOff ? 'text-green-600' : 'text-red-600'}`}>
-                              {isPaidOff ? 'LUNAS' : `Rp${remainingBill.toLocaleString('id-ID')}`}
-                            </span>
-                         </div>
-
-                         {/* Tombol Simpan */}
-                         <button 
-                           onClick={handleSavePayment}
-                           disabled={isSavingPayment}
-                           className="mt-2 w-full bg-nature-900 hover:bg-nature-800 text-white py-2.5 rounded-lg font-bold text-sm shadow-lg shadow-nature-900/20 transition flex items-center justify-center gap-2"
-                         >
-                           {isSavingPayment ? <Loader2 className="animate-spin" size={16}/> : <Save size={16}/>}
-                           Simpan Pembayaran
-                         </button>
-                      </div>
+                       </div>
+                       <button 
+                         onClick={handleSavePayment}
+                         disabled={isSavingPayment || paymentInput === 0}
+                         className="bg-nature-900 hover:bg-nature-800 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-xl font-bold text-sm shadow-lg flex items-center gap-2 transition transform active:scale-95"
+                       >
+                         {isSavingPayment ? <Loader2 className="animate-spin" size={18}/> : <Save size={18}/>}
+                         Simpan
+                       </button>
                     </div>
                  </div>
 
-                 {/* INFORMASI DETAIL TRANSAKSI */}
+                 {/* 2. SECTION DETAIL ITEM */}
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                     <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
-                       <h4 className="text-xs font-bold uppercase text-gray-400 mb-3 flex items-center gap-2"><User size={14}/> Penyewa</h4>
+                       <h4 className="text-xs font-bold uppercase text-gray-400 mb-3 flex items-center gap-2"><User size={14}/> Kontak Penyewa</h4>
                        <div className="space-y-3">
                           <div>
-                            <p className="text-xs text-gray-500">Nama Lengkap</p>
                             <p className="font-bold text-gray-800">{selectedTransaction.customerName}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-gray-500">Kontak WhatsApp</p>
-                            <a href={`https://wa.me/${selectedTransaction.customerWhatsapp}`} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline font-bold flex items-center gap-1">
+                            <a href={`https://wa.me/${selectedTransaction.customerWhatsapp}`} target="_blank" rel="noreferrer" className="text-blue-600 text-sm hover:underline font-bold flex items-center gap-1 mt-1">
                                 {selectedTransaction.customerWhatsapp} <ArrowRightLeft size={12} className="-rotate-45"/>
                              </a>
                           </div>
@@ -267,23 +303,22 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                     </div>
 
                     <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
-                       <h4 className="text-xs font-bold uppercase text-gray-400 mb-3 flex items-center gap-2"><Calendar size={14}/> Jadwal</h4>
-                       <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <p className="text-xs text-gray-500">Tgl Ambil</p>
-                            <p className="font-bold text-gray-800">{selectedTransaction.rentalDate}</p>
+                       <h4 className="text-xs font-bold uppercase text-gray-400 mb-3 flex items-center gap-2"><Calendar size={14}/> Status Sewa</h4>
+                       <div className="space-y-2">
+                          <div className="flex justify-between text-sm">
+                             <span className="text-gray-500">Tanggal Ambil:</span>
+                             <span className="font-bold">{selectedTransaction.rentalDate}</span>
                           </div>
-                          <div>
-                            <p className="text-xs text-gray-500">Durasi</p>
-                            <p className="font-bold text-gray-800">{selectedTransaction.duration} Hari</p>
+                          <div className="flex justify-between text-sm">
+                             <span className="text-gray-500">Durasi:</span>
+                             <span className="font-bold">{selectedTransaction.duration} Hari</span>
                           </div>
-                          <div className="col-span-2">
-                             <p className="text-xs text-gray-500 mb-1">Status Fisik Barang</p>
+                          <div className="pt-2">
                              <span className={`px-2 py-1 rounded text-xs font-bold uppercase border w-full block text-center ${getStatusBadge(selectedTransaction.status)}`}>
-                                {selectedTransaction.status === 'completed' ? 'Barang Kembali' : 
-                                 selectedTransaction.status === 'rented' ? 'Sedang dibawa' :
-                                 selectedTransaction.status === 'booked' ? 'Siap Ambil' :
-                                 selectedTransaction.status === 'partial_payment' ? 'Booking (DP)' :
+                                {selectedTransaction.status === 'completed' ? 'Barang Sudah Kembali' : 
+                                 selectedTransaction.status === 'rented' ? 'Sedang Dipakai (Keluar)' :
+                                 selectedTransaction.status === 'booked' ? 'Siap Ambil (Booking)' :
+                                 selectedTransaction.status === 'partial_payment' ? 'Booking (DP / Cicil)' :
                                  selectedTransaction.status === 'cancelled' ? 'Batal' : 'Pending'}
                             </span>
                           </div>
@@ -291,7 +326,6 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                     </div>
                  </div>
 
-                 {/* TABEL ITEM */}
                  <div className="border border-gray-200 rounded-xl overflow-hidden mb-4">
                     <table className="w-full text-sm text-left">
                        <thead className="bg-gray-50 text-gray-600 font-bold text-xs uppercase">
