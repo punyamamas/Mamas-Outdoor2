@@ -411,8 +411,8 @@ export const printInvoice = (trx: Transaction) => {
   // Format Mata Uang Helper
   const fmt = (val: number) => val.toLocaleString('id-ID');
 
-  // URL Logo yang Anda berikan
-  const logoUrl = "https://res.cloudinary.com/damvnje5b/image/upload/v1740929656/Mamas_Outdoor_Logo_Primary_Red_White_Icon_only_n8jxtu.png";
+  // URL Logo yang Anda berikan (Imgur)
+  const logoUrl = "https://imgur.com/iC8ycHT.png";
 
   const itemsHtml = trx.items.map((item) => {
     const unitPrice = calculateItemPriceForDuration(item, trx.duration);
