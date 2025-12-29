@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { X, Calendar, Package, Clock, History } from 'lucide-react';
+import { X, Calendar, Package, Clock, History, CheckCircle, AlertCircle } from 'lucide-react';
 import { Transaction } from '../types';
 
 interface HistoryDrawerProps {
@@ -60,50 +60,68 @@ const HistoryDrawer: React.FC<HistoryDrawerProps> = ({ isOpen, onClose }) => {
               </div>
             ) : (
               <div className="space-y-4">
-                {history.map((trx) => (
-                  <div key={trx.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition">
-                    {/* Card Header */}
-                    <div className="px-5 py-3 border-b border-gray-50 flex justify-between items-center bg-gray-50/50">
-                      <div className="text-xs text-gray-500 font-medium">
-                        Order ID: #{trx.id.slice(0, 8)}
-                      </div>
-                      <div className="px-2 py-0.5 bg-green-100 text-green-700 text-[10px] font-bold uppercase rounded-full tracking-wide">
-                        WhatsApp Sent
-                      </div>
-                    </div>
-
-                    {/* Card Body */}
-                    <div className="p-5">
-                      <div className="flex justify-between items-start mb-4">
-                        <div>
-                          <p className="text-xs text-gray-400 mb-1">Tanggal Sewa</p>
-                          <div className="flex items-center gap-1.5 text-gray-800 font-semibold text-sm">
-                            <Calendar size={14} className="text-nature-500" />
-                            {new Date(trx.rentalDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
-                          </div>
-                          <div className="text-xs text-gray-500 mt-0.5">Durasi: {trx.duration} Hari</div>
+                {history.map((trx) => {
+                  const paid = trx.amountPaid || 0;
+                  const isPaidOff = paid >= trx.totalPrice;
+                  
+                  return (
+                    <div key={trx.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition">
+                      {/* Card Header */}
+                      <div className="px-5 py-3 border-b border-gray-50 flex justify-between items-center bg-gray-50/50">
+                        <div className="text-xs text-gray-500 font-medium">
+                          Order ID: #{trx.id.slice(0, 8)}
                         </div>
-                        <div className="text-right">
-                          <p className="text-xs text-gray-400 mb-1">Total Biaya</p>
-                          <p className="text-adventure-600 font-bold text-lg">Rp{trx.totalPrice.toLocaleString('id-ID')}</p>
+                        <div className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded-full tracking-wide flex items-center gap-1
+                          ${trx.status === 'completed' ? 'bg-green-100 text-green-700' : 
+                            trx.status === 'cancelled' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
+                          {trx.status === 'completed' ? 'Selesai' : trx.status === 'cancelled' ? 'Dibatalkan' : 'Aktif'}
                         </div>
                       </div>
 
-                      {/* Items List */}
-                      <div className="bg-gray-50 rounded-lg p-3 space-y-2">
-                        {trx.items.map((item, idx) => (
-                          <div key={idx} className="flex justify-between items-center text-sm">
-                            <div className="flex items-center gap-2 text-gray-700">
-                              <Package size={14} className="text-gray-400" />
-                              <span className="line-clamp-1 max-w-[180px]">{item.name}</span>
+                      {/* Card Body */}
+                      <div className="p-5">
+                        <div className="flex justify-between items-start mb-4">
+                          <div>
+                            <p className="text-xs text-gray-400 mb-1">Tanggal Sewa</p>
+                            <div className="flex items-center gap-1.5 text-gray-800 font-semibold text-sm">
+                              <Calendar size={14} className="text-nature-500" />
+                              {new Date(trx.rentalDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
                             </div>
-                            <span className="font-medium text-gray-500">x{item.quantity}</span>
+                            <div className="text-xs text-gray-500 mt-0.5">Durasi: {trx.duration} Hari</div>
                           </div>
-                        ))}
+                          <div className="text-right">
+                            <p className="text-xs text-gray-400 mb-1">Total Biaya</p>
+                            <p className="text-adventure-600 font-bold text-lg">Rp{trx.totalPrice.toLocaleString('id-ID')}</p>
+                            <div className="mt-1 flex justify-end">
+                               {isPaidOff ? (
+                                 <span className="flex items-center gap-1 text-[10px] text-green-600 font-bold bg-green-50 px-2 py-0.5 rounded">
+                                   <CheckCircle size={10}/> Lunas
+                                 </span>
+                               ) : (
+                                 <span className="flex items-center gap-1 text-[10px] text-orange-600 font-bold bg-orange-50 px-2 py-0.5 rounded">
+                                   <AlertCircle size={10}/> Belum Lunas
+                                 </span>
+                               )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Items List */}
+                        <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+                          {trx.items.map((item, idx) => (
+                            <div key={idx} className="flex justify-between items-center text-sm">
+                              <div className="flex items-center gap-2 text-gray-700">
+                                <Package size={14} className="text-gray-400" />
+                                <span className="line-clamp-1 max-w-[180px]">{item.name}</span>
+                              </div>
+                              <span className="font-medium text-gray-500">x{item.quantity}</span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

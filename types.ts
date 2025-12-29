@@ -64,10 +64,11 @@ export interface Transaction {
   created_at?: string;
   customerName: string; // Mapped from customer_name
   customerWhatsapp: string; // Mapped from customer_whatsapp
-  customerCampus: string; // Mapped from customer_campus (Keep this for history/compatibility)
+  customerCampus: string; // Mapped from customer_campus
   rentalDate: string; // Mapped from rental_date
   duration: number;
   totalPrice: number; // Mapped from total_price
+  amountPaid?: number; // New Field: Total yang sudah dibayar
   items: CartItem[];
   status: 'pending' | 'active' | 'completed' | 'cancelled'; 
   paymentMethod?: 'transfer' | 'cash'; 
