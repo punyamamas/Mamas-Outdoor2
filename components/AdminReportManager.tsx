@@ -166,7 +166,7 @@ const AdminReportManager: React.FC = () => {
     document.body.removeChild(link);
   };
 
-  // NEW: Send WhatsApp Reminder
+  // NEW: Send WhatsApp Reminder (NO EMOJI)
   const sendLateReminder = (t: any) => {
     let phone = t.customerWhatsapp;
     if (phone.startsWith('0')) phone = '62' + phone.slice(1);
@@ -174,7 +174,7 @@ const AdminReportManager: React.FC = () => {
     const returnDateStr = t.returnDateObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
     const itemList = t.items.map((i: any) => `- ${i.quantity}x ${i.name}`).join('\n');
     
-    const message = `Halo Kak *${t.customerName}* 👋,\n\nKami dari *Mamas Outdoor Purwokerto* ingin mengingatkan bahwa masa sewa alat berikut:\n\n${itemList}\n\nSeharusnya sudah kembali pada tanggal: *${returnDateStr}*.\n\nMohon segera dikembalikan ya kak untuk menghindari denda keterlambatan yang semakin besar 🙏.\n\nJika ada kendala, mohon kabari kami segera.\nTerima kasih!`;
+    const message = `Halo Kak *${t.customerName}*,\n\nKami dari *Mamas Outdoor Purwokerto* ingin mengingatkan bahwa masa sewa alat berikut:\n\n${itemList}\n\nSeharusnya sudah kembali pada tanggal: *${returnDateStr}*.\n\nMohon segera dikembalikan ya kak untuk menghindari denda keterlambatan yang semakin besar.\n\nJika ada kendala, mohon kabari kami segera.\nTerima kasih!`;
     
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
   };
