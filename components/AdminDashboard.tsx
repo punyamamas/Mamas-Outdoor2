@@ -188,6 +188,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 isLoading={isLoadingTransactions} 
                 onStatusUpdate={handleTransactionStatusUpdate}
                 onDeleteTransaction={handleDeleteTransaction}
+                onRefreshData={fetchTransactions} // Pass the refresh function
              />
           )}
         </div>

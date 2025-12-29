@@ -8,13 +8,15 @@ interface AdminTransactionManagerProps {
   isLoading: boolean;
   onStatusUpdate: (id: string, status: string) => Promise<void>;
   onDeleteTransaction: (id: string) => Promise<void>;
+  onRefreshData?: () => Promise<void>; // Prop baru
 }
 
 const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
   transactions,
   isLoading,
   onStatusUpdate,
-  onDeleteTransaction
+  onDeleteTransaction,
+  onRefreshData
 }) => {
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   
@@ -31,15 +33,28 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
   const handleSavePayment = async () => {
     if (!selectedTransaction) return;
     setIsSavingPayment(true);
+    
+    // Panggil API
     const result = await updateTransactionPayment(selectedTransaction.id, editPaymentAmount);
     
     if (result.success) {
-      // Update local state untuk refleksi instan
+      // 1. Refresh Data Tabel Utama (Jika ada prop refresh)
+      if (onRefreshData) {
+        await onRefreshData();
+      }
+
+      // 2. Update Data di Modal saat ini agar terlihat perubahannya (Instant Feedback)
       const updatedTrx = { ...selectedTransaction, amountPaid: editPaymentAmount };
+      
+      // Update status lokal jika ada perubahan status otomatis dari backend
+      if (result.newStatus) {
+        updatedTrx.status = result.newStatus as any;
+      }
+
       setSelectedTransaction(updatedTrx);
-      alert("Pembayaran berhasil diupdate!");
+      
+      alert("Pembayaran berhasil disimpan & Status diperbarui!");
     } else {
-      // Tampilkan error detail (misal: column does not exist)
       alert(`Gagal update pembayaran: ${result.error || 'Terjadi kesalahan sistem'}`);
     }
     setIsSavingPayment(false);
@@ -208,6 +223,18 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                        <div className="space-y-2 text-sm text-gray-800">
                           <p><span className="font-semibold w-24 inline-block">Ambil:</span> {selectedTransaction.rentalDate}</p>
                           <p><span className="font-semibold w-24 inline-block">Durasi:</span> {selectedTransaction.duration} Hari</p>
+                          <p>
+                              <span className="font-semibold w-24 inline-block">Status:</span>
+                              <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase
+                                  ${selectedTransaction.status === 'completed' ? 'bg-green-100 text-green-700' :
+                                  selectedTransaction.status === 'active' ? 'bg-blue-100 text-blue-700' :
+                                  selectedTransaction.status === 'cancelled' ? 'bg-red-100 text-red-700' :
+                                  'bg-yellow-100 text-yellow-700'}`}>
+                                  {selectedTransaction.status === 'completed' ? 'Selesai' : 
+                                   selectedTransaction.status === 'active' ? 'Sedang Sewa' : 
+                                   selectedTransaction.status === 'cancelled' ? 'Batal' : 'Belum Bayar'}
+                              </span>
+                          </p>
                        </div>
                     </div>
                  </div>

@@ -54,20 +54,50 @@ export const getTransactions = async (): Promise<Transaction[]> => {
   return data.map(mapDbToTransaction);
 };
 
-// Update Nominal Pembayaran (Manual) - Return object with error message
-export const updateTransactionPayment = async (id: string, amount: number): Promise<{ success: boolean; error?: string }> => {
+// Update Nominal Pembayaran (Manual) & Auto Status
+export const updateTransactionPayment = async (id: string, amount: number): Promise<{ success: boolean; error?: string; newStatus?: string }> => {
   if (!supabase) return { success: false, error: "Supabase client not initialized" };
 
+  // 1. Ambil data transaksi saat ini untuk pengecekan
+  const { data: currentTrx, error: fetchError } = await supabase
+    .from('transactions')
+    .select('status, total_price')
+    .eq('id', id)
+    .single();
+
+  if (fetchError || !currentTrx) {
+    return { success: false, error: "Transaksi tidak ditemukan" };
+  }
+
+  // 2. Tentukan Status Baru secara Otomatis
+  let newStatus = currentTrx.status;
+
+  // Logika Otomatisasi Status:
+  // - Jangan ubah jika status sudah 'completed' (Selesai) atau 'cancelled' (Batal) untuk menjaga integritas stok.
+  // - Hanya mainkan logika antara 'pending' dan 'active'.
+  if (currentTrx.status !== 'completed' && currentTrx.status !== 'cancelled') {
+    if (amount === 0) {
+      newStatus = 'pending'; // Jika 0, set ke Belum Bayar
+    } else if (amount > 0) {
+      newStatus = 'active';  // Jika ada pembayaran masuk, set ke Sedang Sewa/Belum Lunas
+    }
+  }
+
+  // 3. Update ke Database
   const { error } = await supabase
     .from('transactions')
-    .update({ amount_paid: amount })
+    .update({ 
+      amount_paid: amount,
+      status: newStatus 
+    })
     .eq('id', id);
 
   if (error) {
     console.error('Error updating payment amount:', error);
     return { success: false, error: error.message };
   }
-  return { success: true };
+
+  return { success: true, newStatus };
 };
 
 // Update transaction status & Handle Stock Logic
