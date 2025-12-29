@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { PieChart, Calendar, TrendingUp, TrendingDown, Package, Loader2, Printer, CheckCircle, XCircle, Download, BarChart3, Clock, Users, ArrowUpRight } from 'lucide-react';
+import { PieChart, Calendar, TrendingUp, TrendingDown, Package, Loader2, Printer, CheckCircle, XCircle, Download, BarChart3, Clock, Users, ArrowUpRight, AlertTriangle, MessageCircle, BellRing } from 'lucide-react';
 import { Transaction } from '../types';
 import { getTransactionsByDateRange } from '../services/transactionService';
 
@@ -55,14 +55,13 @@ const AdminReportManager: React.FC = () => {
     .sort((a, b) => b.count - a.count)
     .slice(0, 5);
 
-  // 4. NEW: Daily Revenue Trend (Grafik Harian)
+  // 4. Daily Revenue Trend (Grafik Harian)
   const dailyRevenueMap: { [date: string]: number } = {};
   validTransactions.forEach(t => {
     const date = t.rentalDate.split('T')[0]; // YYYY-MM-DD
     dailyRevenueMap[date] = (dailyRevenueMap[date] || 0) + t.totalPrice;
   });
 
-  // Isi tanggal kosong dengan 0 agar grafik rapi
   const getDatesInRange = (start: string, end: string) => {
     const arr = [];
     const dt = new Date(start);
@@ -83,7 +82,7 @@ const AdminReportManager: React.FC = () => {
 
   const maxRevenue = Math.max(...chartData.map(d => d.revenue), 1); // Avoid div by zero
 
-  // 5. NEW: Top Customers
+  // 5. Top Customers
   const customerFrequency: { [key: string]: { count: number, totalSpent: number } } = {};
   validTransactions.forEach(t => {
     const name = t.customerName;
@@ -99,16 +98,32 @@ const AdminReportManager: React.FC = () => {
     .sort((a, b) => b.totalSpent - a.totalSpent) // Sort by spending
     .slice(0, 5);
 
-  // 6. NEW: Return Schedule (Jadwal Pengembalian di range tanggal ini)
+  // 6. Return Schedule & LATE DETECTION
+  const today = new Date();
+  today.setHours(0,0,0,0);
+
   const returnsInPeriod = validTransactions.map(t => {
     const rentalDate = new Date(t.rentalDate);
     const returnDate = new Date(rentalDate);
     returnDate.setDate(rentalDate.getDate() + (t.duration - 1));
-    return { ...t, returnDateStr: returnDate.toISOString().split('T')[0] };
+    returnDate.setHours(0,0,0,0); // Normalize time
+
+    const isLate = today > returnDate && t.status === 'rented';
+
+    return { 
+      ...t, 
+      returnDateObj: returnDate,
+      returnDateStr: returnDate.toISOString().split('T')[0],
+      isLate
+    };
   }).filter(t => {
-    // Filter yang tanggal kembalinya ada di range selectedDate
-    return t.returnDateStr >= startDate && t.returnDateStr <= endDate;
+    // Filter logic: Show if return date is in range OR if it is LATE (regardless of date range selection, late items are crucial)
+    const inRange = t.returnDateStr >= startDate && t.returnDateStr <= endDate;
+    return inRange || t.isLate;
   }).sort((a, b) => a.returnDateStr.localeCompare(b.returnDateStr));
+
+  // Separate the Late Items for the Alert Box
+  const lateItems = returnsInPeriod.filter(t => t.isLate);
 
 
   // --- ACTIONS ---
@@ -117,14 +132,12 @@ const AdminReportManager: React.FC = () => {
   };
 
   const handleExportCSV = () => {
-    // Header
-    const headers = ["ID Transaksi", "Tanggal Sewa", "Nama Pelanggan", "WhatsApp", "Item Sewa", "Total Harga", "Sudah Bayar", "Status", "Tanggal Kembali"];
-    
-    // Rows
+    const headers = ["ID Transaksi", "Tanggal Sewa", "Nama Pelanggan", "WhatsApp", "Item Sewa", "Total Harga", "Sudah Bayar", "Status", "Tanggal Kembali", "Terlambat"];
     const rows = transactions.map(t => {
       const rentalDate = new Date(t.rentalDate);
       const returnDate = new Date(rentalDate);
       returnDate.setDate(rentalDate.getDate() + (t.duration - 1));
+      const isLate = new Date() > returnDate && t.status === 'rented';
       
       const itemsList = t.items.map(i => `${i.quantity}x ${i.name}`).join('; ');
 
@@ -132,20 +145,17 @@ const AdminReportManager: React.FC = () => {
         `"${t.id}"`,
         t.rentalDate.split('T')[0],
         `"${t.customerName}"`,
-        `'${t.customerWhatsapp}`, // Force string for Excel
+        `'${t.customerWhatsapp}`, 
         `"${itemsList}"`,
         t.totalPrice,
         t.amountPaid || 0,
         t.status,
-        returnDate.toISOString().split('T')[0]
+        returnDate.toISOString().split('T')[0],
+        isLate ? "YA" : "TIDAK"
       ];
     });
 
-    const csvContent = [
-      headers.join(','), 
-      ...rows.map(r => r.join(','))
-    ].join('\n');
-
+    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -154,6 +164,19 @@ const AdminReportManager: React.FC = () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  // NEW: Send WhatsApp Reminder
+  const sendLateReminder = (t: any) => {
+    let phone = t.customerWhatsapp;
+    if (phone.startsWith('0')) phone = '62' + phone.slice(1);
+    
+    const returnDateStr = t.returnDateObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+    const itemList = t.items.map((i: any) => `- ${i.quantity}x ${i.name}`).join('\n');
+    
+    const message = `Halo Kak *${t.customerName}* 👋,\n\nKami dari *Mamas Outdoor Purwokerto* ingin mengingatkan bahwa masa sewa alat berikut:\n\n${itemList}\n\nSeharusnya sudah kembali pada tanggal: *${returnDateStr}*.\n\nMohon segera dikembalikan ya kak untuk menghindari denda keterlambatan yang semakin besar 🙏.\n\nJika ada kendala, mohon kabari kami segera.\nTerima kasih!`;
+    
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
   };
 
   return (
@@ -219,6 +242,32 @@ const AdminReportManager: React.FC = () => {
         ) : (
           <div className="space-y-8 animate-slide-in-right">
              
+             {/* 0. LATE RETURNS ALERT (NEW FEATURE) */}
+             {lateItems.length > 0 && (
+               <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-xl shadow-sm animate-pulse">
+                  <div className="flex items-start gap-3">
+                     <AlertTriangle className="text-red-500 mt-0.5" size={24} />
+                     <div className="flex-1">
+                        <h4 className="font-bold text-red-800 text-lg">Peringatan Keterlambatan!</h4>
+                        <p className="text-sm text-red-700 mb-2">
+                           Ada <strong>{lateItems.length} transaksi</strong> yang belum kembali melebihi batas waktu sewa. Segera hubungi penyewa.
+                        </p>
+                        <div className="flex flex-wrap gap-2 mt-2">
+                           {lateItems.map(t => (
+                              <button 
+                                key={t.id}
+                                onClick={() => sendLateReminder(t)}
+                                className="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-3 py-1.5 rounded-full transition shadow-sm"
+                              >
+                                 <MessageCircle size={12} /> Ingatkan {t.customerName.split(' ')[0]}
+                              </button>
+                           ))}
+                        </div>
+                     </div>
+                  </div>
+               </div>
+             )}
+
              {/* 1. FINANCIAL SUMMARY CARDS */}
              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
@@ -246,7 +295,7 @@ const AdminReportManager: React.FC = () => {
                 </div>
              </div>
 
-             {/* 2. REVENUE CHART (Simple Bar Chart) */}
+             {/* 2. REVENUE CHART */}
              <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
                 <h4 className="font-bold text-gray-800 mb-6 flex items-center gap-2">
                    <BarChart3 size={20} className="text-nature-600"/> Tren Pendapatan Harian
@@ -271,7 +320,6 @@ const AdminReportManager: React.FC = () => {
              </div>
 
              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                
                 {/* 3. TOP PRODUCTS */}
                 <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm h-full">
                    <h4 className="font-bold text-gray-800 mb-6 flex items-center gap-2">
@@ -318,14 +366,13 @@ const AdminReportManager: React.FC = () => {
                       ))}
                    </div>
                 </div>
-
              </div>
 
              {/* 5. RETURN SCHEDULE (Jadwal Pengembalian) */}
              <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
                 <div className="px-6 py-4 bg-orange-50 border-b border-orange-100 flex justify-between items-center">
                    <h4 className="font-bold text-sm text-orange-800 uppercase tracking-widest flex items-center gap-2">
-                     <Clock size={16} /> Jadwal Pengembalian (Periode Ini)
+                     <Clock size={16} /> Jadwal Pengembalian & Status
                    </h4>
                    <span className="text-xs bg-white px-2 py-1 rounded font-bold text-orange-600">{returnsInPeriod.length} Item</span>
                 </div>
@@ -340,18 +387,18 @@ const AdminReportManager: React.FC = () => {
                               <th className="px-6 py-3">Pelanggan</th>
                               <th className="px-6 py-3">Barang</th>
                               <th className="px-6 py-3 text-center">Status</th>
+                              <th className="px-6 py-3 text-center">Aksi</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                           {returnsInPeriod.map(t => {
-                              const isLate = new Date() > new Date(t.returnDateStr) && t.status === 'rented';
                               return (
-                                <tr key={t.id} className="hover:bg-gray-50">
+                                <tr key={t.id} className={`hover:bg-gray-50 ${t.isLate ? 'bg-red-50/50' : ''}`}>
                                     <td className="px-6 py-3">
-                                      <span className={`font-bold ${isLate ? 'text-red-600' : 'text-gray-700'}`}>
+                                      <span className={`font-bold ${t.isLate ? 'text-red-600' : 'text-gray-700'}`}>
                                         {new Date(t.returnDateStr).toLocaleDateString('id-ID', {day: 'numeric', month: 'short'})}
                                       </span>
-                                      {isLate && <span className="text-[10px] bg-red-100 text-red-600 px-1 rounded ml-2">TERLAMBAT</span>}
+                                      {t.isLate && <span className="text-[10px] bg-red-100 text-red-600 px-1 rounded ml-2 font-bold">TERLAMBAT</span>}
                                     </td>
                                     <td className="px-6 py-3 font-medium text-gray-800">
                                       {t.customerName} <br/>
@@ -368,6 +415,21 @@ const AdminReportManager: React.FC = () => {
                                       }`}>
                                         {t.status === 'rented' ? 'Sedang Sewa' : t.status === 'completed' ? 'Kembali' : t.status}
                                       </span>
+                                    </td>
+                                    <td className="px-6 py-3 text-center">
+                                      {t.status === 'rented' && (
+                                        <button 
+                                          onClick={() => sendLateReminder(t)}
+                                          className={`p-2 rounded-full transition shadow-sm border ${
+                                            t.isLate 
+                                            ? 'bg-red-600 text-white hover:bg-red-700 border-red-700' 
+                                            : 'bg-white text-green-600 hover:bg-green-50 border-gray-200'
+                                          }`}
+                                          title={t.isLate ? "Kirim Peringatan Denda" : "Ingatkan Pengembalian"}
+                                        >
+                                          {t.isLate ? <BellRing size={16} className="animate-pulse" /> : <MessageCircle size={16} />}
+                                        </button>
+                                      )}
                                     </td>
                                 </tr>
                               )
@@ -412,11 +474,6 @@ const AdminReportManager: React.FC = () => {
                          ))}
                       </tbody>
                    </table>
-                   {transactions.length > 10 && (
-                      <div className="px-6 py-3 text-center text-xs text-gray-400 bg-gray-50 italic">
-                         Menampilkan 10 transaksi terbaru dari total {transactions.length}
-                      </div>
-                   )}
                 </div>
              </div>
 
