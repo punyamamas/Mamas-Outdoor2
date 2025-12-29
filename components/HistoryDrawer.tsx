@@ -232,7 +232,7 @@ const HistoryDrawer: React.FC<HistoryDrawerProps> = ({ isOpen, onClose }) => {
                         </div>
 
                         <button 
-                          onClick={() => printInvoice(trx)}
+                          onClick={() => printInvoice(trx, 'view')} // UPDATE: Mode 'view' untuk pelanggan
                           className="w-full py-2.5 rounded-lg border border-gray-200 text-gray-700 font-bold text-sm hover:bg-gray-50 hover:text-nature-600 transition flex items-center justify-center gap-2"
                         >
                           <Printer size={16} /> Lihat Nota Transaksi

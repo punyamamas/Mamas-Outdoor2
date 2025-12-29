@@ -380,7 +380,8 @@ export const deleteTransaction = async (id: string): Promise<boolean> => {
 };
 
 // FUNCTION TO PRINT INVOICE
-export const printInvoice = (trx: Transaction) => {
+// Updated: Menambahkan mode 'print' (auto) atau 'view' (manual)
+export const printInvoice = (trx: Transaction, mode: 'print' | 'view' = 'print') => {
   // Buka window baru, ukuran disesuaikan tapi browser akan handle print preview
   const printWindow = window.open('', '', 'width=800,height=800');
   if (!printWindow) return alert('Izinkan pop-up untuk mencetak nota');
@@ -433,6 +434,15 @@ export const printInvoice = (trx: Transaction) => {
     </div>
     `;
   }).join('');
+
+  // Tombol Manual Print hanya muncul jika mode = view
+  const manualPrintButton = mode === 'view' ? `
+    <div class="no-print" style="margin-top: 30px; text-align: center; padding-bottom: 20px;">
+       <button onclick="window.print()" style="background: #DC0000; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; cursor: pointer; font-family: sans-serif; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+          🖨️ Cetak / Simpan PDF
+       </button>
+    </div>
+  ` : '';
 
   const htmlContent = `
     <!DOCTYPE html>
@@ -615,15 +625,21 @@ export const printInvoice = (trx: Transaction) => {
            Kami harap perlengkapan yang Anda sewa dapat menunjang kegiatan Anda dengan optimal.
         </div>
 
+        ${manualPrintButton}
+
         <script>
           // Logic: Tunggu gambar logo selesai loading baru print
           // Ini mencegah logo hilang saat print otomatis
           window.onload = function() {
             var img = document.getElementById('invoiceLogo');
+            var shouldAutoPrint = ${mode === 'print' ? 'true' : 'false'};
             
             function doPrint() {
-               window.focus();
-               setTimeout(function(){ window.print(); }, 500);
+               // HANYA print otomatis jika mode = 'print'
+               if (shouldAutoPrint) {
+                  window.focus();
+                  setTimeout(function(){ window.print(); }, 500);
+               }
             }
 
             if (img.complete) {
@@ -635,8 +651,11 @@ export const printInvoice = (trx: Transaction) => {
           }
           
           // Otomatis tutup window setelah print dialog ditutup (print/cancel)
+          // HANYA jika mode = 'print'
           window.onafterprint = function() {
-             window.close();
+             if (${mode === 'print' ? 'true' : 'false'}) {
+                window.close();
+             }
           }
         </script>
       </body>
