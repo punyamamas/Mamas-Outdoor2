@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { X, Calendar, Package, Clock, History, CheckCircle, AlertCircle, Loader, Printer, Trash2 } from 'lucide-react';
+import { X, Calendar, Package, Clock, History, CheckCircle, AlertCircle, Loader, Printer, Trash2, RotateCcw, Wallet } from 'lucide-react';
 import { Transaction } from '../types';
 import { printInvoice, refreshTransactions } from '../services/transactionService';
 
@@ -26,22 +26,20 @@ const HistoryDrawer: React.FC<HistoryDrawerProps> = ({ isOpen, onClose }) => {
       return;
     }
 
+    setIsSyncing(true); // Start loading UI
     try {
       const parsedLocal = JSON.parse(savedHistory) as Transaction[];
-      // Set initial data from local storage (instant load)
+      
+      // 1. Load Local Data First (Instant Feedback)
       setHistory(parsedLocal.sort((a, b) => new Date(b.rentalDate).getTime() - new Date(a.rentalDate).getTime()));
       
-      // SYNC WITH DATABASE
-      // Ambil data terbaru dari server berdasarkan ID yang tersimpan di local
+      // 2. Sync WITH SERVER
       const localIds = parsedLocal.map(t => t.id);
       if (localIds.length > 0) {
-        setIsSyncing(true);
         const freshData = await refreshTransactions(localIds);
         
         if (freshData.length > 0) {
-          // Merge logic: Use fresh data if exists, otherwise keep local (in case deleted on server but user wants to keep record)
-          // But for this case, let's update local storage with fresh data where possible
-          
+          // Merge logic: Update local data with server data
           const merged = parsedLocal.map(localTrx => {
             const fresh = freshData.find(f => f.id === localTrx.id);
             return fresh ? fresh : localTrx;
@@ -51,35 +49,42 @@ const HistoryDrawer: React.FC<HistoryDrawerProps> = ({ isOpen, onClose }) => {
           const sorted = merged.sort((a, b) => new Date(b.rentalDate).getTime() - new Date(a.rentalDate).getTime());
           
           setHistory(sorted);
-          // Update Local Storage
           localStorage.setItem('mamasHistory', JSON.stringify(sorted));
         }
-        setIsSyncing(false);
       }
 
     } catch (e) {
       console.error("Failed to parse history", e);
-      setIsSyncing(false);
+    } finally {
+      setIsSyncing(false); // Stop loading UI
     }
   };
 
   const deleteHistoryItem = (id: string) => {
-    if (window.confirm("Hapus riwayat ini dari daftar? (Data di server admin tetap aman)")) {
+    if (window.confirm("Hapus riwayat ini dari HP anda? (Data sewa di Admin tetap aman)")) {
       const updatedHistory = history.filter(t => t.id !== id);
       setHistory(updatedHistory);
       localStorage.setItem('mamasHistory', JSON.stringify(updatedHistory));
     }
   };
 
-  const getStatusDisplay = (status: string) => {
-    switch(status) {
+  const getStatusDisplay = (trx: Transaction) => {
+    // Priority logic: Check Amount Paid First for Visual Feedback
+    const paid = trx.amountPaid || 0;
+    const total = trx.totalPrice;
+    
+    // Jika status database 'partial_payment' ATAU (pending tapi sudah ada uang masuk)
+    if (trx.status === 'partial_payment' || (trx.status === 'pending' && paid > 0 && paid < total)) {
+       return { label: 'Sudah DP (Belum Lunas)', color: 'bg-orange-100 text-orange-700', icon: Wallet };
+    }
+
+    switch(trx.status) {
       case 'pending': return { label: 'Belum Bayar', color: 'bg-red-100 text-red-700', icon: AlertCircle };
-      case 'partial_payment': return { label: 'Belum Lunas (Cicil)', color: 'bg-orange-100 text-orange-700', icon: Loader };
       case 'booked': return { label: 'Lunas (Siap Ambil)', color: 'bg-blue-100 text-blue-700', icon: CheckCircle };
       case 'rented': return { label: 'Sedang Disewa', color: 'bg-purple-100 text-purple-700', icon: Package };
       case 'completed': return { label: 'Selesai', color: 'bg-green-100 text-green-700', icon: CheckCircle };
       case 'cancelled': return { label: 'Dibatalkan', color: 'bg-gray-100 text-gray-700', icon: X };
-      default: return { label: status, color: 'bg-gray-100 text-gray-700', icon: AlertCircle };
+      default: return { label: trx.status, color: 'bg-gray-100 text-gray-700', icon: AlertCircle };
     }
   };
 
@@ -98,12 +103,20 @@ const HistoryDrawer: React.FC<HistoryDrawerProps> = ({ isOpen, onClose }) => {
               <History className="text-nature-700" size={24} />
               <h2 className="text-lg font-bold text-gray-900">
                 Riwayat Sewa
-                {isSyncing && <span className="ml-2 text-xs font-normal text-gray-500 animate-pulse">(Sinkronisasi...)</span>}
               </h2>
             </div>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-              <X size={24} />
-            </button>
+            <div className="flex items-center gap-2">
+               <button 
+                 onClick={loadAndSyncHistory} 
+                 className={`p-2 rounded-full hover:bg-white/50 text-nature-600 transition ${isSyncing ? 'animate-spin' : ''}`}
+                 title="Refresh Status"
+               >
+                 <RotateCcw size={20} />
+               </button>
+               <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+                 <X size={24} />
+               </button>
+            </div>
           </div>
 
           {/* Content */}
@@ -121,10 +134,12 @@ const HistoryDrawer: React.FC<HistoryDrawerProps> = ({ isOpen, onClose }) => {
             ) : (
               <div className="space-y-4">
                 {history.map((trx) => {
-                  const statusInfo = getStatusDisplay(trx.status);
+                  const statusInfo = getStatusDisplay(trx);
                   const StatusIcon = statusInfo.icon;
                   const paid = trx.amountPaid || 0;
-                  const remaining = Math.max(0, trx.totalPrice - paid);
+                  const total = trx.totalPrice;
+                  const percentagePaid = Math.min(100, Math.max(0, (paid / total) * 100));
+                  const remaining = Math.max(0, total - paid);
                   
                   return (
                     <div key={trx.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition relative group">
@@ -161,13 +176,27 @@ const HistoryDrawer: React.FC<HistoryDrawerProps> = ({ isOpen, onClose }) => {
                           </div>
                           <div className="text-right">
                             <p className="text-xs text-gray-400 mb-1">Total Biaya</p>
-                            <p className="text-adventure-600 font-bold text-lg">Rp{trx.totalPrice.toLocaleString('id-ID')}</p>
-                            {remaining > 0 ? (
-                               <p className="text-[10px] text-red-500 font-bold">Kurang: Rp{remaining.toLocaleString('id-ID')}</p>
-                            ) : (
-                               <p className="text-[10px] text-green-500 font-bold">Lunas</p>
-                            )}
+                            <p className="text-adventure-600 font-bold text-lg">Rp{total.toLocaleString('id-ID')}</p>
                           </div>
+                        </div>
+
+                        {/* Payment Progress Bar */}
+                        <div className="mb-4">
+                           <div className="flex justify-between text-[10px] font-bold mb-1">
+                              <span className="text-gray-500">Pembayaran ({Math.round(percentagePaid)}%)</span>
+                              <span className={remaining > 0 ? "text-red-500" : "text-green-500"}>
+                                 {remaining > 0 ? `Kurang: Rp${remaining.toLocaleString('id-ID')}` : "LUNAS"}
+                              </span>
+                           </div>
+                           <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+                              <div 
+                                className={`h-full transition-all duration-500 ${remaining <= 0 ? 'bg-green-500' : 'bg-orange-400'}`} 
+                                style={{ width: `${percentagePaid}%` }}
+                              ></div>
+                           </div>
+                           {paid > 0 && remaining > 0 && (
+                              <p className="text-[10px] text-gray-400 mt-1 text-right">Sudah masuk: Rp{paid.toLocaleString('id-ID')}</p>
+                           )}
                         </div>
 
                         {/* Items List */}
