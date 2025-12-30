@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Users, Search, MessageCircle, TrendingUp, History, Star, ArrowUpRight, Crown } from 'lucide-react';
+import { Users, Search, MessageCircle, TrendingUp, History, Star, ArrowUpRight, Crown, MapPin } from 'lucide-react';
 import { Transaction } from '../types';
 
 interface AdminCustomerManagerProps {
@@ -9,6 +9,7 @@ interface AdminCustomerManagerProps {
 interface CustomerStats {
   name: string;
   whatsapp: string;
+  location: string; // New
   totalRentals: number;
   totalSpent: number;
   lastRentalDate: string;
@@ -33,7 +34,8 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
       if (!customerMap[phoneKey]) {
         customerMap[phoneKey] = {
           name: trx.customerName,
-          whatsapp: trx.customerWhatsapp, // Keep original format for display
+          whatsapp: trx.customerWhatsapp, 
+          location: trx.customerLocation || '-', // Default
           totalRentals: 0,
           totalSpent: 0,
           lastRentalDate: trx.rentalDate,
@@ -47,6 +49,11 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
       // Update Stats
       customer.totalRentals += 1;
       customer.totalSpent += trx.totalPrice;
+      
+      // Update Location jika tersedia di transaksi terbaru
+      if (trx.customerLocation && trx.customerLocation !== '-') {
+         customer.location = trx.customerLocation;
+      }
       
       // Check Dates
       if (new Date(trx.rentalDate) > new Date(customer.lastRentalDate)) {
@@ -71,7 +78,8 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
   // Filtering
   const filteredCustomers = customers.filter(c => 
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    c.whatsapp.includes(searchTerm)
+    c.whatsapp.includes(searchTerm) ||
+    c.location.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   // Helper WA
@@ -120,6 +128,7 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
           <thead className="bg-gray-50 text-gray-700 font-bold uppercase text-xs border-b border-gray-200">
             <tr>
               <th className="px-6 py-4">Pelanggan</th>
+              <th className="px-6 py-4">Domisili (IP)</th>
               <th className="px-6 py-4">Status</th>
               <th className="px-6 py-4 text-center">Total Sewa</th>
               <th className="px-6 py-4 text-right">Total Belanja (CLV)</th>
@@ -130,7 +139,7 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
           <tbody className="divide-y divide-gray-100">
             {filteredCustomers.length === 0 ? (
               <tr>
-                <td colSpan={6} className="p-8 text-center text-gray-400">
+                <td colSpan={7} className="p-8 text-center text-gray-400">
                   Belum ada data pelanggan yang cocok.
                 </td>
               </tr>
@@ -152,6 +161,12 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
                         <div className="text-xs text-gray-400 font-mono">{cust.whatsapp}</div>
                       </div>
                     </div>
+                  </td>
+                  <td className="px-6 py-4">
+                     <div className="flex items-center gap-1 text-gray-600 text-xs">
+                        <MapPin size={12} className="text-nature-500" />
+                        {cust.location}
+                     </div>
                   </td>
                   <td className="px-6 py-4">
                     <span className={`px-2 py-1 rounded-lg text-[10px] font-bold border uppercase tracking-wider ${getStatusColor(cust.status)}`}>

@@ -65,6 +65,7 @@ export interface Transaction {
   customerName: string; // Mapped from customer_name
   customerWhatsapp: string; // Mapped from customer_whatsapp
   customerCampus: string; // Mapped from customer_campus
+  customerLocation?: string; // New Field: Lokasi dari IP Geolocation
   rentalDate: string; // Mapped from rental_date
   duration: number;
   totalPrice: number; // Mapped from total_price

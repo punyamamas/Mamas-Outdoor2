@@ -6,7 +6,8 @@ import { processStockReduction, processStockRestoration } from './productService
 export const createTransaction = async (
   userDetails: UserDetails, 
   cartItems: CartItem[], 
-  totalPrice: number
+  totalPrice: number,
+  location?: string // Optional location param
 ): Promise<Transaction | null> => {
   if (!supabase) return null;
 
@@ -14,6 +15,7 @@ export const createTransaction = async (
     customer_name: userDetails.name,
     customer_whatsapp: userDetails.whatsapp,
     customer_campus: '-', 
+    customer_location: location || null, // Simpan lokasi
     rental_date: userDetails.rentalDate,
     duration: userDetails.duration,
     total_price: totalPrice,
@@ -593,9 +595,9 @@ export const printInvoice = (trx: Transaction, mode: 'print' | 'view' = 'print')
           <tr><td class="meta-label">No Nota</td><td class="meta-val">TRX/${trx.id.slice(0, 8).toUpperCase()}</td></tr>
           <tr><td class="meta-label">Antrian</td><td class="meta-val">5</td></tr>
           <tr><td class="meta-label">Pelanggan</td><td class="meta-val">MO-${trx.id.slice(0,4)} ${trx.customerName}</td></tr>
+          <tr><td class="meta-label">Lokasi</td><td class="meta-val">${trx.customerLocation || '-'}</td></tr>
           <tr><td class="meta-label">Tanggal</td><td class="meta-val">${dateStr} - ${timeStr}</td></tr>
           <tr><td class="meta-label">Kasir</td><td class="meta-val">Admin Mamas Outdoor</td></tr>
-          <tr><td class="meta-label">Pegawai</td><td class="meta-val">-</td></tr>
         </table>
 
         <div class="dashed-line"></div>
@@ -700,6 +702,7 @@ const mapDbToTransaction = (dbItem: any): Transaction => {
     customerName: dbItem.customer_name,
     customerWhatsapp: dbItem.customer_whatsapp,
     customerCampus: dbItem.customer_campus || '-', 
+    customerLocation: dbItem.customer_location || undefined, // MAP Location
     rentalDate: dbItem.rental_date,
     duration: dbItem.duration,
     totalPrice: dbItem.total_price,

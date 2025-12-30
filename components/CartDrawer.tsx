@@ -94,12 +94,28 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
     setIsProcessing(true);
     
     try {
+      // --- IP GEOLOCATION DETECTION (Non-Intrusive) ---
+      let detectedLocation = '';
+      try {
+        const response = await fetch('https://ipapi.co/json/');
+        if (response.ok) {
+          const data = await response.json();
+          // Format: "Purwokerto Utara, Central Java"
+          if (data.city && data.region) {
+            detectedLocation = `${data.city}, ${data.region}`;
+          }
+        }
+      } catch (err) {
+        console.warn("Location detection failed:", err);
+        // Fail silently, transaction must proceed
+      }
+      // -----------------------------------------------
+
       const returnDateObj = getReturnDate(userDetails.rentalDate, userDetails.duration);
       const returnDateFormatted = formatReturnDate(returnDateObj);
 
-      // 1. Simpan Transaksi ke Database (Supabase)
-      // FIX: Capture result transaction yang berisi ID ASLI dari database
-      const createdTrx = await createTransaction(userDetails, cartItems, total);
+      // 1. Simpan Transaksi ke Database (Supabase) + Location
+      const createdTrx = await createTransaction(userDetails, cartItems, total, detectedLocation);
 
       if (!createdTrx) {
         throw new Error("Gagal membuat transaksi di database.");
