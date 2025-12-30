@@ -28,6 +28,24 @@ const AdminReportManager: React.FC = () => {
     setIsLoading(false);
   };
 
+  // Helper: Hitung Harga Item Berdasarkan Durasi (Logika Pricing Mamas)
+  const getItemPriceForDuration = (item: any, days: number): number => {
+    const p2 = item.price2Days || 0;
+    const p3 = item.price3Days || 0;
+    const p4 = item.price4Days || 0;
+    const p5 = item.price5Days || 0;
+    const p6 = item.price6Days || 0;
+    const p7 = item.price7Days || 0;
+
+    if (days <= 2) return p2;
+    if (days === 3) return p3;
+    if (days === 4) return p4;
+    if (days === 5) return p5;
+    if (days === 6) return p6;
+    // Jika lebih dari 7 hari: Harga 7 hari + (Kelebihan hari x 40% harga 2 hari)
+    return p7 + ((days - 7) * (p2 * 0.4));
+  };
+
   // --- REPORT LOGIC ---
   const validTransactions = transactions.filter(t => t.status !== 'cancelled');
   
@@ -35,9 +53,6 @@ const AdminReportManager: React.FC = () => {
   const totalRevenue = validTransactions.reduce((acc, t) => acc + t.totalPrice, 0);
   
   // 2. Real Income (Uang Masuk Rill)
-  // FIX: Kita cap amountPaid dengan totalPrice. 
-  // Jika tagihan 13.000 tapi di DB tercatat bayar 20.000 (karena input kasir),
-  // yang diakui sebagai omset tetap 13.000. Sisa 7.000 adalah kembalian.
   const totalIncome = validTransactions.reduce((acc, t) => {
     const paid = t.amountPaid || 0;
     const bill = t.totalPrice;
@@ -132,9 +147,17 @@ const AdminReportManager: React.FC = () => {
         const diffTime = Math.abs(now.getTime() - overdueDeadline.getTime());
         daysLate = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
         
-        // Hitung Denda: Harga Harian x Jumlah Hari Terlambat
-        const dailyRate = Math.ceil(t.totalPrice / t.duration);
-        fineAmount = dailyRate * daysLate;
+        // LOGIKA DENDA BARU:
+        // Lat 1 hari = Harga 2 hari
+        // Lat 2 hari = Harga 3 hari
+        // Rumus Durasi Perhitungan = Hari Terlambat + 1
+        const calculationDuration = daysLate + 1;
+
+        // Hitung total denda berdasarkan harga item
+        fineAmount = t.items.reduce((totalFine, item) => {
+           const priceForFineDuration = getItemPriceForDuration(item, calculationDuration);
+           return totalFine + (priceForFineDuration * item.quantity);
+        }, 0);
 
       } else if (now > reminderDeadline) {
         // LEWAT JAM 19:00 TAPI MASIH HARI YANG SAMA -> REMINDER
@@ -222,7 +245,7 @@ const AdminReportManager: React.FC = () => {
     
     const itemList = t.items.map((i: any) => `- ${i.quantity}x ${i.name}`).join('\n');
     
-    const message = `Halo Kak *${t.customerName}*,\n\nKami dari *Mamas Outdoor Purwokerto*.\n\nStatus pengembalian alat:\n${itemList}\n\nSaat ini statusnya *TERLAMBAT ${t.daysLate} HARI*.\n\nSesuai ketentuan, keterlambatan dikenakan biaya sewa harian.\n*Estimasi Denda Saat Ini: Rp${t.fineAmount.toLocaleString('id-ID')}*\n\nMohon segera dikembalikan dan diselesaikan pembayarannya untuk menghentikan akumulasi denda.\n\nTerima kasih.`;
+    const message = `Halo Kak *${t.customerName}*,\n\nKami dari *Mamas Outdoor Purwokerto*.\n\nStatus pengembalian alat:\n${itemList}\n\nSaat ini statusnya *TERLAMBAT ${t.daysLate} HARI*.\n\nSesuai ketentuan, keterlambatan dikenakan denda setara harga sewa ${t.daysLate+1} hari.\n*Estimasi Denda Saat Ini: Rp${t.fineAmount.toLocaleString('id-ID')}*\n\nMohon segera dikembalikan dan diselesaikan pembayarannya untuk menghentikan akumulasi denda.\n\nTerima kasih.`;
     
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
   };
@@ -311,7 +334,7 @@ const AdminReportManager: React.FC = () => {
                                     onClick={() => sendOverdueNotice(t)}
                                     className="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-3 py-1.5 rounded-full transition shadow-sm"
                                   >
-                                     <Calculator size={12} /> {t.customerName.split(' ')[0]} (Denda: {t.daysLate} Hari)
+                                     <Calculator size={12} /> {t.customerName.split(' ')[0]} (Lat: {t.daysLate} Hari)
                                   </button>
                                ))}
                             </div>
