@@ -28,6 +28,19 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
     return new Date(date.getTime() - offset).toISOString().split('T')[0];
   };
 
+  // Helper untuk format nomor WA (08xxx -> 628xxx)
+  const formatWaNumber = (phone: string) => {
+    if (!phone) return '';
+    // Hapus karakter non-angka (spasi, -, +)
+    let p = phone.replace(/\D/g, '');
+    
+    // Jika diawali 0, ganti dengan 62
+    if (p.startsWith('0')) {
+      return '62' + p.slice(1);
+    }
+    return p;
+  };
+
   // --- FILTER STATES ---
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -903,7 +916,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                                   >
                                       <Printer size={16} />
                                   </button>
-                                  <a href={`https://wa.me/${selectedTransaction.customerWhatsapp}`} target="_blank" rel="noreferrer" className="text-blue-600 bg-blue-50 p-2 rounded-lg hover:bg-blue-100 transition border border-blue-200">
+                                  <a href={`https://wa.me/${formatWaNumber(selectedTransaction.customerWhatsapp)}`} target="_blank" rel="noreferrer" className="text-blue-600 bg-blue-50 p-2 rounded-lg hover:bg-blue-100 transition border border-blue-200">
                                         <ArrowRightLeft size={16} />
                                   </a>
                                 </div>
