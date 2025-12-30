@@ -87,16 +87,18 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
     if (!selectedTransaction) return;
     setIsSavingPayment(true);
     
-    // 1. Hitung Keuangan Dasar
+    // 1. Hitung Data Pembayaran Dasar
     const totalBill = selectedTransaction.totalPrice;
     const previousPaid = selectedTransaction.amountPaid || 0;
-    const remainingDebt = Math.max(0, totalBill - previousPaid); // Sisa utang sebelum bayar ini
+    const remainingDebt = Math.max(0, totalBill - previousPaid); // Sisa utang sebelum pembayaran ini
     
     const inputTotal = cashInput + transferInput;
     
-    // 2. Hitung Nominal untuk LAPORAN KEUANGAN (REAL REVENUE)
-    // Jika input 20rb tapi utang cuma 13rb, yang masuk laporan hanya 13rb.
-    // 7rb dianggap kembalian (uang keluar lagi).
+    // 2. LOGIKA UANG MASUK RILL (Laporan Keuangan)
+    // Jika input 20.000 (Cash) tapi utang 13.000, maka:
+    // - Kembalian: 7.000
+    // - Uang Masuk Laporan: 13.000
+    // Kita kurangi kembalian dari input Cash (asumsi kembalian diberi cash)
     
     let logCash = cashInput;
     let logTransfer = transferInput;
@@ -107,29 +109,31 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
         
         // Asumsi: Kembalian diambil dari uang Cash yang baru masuk terlebih dahulu
         if (logCash >= changeAmount) {
-            logCash = logCash - changeAmount;
+            logCash = logCash - changeAmount; // Kurangi input cash dengan kembalian
         } else {
-            // Jika cash tidak cukup (jarang terjadi, misal transfer kelebihan), potong dari nominal transfer
+            // Jika cash tidak cukup (misal transfer kelebihan), potong dari nominal transfer
+            // Ini jarang terjadi (refund transfer), tapi perlu dihandle
             const remainingChange = changeAmount - logCash;
             logCash = 0;
             logTransfer = Math.max(0, logTransfer - remainingChange);
         }
     }
 
-    // 3. Hitung Nominal untuk TRANSAKSI DATABASE (Total Uang Diserahkan)
-    // Di database transaksi tetap simpan 20rb agar di nota tertulis "Bayar: 20rb, Kembali: 7rb"
+    // 3. LOGIKA INVOICE/STRUK (Transaksi Database)
+    // Di database transaksi tetap simpan TOTAL YANG DISERAHKAN (Misal 20.000)
+    // Supaya di struk nanti bisa hitung: Bayar 20.000, Kembali 7.000.
     const finalPaidForRecord = previousPaid + inputTotal;
     
-    // Tentukan Deskripsi Log
+    // Tentukan Deskripsi untuk Log Keuangan
     const isDP = (previousPaid === 0 && remainingDebt > inputTotal);
     const descType = isDP ? "Pembayaran DP" : (inputTotal >= remainingDebt) ? "Pelunasan" : "Cicilan";
     const desc = `${descType} (${selectedTransaction.customerName})`;
 
-    // Update Transaction & Create Log
+    // Update Transaction & Create Payment Log (Real Revenue)
     const result = await updateTransactionPayment(
       selectedTransaction.id, 
       finalPaidForRecord,
-      // Pass ADJUSTED/NET log details
+      // Penting: Di sini kita kirim logCash/logTransfer yang SUDAH BERSIH (tanpa kembalian)
       {
         cashAmount: logCash,
         transferAmount: logTransfer,
@@ -154,7 +158,8 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
       setCashInput(0);
       setTransferInput(0);
       
-      alert(`Pembayaran tersimpan!\nMasuk Laporan Keuangan: Rp${(logCash + logTransfer).toLocaleString('id-ID')}`);
+      // Alert Informatif
+      alert(`Pembayaran tersimpan!\n\nInfo Laporan Keuangan:\nUang Masuk Rill: Rp${(logCash + logTransfer).toLocaleString('id-ID')}\n(Kembalian tidak dicatat sebagai pemasukan)`);
       
     } else {
       alert(`Gagal update pembayaran: ${result.error || 'Terjadi kesalahan sistem'}`);

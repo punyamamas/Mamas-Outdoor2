@@ -31,14 +31,21 @@ const AdminReportManager: React.FC = () => {
   // --- REPORT LOGIC ---
   const validTransactions = transactions.filter(t => t.status !== 'cancelled');
   
-  // 1. Total Revenue
+  // 1. Total Revenue (Nilai Transaksi)
   const totalRevenue = validTransactions.reduce((acc, t) => acc + t.totalPrice, 0);
-  const totalIncome = validTransactions.reduce((acc, t) => acc + (t.amountPaid || 0), 0);
-  const totalReceivables = totalRevenue - totalIncome;
-
-  // 2. Status Breakdown
-  const completedCount = transactions.filter(t => t.status === 'completed' || t.status === 'rented').length;
   
+  // 2. Real Income (Uang Masuk Rill)
+  // FIX: Kita cap amountPaid dengan totalPrice. 
+  // Jika tagihan 13.000 tapi di DB tercatat bayar 20.000 (karena input kasir),
+  // yang diakui sebagai omset tetap 13.000. Sisa 7.000 adalah kembalian.
+  const totalIncome = validTransactions.reduce((acc, t) => {
+    const paid = t.amountPaid || 0;
+    const bill = t.totalPrice;
+    return acc + Math.min(paid, bill);
+  }, 0);
+
+  const totalReceivables = Math.max(0, totalRevenue - totalIncome);
+
   // 3. Top Products Logic
   const productFrequency: { [key: string]: number } = {};
   validTransactions.forEach(t => {
@@ -104,30 +111,30 @@ const AdminReportManager: React.FC = () => {
     const returnDate = new Date(rentalDate);
     returnDate.setDate(rentalDate.getDate() + (t.duration - 1));
     
-    // Deadline Jam 19:00 pada Hari Pengembalian
+    // Deadline Reminder: Jam 19:00 Hari H
     const reminderDeadline = new Date(returnDate);
     reminderDeadline.setHours(19, 0, 0, 0); 
 
-    // Batas Pergantian Hari (Midnight)
-    const endOfDay = new Date(returnDate);
-    endOfDay.setHours(23, 59, 59, 999);
+    // Deadline Overdue: Jam 23:59:59 Hari H (Besoknya telat)
+    const overdueDeadline = new Date(returnDate);
+    overdueDeadline.setHours(23, 59, 59, 999);
 
     let statusType = 'normal'; // normal | reminder | overdue
     let daysLate = 0;
     let fineAmount = 0;
 
     if (t.status === 'rented') {
-      if (now > endOfDay) {
+      if (now > overdueDeadline) {
         // SUDAH GANTI HARI -> DENDA
         statusType = 'overdue';
         
         // Hitung selisih hari (pembulatan ke atas)
-        const diffTime = Math.abs(now.getTime() - endOfDay.getTime());
+        const diffTime = Math.abs(now.getTime() - overdueDeadline.getTime());
         daysLate = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
         
         // Hitung Denda: Harga Harian x Jumlah Hari Terlambat
-        const dailyRate = t.totalPrice / t.duration;
-        fineAmount = Math.ceil(dailyRate * daysLate);
+        const dailyRate = Math.ceil(t.totalPrice / t.duration);
+        fineAmount = dailyRate * daysLate;
 
       } else if (now > reminderDeadline) {
         // LEWAT JAM 19:00 TAPI MASIH HARI YANG SAMA -> REMINDER
@@ -353,10 +360,10 @@ const AdminReportManager: React.FC = () => {
                 
                 <div className="bg-green-50 p-6 rounded-2xl border border-green-100">
                    <p className="text-xs font-bold text-green-700 uppercase tracking-widest mb-2 flex items-center gap-2">
-                     <CheckCircle size={16}/> Uang Masuk (Cash/TF)
+                     <CheckCircle size={16}/> Uang Masuk (Net)
                    </p>
                    <h4 className="text-3xl font-black text-green-700">Rp{totalIncome.toLocaleString('id-ID')}</h4>
-                   <p className="text-xs text-green-600 mt-2 opacity-80">Realisasi pembayaran diterima</p>
+                   <p className="text-xs text-green-600 mt-2 opacity-80">Cash + Transfer (Tanpa Kembalian)</p>
                 </div>
 
                 <div className="bg-orange-50 p-6 rounded-2xl border border-orange-100">
