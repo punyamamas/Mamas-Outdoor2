@@ -24,7 +24,9 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
   
   // --- FILTER STATES ---
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterDate, setFilterDate] = useState('');
+  // Changed: From single filterDate to Range
+  const [filterStartDate, setFilterStartDate] = useState('');
+  const [filterEndDate, setFilterEndDate] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
 
   // State: Nominal yang SEDANG diketik (Pembayaran Baru) - DIBAGI DUA
@@ -68,8 +70,15 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
     const matchSearch = t.customerName.toLowerCase().includes(lowerSearch) || 
                         t.id.toLowerCase().includes(lowerSearch);
 
-    // 2. Date Filter (Rental Date)
-    const matchDate = filterDate ? t.rentalDate === filterDate : true;
+    // 2. Date Range Filter (Rental Date)
+    let matchDate = true;
+    if (filterStartDate && filterEndDate) {
+        matchDate = t.rentalDate >= filterStartDate && t.rentalDate <= filterEndDate;
+    } else if (filterStartDate) {
+        matchDate = t.rentalDate >= filterStartDate;
+    } else if (filterEndDate) {
+        matchDate = t.rentalDate <= filterEndDate;
+    }
 
     // 3. Status Filter
     const matchStatus = filterStatus === 'all' ? true : t.status === filterStatus;
@@ -343,23 +352,35 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                    onChange={(e) => setSearchTerm(e.target.value)}
                  />
               </div>
-              <div className="relative">
-                 <Calendar className="absolute left-3 top-2.5 text-gray-400" size={16} />
+              
+              {/* DATE RANGE FILTER */}
+              <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-2 py-1 focus-within:ring-2 focus-within:ring-nature-500 focus-within:border-transparent transition">
+                 <Calendar className="text-gray-400" size={16} />
                  <input 
                    type="date" 
-                   className="pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-nature-500 outline-none transition text-gray-600 font-medium"
-                   value={filterDate}
-                   onChange={(e) => setFilterDate(e.target.value)}
+                   className="text-xs sm:text-sm border-none outline-none text-gray-600 font-medium bg-transparent w-24 sm:w-auto"
+                   value={filterStartDate}
+                   onChange={(e) => setFilterStartDate(e.target.value)}
+                   title="Tanggal Mulai"
                  />
-                 {filterDate && (
+                 <span className="text-gray-300">-</span>
+                 <input 
+                   type="date" 
+                   className="text-xs sm:text-sm border-none outline-none text-gray-600 font-medium bg-transparent w-24 sm:w-auto"
+                   value={filterEndDate}
+                   onChange={(e) => setFilterEndDate(e.target.value)}
+                   title="Tanggal Selesai"
+                 />
+                 {(filterStartDate || filterEndDate) && (
                     <button 
-                      onClick={() => setFilterDate('')}
-                      className="absolute right-2 top-2 text-gray-400 hover:text-red-500"
+                      onClick={() => { setFilterStartDate(''); setFilterEndDate(''); }}
+                      className="text-gray-400 hover:text-red-500 ml-1"
                     >
                        <X size={14} />
                     </button>
                  )}
               </div>
+
               <div className="relative">
                  <Filter className="absolute left-3 top-2.5 text-gray-400" size={16} />
                  <select 
@@ -463,7 +484,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                   <tr><td colSpan={5} className="text-center py-12 text-gray-400">
                     <p className="mb-2">Tidak ada transaksi yang cocok.</p>
                     <button 
-                      onClick={() => {setSearchTerm(''); setFilterDate(''); setFilterStatus('all')}}
+                      onClick={() => {setSearchTerm(''); setFilterStartDate(''); setFilterEndDate(''); setFilterStatus('all')}}
                       className="text-nature-600 font-bold text-xs underline"
                     >
                       Reset Filter
