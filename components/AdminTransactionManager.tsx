@@ -58,7 +58,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
 
   // Kalkulasi Realtime untuk Tampilan Kasir
   const calculateFinancials = () => {
-    if (!selectedTransaction) return { total: 0, prevPaid: 0, finalPaid: 0, remaining: 0, isLunas: false, isKembalian: false, currentInputTotal: 0 };
+    if (!selectedTransaction) return { total: 0, prevPaid: 0, finalPaid: 0, remaining: 0, change: 0, isLunas: false, isKembalian: false, currentInputTotal: 0 };
 
     const total = selectedTransaction.totalPrice;
     const prevPaid = selectedTransaction.amountPaid || 0;
@@ -69,35 +69,71 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
     // Total Akhir = Uang yang sudah masuk duluan + Uang yang baru diinput sekarang
     const finalPaid = prevPaid + currentInputTotal;
     
-    const remaining = total - finalPaid;
-    const isLunas = remaining <= 0;
-    const isKembalian = remaining < 0;
+    // Sisa Tagihan (Nilai positif) atau Kembalian (Nilai negatif jika dihitung raw)
+    const rawRemaining = total - finalPaid;
+    
+    const remaining = Math.max(0, rawRemaining);
+    const change = rawRemaining < 0 ? Math.abs(rawRemaining) : 0;
+    
+    const isLunas = rawRemaining <= 0;
+    const isKembalian = rawRemaining < 0;
 
-    return { total, prevPaid, finalPaid, remaining, isLunas, isKembalian, currentInputTotal };
+    return { total, prevPaid, finalPaid, remaining, change, isLunas, isKembalian, currentInputTotal };
   };
 
-  const { total, prevPaid, remaining, isLunas, isKembalian, currentInputTotal } = calculateFinancials();
+  const { total, prevPaid, remaining, change, isLunas, isKembalian, currentInputTotal } = calculateFinancials();
 
   const handleSavePayment = async () => {
     if (!selectedTransaction) return;
     setIsSavingPayment(true);
     
-    const finalPaid = (selectedTransaction.amountPaid || 0) + cashInput + transferInput;
+    // 1. Hitung Keuangan Dasar
+    const totalBill = selectedTransaction.totalPrice;
+    const previousPaid = selectedTransaction.amountPaid || 0;
+    const remainingDebt = Math.max(0, totalBill - previousPaid); // Sisa utang sebelum bayar ini
     
-    // KETERANGAN UNTUK LOG KEUANGAN
-    const isDP = (selectedTransaction.amountPaid || 0) === 0 && (selectedTransaction.totalPrice - finalPaid) > 0;
-    const isPelunasan = (selectedTransaction.totalPrice - finalPaid) <= 0;
-    const desc = isDP ? "Pembayaran DP" : isPelunasan ? "Pelunasan" : "Cicilan Tambahan";
+    const inputTotal = cashInput + transferInput;
+    
+    // 2. Hitung Nominal untuk LAPORAN KEUANGAN (REAL REVENUE)
+    // Jika input 20rb tapi utang cuma 13rb, yang masuk laporan hanya 13rb.
+    // 7rb dianggap kembalian (uang keluar lagi).
+    
+    let logCash = cashInput;
+    let logTransfer = transferInput;
+
+    if (inputTotal > remainingDebt) {
+        // Ada Kembalian
+        const changeAmount = inputTotal - remainingDebt;
+        
+        // Asumsi: Kembalian diambil dari uang Cash yang baru masuk terlebih dahulu
+        if (logCash >= changeAmount) {
+            logCash = logCash - changeAmount;
+        } else {
+            // Jika cash tidak cukup (jarang terjadi, misal transfer kelebihan), potong dari nominal transfer
+            const remainingChange = changeAmount - logCash;
+            logCash = 0;
+            logTransfer = Math.max(0, logTransfer - remainingChange);
+        }
+    }
+
+    // 3. Hitung Nominal untuk TRANSAKSI DATABASE (Total Uang Diserahkan)
+    // Di database transaksi tetap simpan 20rb agar di nota tertulis "Bayar: 20rb, Kembali: 7rb"
+    const finalPaidForRecord = previousPaid + inputTotal;
+    
+    // Tentukan Deskripsi Log
+    const isDP = (previousPaid === 0 && remainingDebt > inputTotal);
+    const descType = isDP ? "Pembayaran DP" : (inputTotal >= remainingDebt) ? "Pelunasan" : "Cicilan";
+    const desc = `${descType} (${selectedTransaction.customerName})`;
 
     // Update Transaction & Create Log
     const result = await updateTransactionPayment(
       selectedTransaction.id, 
-      finalPaid,
-      // Pass log details
+      finalPaidForRecord,
+      // Pass ADJUSTED/NET log details
       {
-        cashAmount: cashInput,
-        transferAmount: transferInput,
-        description: `${desc} (${selectedTransaction.customerName})`
+        cashAmount: logCash,
+        transferAmount: logTransfer,
+        description: desc
       }
     );
     
@@ -110,7 +146,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
       // 2. Update State Lokal (Agar modal mencerminkan perubahan tanpa tutup)
       const updatedTrx = { 
         ...selectedTransaction, 
-        amountPaid: finalPaid,
+        amountPaid: finalPaidForRecord,
         status: result.newStatus ? (result.newStatus as any) : selectedTransaction.status
       };
       
@@ -118,7 +154,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
       setCashInput(0);
       setTransferInput(0);
       
-      alert(`Pembayaran tersimpan & tercatat di Keuangan!`);
+      alert(`Pembayaran tersimpan!\nMasuk Laporan Keuangan: Rp${(logCash + logTransfer).toLocaleString('id-ID')}`);
       
     } else {
       alert(`Gagal update pembayaran: ${result.error || 'Terjadi kesalahan sistem'}`);
@@ -520,8 +556,17 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                                  <span className="text-base font-bold text-green-600">Rp{prevPaid.toLocaleString('id-ID')}</span>
                               </div>
                               <div className="flex justify-between items-center pt-2 border-t border-dashed border-gray-300">
-                                 <span className="text-xs font-bold text-gray-400 uppercase">Kekurangan</span>
-                                 <span className="text-lg font-bold text-red-600">Rp{Math.max(0, total - prevPaid).toLocaleString('id-ID')}</span>
+                                 {isKembalian ? (
+                                    <>
+                                       <span className="text-xs font-bold text-gray-400 uppercase">Kembalian</span>
+                                       <span className="text-lg font-bold text-blue-600">Rp{change.toLocaleString('id-ID')}</span>
+                                    </>
+                                 ) : (
+                                    <>
+                                       <span className="text-xs font-bold text-gray-400 uppercase">Kekurangan</span>
+                                       <span className="text-lg font-bold text-red-600">Rp{remaining.toLocaleString('id-ID')}</span>
+                                    </>
+                                 )}
                               </div>
                            </div>
 
