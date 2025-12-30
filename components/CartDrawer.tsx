@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { X, Trash2, Calendar, Phone, User, ArrowRight, AlertCircle, Loader2, Clock, CreditCard, Banknote } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Trash2, Calendar, Phone, User, ArrowRight, AlertCircle, Loader2, Clock, CreditCard, Banknote, MapPin, LocateFixed } from 'lucide-react';
 import { CartItem, UserDetails, Transaction } from '../types';
 import { WA_NUMBER } from '../constants';
 import { processStockReduction } from '../services/productService';
@@ -27,13 +27,74 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
 }) => {
   const [step, setStep] = useState<'cart' | 'details'>('cart');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isLocating, setIsLocating] = useState(false);
   const [userDetails, setUserDetails] = useState<UserDetails>({
     name: '',
     whatsapp: '',
+    location: '', // Default kosong, user bisa isi atau auto-detect
     rentalDate: new Date().toISOString().split('T')[0],
     duration: 2,
-    paymentMethod: 'cash' // Default ke Cash
+    paymentMethod: 'cash' 
   });
+
+  // Reset form saat ditutup
+  useEffect(() => {
+    if (!isOpen) {
+        setStep('cart');
+    }
+  }, [isOpen]);
+
+  // Fungsi Deteksi Lokasi Akurat (GPS + OpenStreetMap)
+  const detectLocation = () => {
+    setIsLocating(true);
+    
+    if (!navigator.geolocation) {
+        alert("Browser tidak mendukung geolokasi.");
+        setIsLocating(false);
+        return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+        async (position) => {
+            try {
+                const { latitude, longitude } = position.coords;
+                // Gunakan OpenStreetMap Nominatim (Gratis & Akurat untuk level Kecamatan)
+                const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=14&addressdetails=1`);
+                const data = await response.json();
+                
+                if (data && data.address) {
+                    // Susun alamat yang enak dibaca
+                    const district = data.address.suburb || data.address.village || data.address.town || '';
+                    const city = data.address.city || data.address.regency || data.address.county || '';
+                    const state = data.address.state || '';
+                    
+                    const formattedLocation = [district, city, state].filter(Boolean).join(', ');
+                    setUserDetails(prev => ({ ...prev, location: formattedLocation }));
+                } else {
+                    // Fallback jika API gagal decode
+                    setUserDetails(prev => ({ ...prev, location: `${latitude.toFixed(4)}, ${longitude.toFixed(4)}` }));
+                }
+            } catch (error) {
+                console.error("Gagal reverse geocoding:", error);
+                alert("Gagal mendeteksi nama jalan. Silakan ketik manual.");
+            } finally {
+                setIsLocating(false);
+            }
+        },
+        (error) => {
+            console.warn("GPS Error:", error.code);
+            // Fallback ke IP jika GPS ditolak (Kurang akurat, tapi lebih baik daripada kosong)
+            fetch('https://ipapi.co/json/')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.city) setUserDetails(prev => ({ ...prev, location: `${data.city} (IP Detected)` }));
+                })
+                .catch(() => {})
+                .finally(() => setIsLocating(false));
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  };
 
   const getItemPriceForDuration = (item: CartItem, days: number): number => {
     const p2 = item.price2Days || 0;
@@ -94,28 +155,11 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
     setIsProcessing(true);
     
     try {
-      // --- IP GEOLOCATION DETECTION (Non-Intrusive) ---
-      let detectedLocation = '';
-      try {
-        const response = await fetch('https://ipapi.co/json/');
-        if (response.ok) {
-          const data = await response.json();
-          // Format: "Purwokerto Utara, Central Java"
-          if (data.city && data.region) {
-            detectedLocation = `${data.city}, ${data.region}`;
-          }
-        }
-      } catch (err) {
-        console.warn("Location detection failed:", err);
-        // Fail silently, transaction must proceed
-      }
-      // -----------------------------------------------
-
       const returnDateObj = getReturnDate(userDetails.rentalDate, userDetails.duration);
       const returnDateFormatted = formatReturnDate(returnDateObj);
 
-      // 1. Simpan Transaksi ke Database (Supabase) + Location
-      const createdTrx = await createTransaction(userDetails, cartItems, total, detectedLocation);
+      // 1. Simpan Transaksi ke Database (Supabase) + Location dari State Form
+      const createdTrx = await createTransaction(userDetails, cartItems, total, userDetails.location);
 
       if (!createdTrx) {
         throw new Error("Gagal membuat transaksi di database.");
@@ -127,22 +171,19 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
       // 3. Refresh Data Global (agar stok di katalog berkurang realtime)
       await onRefreshData();
 
-      // 4. Save Transaction to Local History (Gunakan createdTrx yang punya ID asli)
+      // 4. Save Transaction to Local History
       const existingHistory = localStorage.getItem('mamasHistory');
       const history = existingHistory ? JSON.parse(existingHistory) : [];
-      
-      // Push data asli dari server, bukan data dummy lokal
       history.push(createdTrx);
-      
       localStorage.setItem('mamasHistory', JSON.stringify(history));
 
       // 5. Construct WhatsApp Message
       const dpAmount = Math.ceil(total * 0.5); // DP 50%
       const remainingAmount = total - dpAmount;
-      const trxIdShort = createdTrx.id.slice(0, 8); // Ambil potongan ID asli
+      const trxIdShort = createdTrx.id.slice(0, 8); 
 
       const header = `*Halo Mamas Outdoor! Saya mau sewa dong.*\n*(Order ID: #${trxIdShort})*\n\n`;
-      const buyerInfo = `*Data Penyewa:*\nNama: ${userDetails.name}\nWA: ${userDetails.whatsapp}\n\n*Jadwal Sewa:*\nAmbil: ${userDetails.rentalDate}\nDurasi: ${userDetails.duration} Hari\nKembali: ${returnDateFormatted}\n\n`;
+      const buyerInfo = `*Data Penyewa:*\nNama: ${userDetails.name}\nWA: ${userDetails.whatsapp}\nDomisili: ${userDetails.location || '-'}\n\n*Jadwal Sewa:*\nAmbil: ${userDetails.rentalDate}\nDurasi: ${userDetails.duration} Hari\nKembali: ${returnDateFormatted}\n\n`;
       
       const itemsList = cartItems.map((item, idx) => {
         const priceForDuration = getItemPriceForDuration(item, userDetails.duration);
@@ -310,8 +351,6 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
                   </div>
                 </div>
 
-                {/* Kolom Asal Instansi Dihapus sesuai permintaan */}
-
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Nomor WhatsApp</label>
                   <div className="relative">
@@ -324,6 +363,32 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
                       onChange={e => setUserDetails({...userDetails, whatsapp: e.target.value})}
                     />
                   </div>
+                </div>
+
+                {/* NEW: Input Lokasi dengan Auto Detect */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Domisili / Lokasi (Untuk Analisis)</label>
+                  <div className="relative flex gap-2">
+                    <div className="relative flex-1">
+                        <MapPin className="absolute left-3 top-3 text-gray-400" size={18} />
+                        <input 
+                          type="text" 
+                          className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-nature-500 focus:border-transparent outline-none transition"
+                          placeholder="Kecamatan / Kota..."
+                          value={userDetails.location}
+                          onChange={e => setUserDetails({...userDetails, location: e.target.value})}
+                        />
+                    </div>
+                    <button 
+                        onClick={detectLocation}
+                        disabled={isLocating}
+                        className="bg-gray-100 hover:bg-gray-200 text-gray-600 px-3 py-2 rounded-lg border border-gray-200 transition disabled:opacity-50"
+                        title="Deteksi Lokasi GPS"
+                    >
+                        {isLocating ? <Loader2 className="animate-spin" size={20}/> : <LocateFixed size={20}/>}
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-gray-400 mt-1 italic">Klik ikon target untuk isi otomatis via GPS, atau ketik manual.</p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">

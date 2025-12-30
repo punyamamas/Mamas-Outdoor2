@@ -52,7 +52,7 @@ export interface CartItem extends Product {
 export interface UserDetails {
   name: string;
   whatsapp: string;
-  // campus removed
+  location: string; // Added location to state
   rentalDate: string;
   duration: number;
   paymentMethod: 'transfer' | 'cash'; 
