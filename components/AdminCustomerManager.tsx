@@ -413,7 +413,7 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
                             <span className="text-2xl font-black text-indigo-700">{communityStats.organizer}</span>
                         </div>
                         <h5 className="font-bold text-gray-800 text-sm">Organizer / B2B</h5>
-                        <p className="text-[10px] text-gray-500 leading-tight mt-1">Belanja besar (>300rb/sewa). Potensi kerjasama tetap.</p>
+                        <p className="text-[10px] text-gray-500 leading-tight mt-1">Belanja besar (&gt;300rb/sewa). Potensi kerjasama tetap.</p>
                     </div>
                     <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-xl">
                         <div className="flex justify-between items-start mb-2">
