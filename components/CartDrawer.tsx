@@ -367,7 +367,7 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
 
                 {/* NEW: Input Lokasi dengan Auto Detect */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Domisili / Lokasi (Untuk Analisis)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Domisili / Lokasi</label>
                   <div className="relative flex gap-2">
                     <div className="relative flex-1">
                         <MapPin className="absolute left-3 top-3 text-gray-400" size={18} />
