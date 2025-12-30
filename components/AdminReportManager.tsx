@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { PieChart, Calendar, TrendingUp, TrendingDown, Package, Loader2, Printer, CheckCircle, XCircle, Download, BarChart3, Clock, Users, ArrowUpRight, AlertTriangle, MessageCircle, BellRing, Calculator } from 'lucide-react';
+import { PieChart, Calendar, TrendingUp, TrendingDown, Package, Loader2, Printer, CheckCircle, XCircle, Download, BarChart3, Clock, Users, ArrowUpRight, AlertTriangle, MessageCircle, BellRing, Calculator, Tent, Backpack, Flame, Map, Trophy } from 'lucide-react';
 import { Transaction } from '../types';
 import { getTransactionsByDateRange } from '../services/transactionService';
 
@@ -69,19 +69,43 @@ const AdminReportManager: React.FC = () => {
 
   const totalReceivables = Math.max(0, totalRevenue - totalIncome);
 
-  // 3. Top Products Logic
-  const productFrequency: { [key: string]: number } = {};
+  // 3. PRODUCT & CATEGORY ANALYSIS LOGIC
+  const productStats: { [key: string]: { name: string, category: string, totalQty: number, trxCount: number } } = {};
+  const categoryStats: { [key: string]: number } = {};
+
   validTransactions.forEach(t => {
      t.items.forEach(item => {
-        const key = item.name;
-        productFrequency[key] = (productFrequency[key] || 0) + item.quantity;
+        // Product Stats
+        // Gunakan kombinasi Nama sebagai key jika ID berubah-ubah di mock, idealnya pakai ID
+        const key = item.id; 
+        if (!productStats[key]) {
+            productStats[key] = { 
+                name: item.name, 
+                category: item.category || 'Lainnya', 
+                totalQty: 0, 
+                trxCount: 0 
+            };
+        }
+        productStats[key].totalQty += item.quantity;
+        productStats[key].trxCount += 1; // Dihitung 1 kali per transaksi (nota)
+
+        // Category Stats
+        const cat = item.category || 'Lainnya';
+        if (!categoryStats[cat]) categoryStats[cat] = 0;
+        categoryStats[cat] += item.quantity;
      });
   });
 
-  const topProducts = Object.entries(productFrequency)
+  // Sort Products by Total Quantity Rented
+  const sortedProductStats = Object.values(productStats).sort((a, b) => b.totalQty - a.totalQty);
+  
+  // Sort Categories by Volume
+  const sortedCategoryStats = Object.entries(categoryStats)
     .map(([name, count]) => ({ name, count }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 5);
+    .sort((a, b) => b.count - a.count);
+
+  // Top 5 for Summary Card
+  const topProducts = sortedProductStats.slice(0, 5);
 
   // 4. Daily Revenue Trend (FIXED LOGIC)
   const dailyRevenueMap: { [date: string]: number } = {};
@@ -258,6 +282,16 @@ const AdminReportManager: React.FC = () => {
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
   };
 
+  // Helper Icon Kategori
+  const getCategoryIcon = (name: string) => {
+    const n = name.toLowerCase();
+    if (n.includes('tenda')) return <Tent size={18} />;
+    if (n.includes('carrier') || n.includes('tas')) return <Backpack size={18} />;
+    if (n.includes('masak') || n.includes('kompor')) return <Flame size={18} />;
+    if (n.includes('jalan') || n.includes('trekking')) return <Map size={18} />;
+    return <Package size={18} />;
+  };
+
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden min-h-[600px] flex flex-col">
       {/* Header */}
@@ -399,7 +433,76 @@ const AdminReportManager: React.FC = () => {
                 </div>
              </div>
 
-             {/* 2. REVENUE CHART FIX */}
+             {/* 2. CATEGORY BREAKDOWN STATS */}
+             <div>
+                <h4 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+                   <Package size={20} className="text-nature-600"/> Statistik Kategori (Unit Keluar)
+                </h4>
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                   {sortedCategoryStats.map((cat, idx) => (
+                      <div key={idx} className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col items-center text-center">
+                         <div className="p-2 bg-gray-100 rounded-lg text-gray-600 mb-2">
+                            {getCategoryIcon(cat.name)}
+                         </div>
+                         <span className="text-xs font-bold text-gray-500 uppercase tracking-wide truncate w-full">{cat.name}</span>
+                         <span className="text-xl font-black text-nature-700">{cat.count}</span>
+                         <span className="text-[10px] text-gray-400">Unit</span>
+                      </div>
+                   ))}
+                </div>
+             </div>
+
+             {/* 3. DETAILED PRODUCT RANKING TABLE */}
+             <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
+                <div className="px-6 py-4 bg-purple-50 border-b border-purple-100 flex justify-between items-center">
+                   <h4 className="font-bold text-purple-800 flex items-center gap-2">
+                      <Trophy size={18} /> Peringkat Produk Paling Sering Disewa
+                   </h4>
+                   <span className="text-xs bg-white px-2 py-1 rounded font-bold text-purple-600">Top 100</span>
+                </div>
+                <div className="overflow-x-auto max-h-96">
+                   <table className="w-full text-sm text-left">
+                      <thead className="bg-white text-gray-600 font-bold border-b border-gray-200 sticky top-0 shadow-sm">
+                         <tr>
+                            <th className="px-6 py-3 w-16 text-center">#</th>
+                            <th className="px-6 py-3">Nama Produk</th>
+                            <th className="px-6 py-3">Kategori</th>
+                            <th className="px-6 py-3 text-center">Frekuensi Sewa</th>
+                            <th className="px-6 py-3 text-center bg-purple-50/50">Total Unit Keluar</th>
+                         </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                         {sortedProductStats.length === 0 ? (
+                            <tr><td colSpan={5} className="p-6 text-center text-gray-400">Belum ada data produk keluar.</td></tr>
+                         ) : (
+                            sortedProductStats.map((p, idx) => (
+                               <tr key={idx} className="hover:bg-gray-50 transition">
+                                  <td className="px-6 py-3 text-center font-bold text-gray-400">
+                                     {idx + 1}
+                                  </td>
+                                  <td className="px-6 py-3 font-bold text-gray-800">
+                                     {p.name}
+                                  </td>
+                                  <td className="px-6 py-3">
+                                     <span className="text-xs bg-gray-100 px-2 py-1 rounded text-gray-600 font-medium">
+                                        {p.category}
+                                     </span>
+                                  </td>
+                                  <td className="px-6 py-3 text-center text-gray-600">
+                                     {p.trxCount}x <span className="text-[10px] text-gray-400">Nota</span>
+                                  </td>
+                                  <td className="px-6 py-3 text-center font-bold text-purple-700 bg-purple-50/30">
+                                     {p.totalQty} Unit
+                                  </td>
+                               </tr>
+                            ))
+                         )}
+                      </tbody>
+                   </table>
+                </div>
+             </div>
+
+             {/* 4. REVENUE CHART */}
              <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm overflow-hidden">
                 <div className="flex justify-between items-center mb-6">
                    <h4 className="font-bold text-gray-800 flex items-center gap-2">
@@ -458,28 +561,7 @@ const AdminReportManager: React.FC = () => {
              </div>
 
              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* 3. TOP PRODUCTS */}
-                <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm h-full">
-                   <h4 className="font-bold text-gray-800 mb-6 flex items-center gap-2">
-                      <Package size={20} className="text-purple-600"/> 5 Produk Paling Laris
-                   </h4>
-                   <div className="space-y-4">
-                      {topProducts.length === 0 ? <p className="text-sm text-gray-400 italic">Belum ada data</p> : 
-                      topProducts.map((p, idx) => (
-                         <div key={idx} className="flex items-center justify-between group">
-                            <div className="flex items-center gap-3">
-                               <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${idx===0 ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600'}`}>
-                                  #{idx+1}
-                               </div>
-                               <span className="font-medium text-gray-700 text-sm group-hover:text-nature-600 transition">{p.name}</span>
-                            </div>
-                            <span className="font-bold text-purple-700 bg-purple-50 px-3 py-1 rounded-full text-xs">{p.count}x Sewa</span>
-                         </div>
-                      ))}
-                   </div>
-                </div>
-
-                {/* 4. TOP CUSTOMERS */}
+                {/* 5. TOP CUSTOMERS */}
                 <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm h-full">
                    <h4 className="font-bold text-gray-800 mb-6 flex items-center gap-2">
                       <Users size={20} className="text-blue-600"/> Top 5 Pelanggan Sultan
@@ -506,7 +588,7 @@ const AdminReportManager: React.FC = () => {
                 </div>
              </div>
 
-             {/* 5. RETURN SCHEDULE (Jadwal Pengembalian) */}
+             {/* 6. RETURN SCHEDULE (Jadwal Pengembalian) */}
              <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
                 <div className="px-6 py-4 bg-orange-50 border-b border-orange-100 flex justify-between items-center">
                    <h4 className="font-bold text-sm text-orange-800 uppercase tracking-widest flex items-center gap-2">
@@ -611,7 +693,7 @@ const AdminReportManager: React.FC = () => {
                 )}
              </div>
 
-             {/* 6. RECENT TRANSACTIONS TABLE */}
+             {/* 7. RECENT TRANSACTIONS TABLE */}
              <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
                 <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
                    <h4 className="font-bold text-sm text-gray-700 uppercase tracking-widest">Detail Transaksi Terbaru</h4>
