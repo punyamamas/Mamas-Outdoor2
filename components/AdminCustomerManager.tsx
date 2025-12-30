@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Users, Search, MessageCircle, TrendingUp, History, Star, ArrowUpRight, Crown, MapPin, Globe, Navigation, Target, Layers, Info, AlertTriangle, Award, Gift, DollarSign, PieChart } from 'lucide-react';
+import { Users, Search, MessageCircle, TrendingUp, History, Star, ArrowUpRight, Crown, MapPin, Globe, Navigation, Target, Layers, Info, AlertTriangle, Award, Gift, DollarSign, PieChart, Share2, Megaphone, Briefcase, Zap } from 'lucide-react';
 import { Transaction } from '../types';
 
 interface AdminCustomerManagerProps {
@@ -9,31 +9,45 @@ interface AdminCustomerManagerProps {
 interface CustomerStats {
   name: string;
   whatsapp: string;
-  location: string; // New
+  location: string; 
   totalRentals: number;
   totalSpent: number;
   lastRentalDate: string;
   firstRentalDate: string;
+  avgItemsPerRent: number; // New metric for profiling
+  preferredCategory: string; // New metric
   status: 'New' | 'Regular' | 'Loyal' | 'VIP';
+  persona: 'Organizer (B2B)' | 'Mapala/Pro' | 'Camper Ceria' | 'Mahasiswa Hemat'; // New Psychographic Tag
 }
 
 interface CohortData {
-  cohortMonth: string; // YYYY-MM
+  cohortMonth: string; 
   totalCustomers: number;
-  retentionCounts: number[]; // Index 0 = Month 0, Index 1 = Month 1, dst.
+  retentionCounts: number[]; 
 }
 
 const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transactions }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
-  // AGGREGATION LOGIC: Mengubah daftar transaksi menjadi daftar pelanggan unik
+  // AGGREGATION LOGIC
   const customers = useMemo(() => {
     const customerMap: Record<string, CustomerStats> = {};
 
+    // Helper to determine persona based on transaction behavior
+    const determinePersona = (avgSpend: number, avgItems: number, items: any[]): CustomerStats['persona'] => {
+        // Logika Deteksi Komunitas/Persona
+        const isBulkRenter = avgItems >= 4 || avgSpend > 150000;
+        const hasTechnicalGear = items.some((i: any) => i.name.toLowerCase().includes('carrier') || i.name.toLowerCase().includes('trekking'));
+        
+        if (isBulkRenter && avgSpend > 300000) return 'Organizer (B2B)'; // "Whales" yang sering bawa rombongan
+        if (hasTechnicalGear) return 'Mapala/Pro'; // Anak gunung serius
+        if (avgSpend > 100000) return 'Camper Ceria'; // Keluarga/Wisatawan
+        return 'Mahasiswa Hemat'; // Budget traveler
+    };
+
     transactions.forEach(trx => {
-      // Gunakan Nomor WA sebagai Unique Identifier (bersihkan format)
       const rawPhone = trx.customerWhatsapp || '';
-      const phoneKey = rawPhone.replace(/\D/g, ''); // Hanya angka
+      const phoneKey = rawPhone.replace(/\D/g, ''); 
 
       if (!phoneKey) return;
 
@@ -41,69 +55,91 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
         customerMap[phoneKey] = {
           name: trx.customerName,
           whatsapp: trx.customerWhatsapp, 
-          location: trx.customerLocation || '-', // Default
+          location: trx.customerLocation || '-', 
           totalRentals: 0,
           totalSpent: 0,
           lastRentalDate: trx.rentalDate,
           firstRentalDate: trx.rentalDate,
-          status: 'New'
+          avgItemsPerRent: 0,
+          preferredCategory: 'General',
+          status: 'New',
+          persona: 'Mahasiswa Hemat' // Default
         };
       }
 
       const customer = customerMap[phoneKey];
       
-      // Update Stats
+      // Update Basic Stats
       customer.totalRentals += 1;
       customer.totalSpent += trx.totalPrice;
       
-      // Update Location jika tersedia di transaksi terbaru (dan bukan strip)
-      // Prioritaskan lokasi yang lebih detail jika ada
+      // Location Logic
       if (trx.customerLocation && trx.customerLocation !== '-' && trx.customerLocation.length > 3) {
          customer.location = trx.customerLocation;
       }
       
-      // Check Dates
+      // Date Logic
       if (new Date(trx.rentalDate) > new Date(customer.lastRentalDate)) {
         customer.lastRentalDate = trx.rentalDate;
-        // Update nama ke yang terbaru jika ada perubahan
         customer.name = trx.customerName; 
       }
       if (new Date(trx.rentalDate) < new Date(customer.firstRentalDate)) {
         customer.firstRentalDate = trx.rentalDate;
       }
 
-      // Determine Status
+      // Status Logic
       if (customer.totalSpent > 1000000) customer.status = 'VIP';
       else if (customer.totalRentals > 3) customer.status = 'Loyal';
       else if (customer.totalRentals > 1) customer.status = 'Regular';
       else customer.status = 'New';
+
+      // Update Persona Data (Temporary storage for calculation)
+      // Note: In real app, we would aggregate all items properly. Here we approximate based on latest/accumulated.
+      const currentItemsCount = trx.items.reduce((acc, i) => acc + i.quantity, 0);
+      const newAvgItems = ((customer.avgItemsPerRent * (customer.totalRentals - 1)) + currentItemsCount) / customer.totalRentals;
+      customer.avgItemsPerRent = newAvgItems;
+      
+      // Recalculate Persona
+      const avgSpend = customer.totalSpent / customer.totalRentals;
+      customer.persona = determinePersona(avgSpend, newAvgItems, trx.items);
     });
 
-    return Object.values(customerMap).sort((a, b) => b.totalSpent - a.totalSpent); // Sort by Spend
+    return Object.values(customerMap).sort((a, b) => b.totalSpent - a.totalSpent);
   }, [transactions]);
 
-  // CLV (CUSTOMER LIFETIME VALUE) ANALYSIS LOGIC
+  // PSYCHOGRAPHIC & COMMUNITY STATS
+  const communityStats = useMemo(() => {
+      const stats = {
+          organizer: 0,
+          mapala: 0,
+          camper: 0,
+          student: 0
+      };
+      
+      customers.forEach(c => {
+          if (c.persona === 'Organizer (B2B)') stats.organizer++;
+          else if (c.persona === 'Mapala/Pro') stats.mapala++;
+          else if (c.persona === 'Camper Ceria') stats.camper++;
+          else stats.student++;
+      });
+
+      return stats;
+  }, [customers]);
+
+  // CLV LOGIC (Existing)
   const clvStats = useMemo(() => {
       if (customers.length === 0) return null;
-
       const sortedBySpend = [...customers].sort((a, b) => b.totalSpent - a.totalSpent);
       const totalRevenue = sortedBySpend.reduce((acc, c) => acc + c.totalSpent, 0);
       const totalCount = sortedBySpend.length;
-
-      // 1. Segmentation (Whales/Sultan = Top 20%, Dolphins = Next 30%, Minnows = Bottom 50%)
       const whaleLimit = Math.ceil(totalCount * 0.2);
-      const dolphinLimit = Math.ceil(totalCount * 0.5); // Cumulative (20+30)
-
+      const dolphinLimit = Math.ceil(totalCount * 0.5); 
       const whales = sortedBySpend.slice(0, whaleLimit);
       const dolphins = sortedBySpend.slice(whaleLimit, dolphinLimit);
       const minnows = sortedBySpend.slice(dolphinLimit);
-
-      // 2. Revenue Contribution
       const whaleRevenue = whales.reduce((acc, c) => acc + c.totalSpent, 0);
       const dolphinRevenue = dolphins.reduce((acc, c) => acc + c.totalSpent, 0);
       const minnowRevenue = minnows.reduce((acc, c) => acc + c.totalSpent, 0);
-
-      // 3. Average CLV
       const avgClv = totalRevenue / totalCount;
 
       return {
@@ -116,11 +152,10 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
       };
   }, [customers]);
 
-  // GEOSPATIAL ANALYSIS LOGIC
+  // LOCATION STATS (Existing)
   const locationStats = useMemo(() => {
     const stats: Record<string, number> = {};
     let validCount = 0;
-
     customers.forEach(c => {
         let loc = c.location;
         if (loc && loc !== '-') {
@@ -134,75 +169,44 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
             stats['Tidak Terdeteksi'] = (stats['Tidak Terdeteksi'] || 0) + 1;
         }
     });
-
-    const sorted = Object.entries(stats)
-        .map(([name, count]) => ({ name, count, percentage: validCount > 0 ? (count / customers.length) * 100 : 0 }))
-        .sort((a, b) => b.count - a.count);
-
+    const sorted = Object.entries(stats).map(([name, count]) => ({ name, count, percentage: validCount > 0 ? (count / customers.length) * 100 : 0 })).sort((a, b) => b.count - a.count);
     return { data: sorted, total: customers.length, validLocations: validCount };
   }, [customers]);
 
-  // COHORT ANALYSIS LOGIC
+  // COHORT LOGIC (Existing)
   const cohortStats = useMemo(() => {
     const customerCohorts: Record<string, string> = {}; 
     const customerActivity: Record<string, Set<string>> = {}; 
-
     const getMonthStr = (dateStr: string) => dateStr.slice(0, 7);
     const getMonthDiff = (start: string, current: string) => {
         const d1 = new Date(start + '-01');
         const d2 = new Date(current + '-01');
         return (d2.getFullYear() - d1.getFullYear()) * 12 + (d2.getMonth() - d1.getMonth());
     };
-
     transactions.forEach(trx => {
         const phone = trx.customerWhatsapp.replace(/\D/g, '');
         if (!phone) return;
         const trxMonth = getMonthStr(trx.rentalDate);
-
-        if (!customerCohorts[phone]) {
-            customerCohorts[phone] = trxMonth; 
-        } else {
-            if (trxMonth < customerCohorts[phone]) {
-                customerCohorts[phone] = trxMonth;
-            }
-        }
-
+        if (!customerCohorts[phone]) { customerCohorts[phone] = trxMonth; } else { if (trxMonth < customerCohorts[phone]) { customerCohorts[phone] = trxMonth; } }
         if (!customerActivity[phone]) customerActivity[phone] = new Set();
         customerActivity[phone].add(trxMonth);
     });
-
     const grid: Record<string, { size: number, retention: Record<number, number> }> = {};
-
     Object.keys(customerCohorts).forEach(phone => {
         const cohortMonth = customerCohorts[phone];
         if (!grid[cohortMonth]) grid[cohortMonth] = { size: 0, retention: {} };
         grid[cohortMonth].size += 1;
-
         customerActivity[phone].forEach(activeMonth => {
             const diff = getMonthDiff(cohortMonth, activeMonth);
-            if (diff >= 0) {
-                if (!grid[cohortMonth].retention[diff]) grid[cohortMonth].retention[diff] = 0;
-                grid[cohortMonth].retention[diff] += 1;
-            }
+            if (diff >= 0) { if (!grid[cohortMonth].retention[diff]) grid[cohortMonth].retention[diff] = 0; grid[cohortMonth].retention[diff] += 1; }
         });
     });
-
-    const result: CohortData[] = Object.entries(grid)
-        .map(([month, data]) => {
-            const retentionArr: number[] = [];
-            const maxMonth = Math.max(...Object.keys(data.retention).map(Number), 0);
-            for (let i = 0; i <= Math.min(maxMonth, 11); i++) { 
-                retentionArr[i] = data.retention[i] || 0;
-            }
-            return {
-                cohortMonth: month,
-                totalCustomers: data.size,
-                retentionCounts: retentionArr
-            };
-        })
-        .sort((a, b) => b.cohortMonth.localeCompare(a.cohortMonth));
-
-    return result;
+    return Object.entries(grid).map(([month, data]) => {
+        const retentionArr: number[] = [];
+        const maxMonth = Math.max(...Object.keys(data.retention).map(Number), 0);
+        for (let i = 0; i <= Math.min(maxMonth, 11); i++) { retentionArr[i] = data.retention[i] || 0; }
+        return { cohortMonth: month, totalCustomers: data.size, retentionCounts: retentionArr };
+    }).sort((a, b) => b.cohortMonth.localeCompare(a.cohortMonth));
   }, [transactions]);
 
   // Filtering
@@ -212,6 +216,7 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
     c.location.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Helpers
   const openWa = (phone: string) => {
     let p = phone.replace(/\D/g, '');
     if (p.startsWith('0')) p = '62' + p.slice(1);
@@ -225,6 +230,15 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
       case 'Regular': return 'bg-blue-100 text-blue-700 border-blue-200';
       default: return 'bg-gray-100 text-gray-600 border-gray-200';
     }
+  };
+
+  const getPersonaColor = (persona: string) => {
+      switch (persona) {
+          case 'Organizer (B2B)': return 'bg-indigo-100 text-indigo-700 border-indigo-200';
+          case 'Mapala/Pro': return 'bg-emerald-100 text-emerald-700 border-emerald-200';
+          case 'Camper Ceria': return 'bg-orange-100 text-orange-700 border-orange-200';
+          default: return 'bg-slate-100 text-slate-600 border-slate-200';
+      }
   };
 
   const getHeatmapColor = (index: number) => {
@@ -261,12 +275,8 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
           }
       });
       const avgM1Retention = m1Count > 0 ? (totalM1Retention / m1Count) * 100 : 0;
-
-      if (avgM1Retention < 10) {
-          return { type: 'danger', title: 'Retensi Awal Rendah (<10%)', desc: 'Banyak pelanggan hilang setelah sewa pertama.' };
-      } else if (avgM1Retention > 30) {
-          return { type: 'success', title: 'Customer Setia (>30%)', desc: 'Retensi bulan ke-1 sangat bagus! Pertahankan.' };
-      }
+      if (avgM1Retention < 10) return { type: 'danger', title: 'Retensi Awal Rendah (<10%)', desc: 'Banyak pelanggan hilang setelah sewa pertama.' };
+      else if (avgM1Retention > 30) return { type: 'success', title: 'Customer Setia (>30%)', desc: 'Retensi bulan ke-1 sangat bagus! Pertahankan.' };
       return { type: 'neutral', title: 'Retensi Normal (10-30%)', desc: 'Performa standar rental.' };
   };
 
@@ -277,7 +287,6 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
         
       {/* 1. ANALISIS GEOSPASIAL (HEATMAP) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-         {/* Top Locations List */}
          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col h-full">
             <h4 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
                <Target size={20} className="text-nature-600"/> Top 5 Basis Pelanggan
@@ -304,7 +313,6 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
             </div>
          </div>
 
-         {/* Visual Heatmap / Cluster */}
          <div className="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden">
             <h4 className="font-bold text-gray-800 mb-6 flex items-center gap-2">
                <Globe size={20} className="text-blue-600"/> Peta Sebaran (Heatmap Cluster)
@@ -347,11 +355,104 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
          </div>
       </div>
 
-      {/* 2. ANALISIS CLV (CUSTOMER LIFETIME VALUE) - NEW FEATURE */}
+      {/* 2. ANALISIS PSIKOGRAFIS & KOMUNITAS (New Feature) */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+         <div className="p-6 border-b border-gray-100">
+            <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                <Share2 size={20} className="text-indigo-600"/> Analisis Jejaring Sosial & Komunitas (Psychographics)
+            </h3>
+            <p className="text-xs text-gray-500 mt-1">
+                Profil komunitas pelanggan Anda berdasarkan pola sewa (Behavioral Profiling). Gunakan ini untuk strategi kemitraan B2B.
+            </p>
+         </div>
+         
+         <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Left: Persona Breakdown */}
+            <div className="space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-xl">
+                        <div className="flex justify-between items-start mb-2">
+                            <div className="p-2 bg-white rounded-lg text-indigo-600 shadow-sm"><Briefcase size={18}/></div>
+                            <span className="text-2xl font-black text-indigo-700">{communityStats.organizer}</span>
+                        </div>
+                        <h5 className="font-bold text-gray-800 text-sm">Organizer / B2B</h5>
+                        <p className="text-[10px] text-gray-500 leading-tight mt-1">Belanja besar (>300rb/sewa). Potensi kerjasama tetap.</p>
+                    </div>
+                    <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-xl">
+                        <div className="flex justify-between items-start mb-2">
+                            <div className="p-2 bg-white rounded-lg text-emerald-600 shadow-sm"><TrendingUp size={18}/></div>
+                            <span className="text-2xl font-black text-emerald-700">{communityStats.mapala}</span>
+                        </div>
+                        <h5 className="font-bold text-gray-800 text-sm">Mapala / Pro</h5>
+                        <p className="text-[10px] text-gray-500 leading-tight mt-1">Sewa alat teknis (Carrier, Trekking Pole). Influencer komunitas.</p>
+                    </div>
+                    <div className="p-4 bg-orange-50 border border-orange-100 rounded-xl">
+                        <div className="flex justify-between items-start mb-2">
+                            <div className="p-2 bg-white rounded-lg text-orange-600 shadow-sm"><Zap size={18}/></div>
+                            <span className="text-2xl font-black text-orange-700">{communityStats.camper}</span>
+                        </div>
+                        <h5 className="font-bold text-gray-800 text-sm">Camper Ceria</h5>
+                        <p className="text-[10px] text-gray-500 leading-tight mt-1">Wisata keluarga/pemula. Butuh alat yang nyaman & mudah.</p>
+                    </div>
+                    <div className="p-4 bg-slate-50 border border-slate-100 rounded-xl">
+                        <div className="flex justify-between items-start mb-2">
+                            <div className="p-2 bg-white rounded-lg text-slate-600 shadow-sm"><Users size={18}/></div>
+                            <span className="text-2xl font-black text-slate-700">{communityStats.student}</span>
+                        </div>
+                        <h5 className="font-bold text-gray-800 text-sm">Mahasiswa Hemat</h5>
+                        <p className="text-[10px] text-gray-500 leading-tight mt-1">Sensitif harga. Butuh paket promo pelajar.</p>
+                    </div>
+                </div>
+            </div>
+
+            {/* Right: Insight & Action */}
+            <div className="flex flex-col h-full bg-gradient-to-br from-indigo-900 to-slate-900 rounded-xl p-6 text-white relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
+                
+                <h4 className="font-bold text-lg mb-4 flex items-center gap-2 relative z-10">
+                    <Megaphone size={20} className="text-yellow-400"/> Strategic Actions
+                </h4>
+
+                <div className="space-y-4 relative z-10 flex-1">
+                    {communityStats.organizer > 2 ? (
+                        <div className="bg-white/10 p-3 rounded-lg border border-white/10">
+                            <h5 className="font-bold text-yellow-400 text-sm mb-1">🎯 Kemitraan B2B (High Priority)</h5>
+                            <p className="text-xs text-gray-300 leading-relaxed">
+                                Terdeteksi <strong>{communityStats.organizer} pelanggan tipe Organizer</strong>. Jangan biarkan mereka lepas! Hubungi & tawarkan "Member Card Prioritas" atau diskon khusus volume agar mereka loyal.
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="bg-white/10 p-3 rounded-lg border border-white/10">
+                            <h5 className="font-bold text-blue-300 text-sm mb-1">📢 Akuisisi Komunitas Kampus</h5>
+                            <p className="text-xs text-gray-300 leading-relaxed">
+                                Data B2B masih rendah. Coba datangi Sekretariat Mapala (Unsoed/UMP) dan ajukan proposal kerjasama diskon khusus anggota untuk menarik massa.
+                            </p>
+                        </div>
+                    )}
+
+                    {communityStats.mapala > communityStats.camper ? (
+                        <div className="bg-white/10 p-3 rounded-lg border border-white/10">
+                            <h5 className="font-bold text-emerald-400 text-sm mb-1">⛰️ Trend Spotting: Technical Gear</h5>
+                            <p className="text-xs text-gray-300 leading-relaxed">
+                                Pelanggan pro mendominasi. Pertimbangkan stok alat <i>Ultralight</i> atau tenda ekspedisi musim depan.
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="bg-white/10 p-3 rounded-lg border border-white/10">
+                            <h5 className="font-bold text-orange-400 text-sm mb-1">🔥 Trend Spotting: Camping Hore</h5>
+                            <p className="text-xs text-gray-300 leading-relaxed">
+                                Banyak pemula/keluarga. Perbanyak stok alat masak portable, kursi lipat, dan lampu hias untuk konten sosmed.
+                            </p>
+                        </div>
+                    )}
+                </div>
+            </div>
+         </div>
+      </div>
+
+      {/* 3. ANALISIS CLV (CUSTOMER LIFETIME VALUE) */}
       {clvStats && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            
-            {/* CLV TIERS CARD */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col">
                 <div className="flex justify-between items-start mb-6">
                     <div>
@@ -368,7 +469,6 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
                 </div>
 
                 <div className="space-y-4 flex-1">
-                    {/* WHALES */}
                     <div className="relative p-4 rounded-xl bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200">
                         <div className="flex justify-between items-center mb-2">
                             <span className="font-bold text-yellow-800 flex items-center gap-2"><Crown size={14} fill="currentColor"/> Sultan Outdoor (Top 20%)</span>
@@ -386,7 +486,6 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
                         </div>
                     </div>
 
-                    {/* DOLPHINS */}
                     <div className="relative p-4 rounded-xl bg-blue-50 border border-blue-100">
                         <div className="flex justify-between items-center mb-2">
                             <span className="font-bold text-blue-800 flex items-center gap-2"><Star size={14} className="text-blue-500"/> Juragan (Middle 30%)</span>
@@ -402,7 +501,6 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
                         </div>
                     </div>
 
-                    {/* MINNOWS */}
                     <div className="relative p-4 rounded-xl bg-gray-50 border border-gray-200">
                         <div className="flex justify-between items-center mb-2">
                             <span className="font-bold text-gray-700 flex items-center gap-2"><Users size={14} className="text-gray-400"/> Pendaki Hemat (Bottom 50%)</span>
@@ -420,7 +518,6 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
                 </div>
             </div>
 
-            {/* ACTIONABLE INSIGHT: WHALES FOCUS */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col">
                 <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-4">
                     <Gift size={20} className="text-red-500" /> Action: Personal Touch
@@ -462,7 +559,7 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
         </div>
       )}
 
-      {/* 3. ANALISIS KOHORT (RETENTION) */}
+      {/* 4. ANALISIS KOHORT (RETENTION) */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
          <div className="p-6 border-b border-gray-100 flex flex-col md:flex-row justify-between items-start gap-4">
             <div>
@@ -540,9 +637,8 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
          </div>
       </div>
 
-      {/* 4. TABEL PELANGGAN (EXISTING) */}
+      {/* 5. TABEL PELANGGAN (EXISTING) */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
-        {/* Header */}
         <div className="p-6 border-b border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4 bg-nature-50">
             <div>
             <h3 className="font-bold text-lg text-nature-800 flex items-center gap-2">
@@ -571,10 +667,10 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
                 <tr>
                 <th className="px-6 py-4">Pelanggan</th>
                 <th className="px-6 py-4">Domisili</th>
+                <th className="px-6 py-4">Persona/Komunitas</th>
                 <th className="px-6 py-4">Status</th>
                 <th className="px-6 py-4 text-center">Total Sewa</th>
                 <th className="px-6 py-4 text-right">Total Belanja (CLV)</th>
-                <th className="px-6 py-4 text-right">Terakhir Sewa</th>
                 <th className="px-6 py-4 text-center">Aksi</th>
                 </tr>
             </thead>
@@ -611,6 +707,11 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
                         </div>
                     </td>
                     <td className="px-6 py-4">
+                        <span className={`px-2 py-1 rounded-lg text-[10px] font-bold border uppercase tracking-wider ${getPersonaColor(cust.persona)}`}>
+                        {cust.persona}
+                        </span>
+                    </td>
+                    <td className="px-6 py-4">
                         <span className={`px-2 py-1 rounded-lg text-[10px] font-bold border uppercase tracking-wider ${getStatusColor(cust.status)}`}>
                         {cust.status}
                         </span>
@@ -621,14 +722,6 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
                     </td>
                     <td className="px-6 py-4 text-right">
                         <div className="font-black text-nature-700">Rp{cust.totalSpent.toLocaleString('id-ID')}</div>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                        <div className="text-xs font-medium text-gray-600">
-                        {new Date(cust.lastRentalDate).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'})}
-                        </div>
-                        <div className="text-[10px] text-gray-400">
-                        Sejak {new Date(cust.firstRentalDate).toLocaleDateString('id-ID', {month: 'short', year: '2-digit'})}
-                        </div>
                     </td>
                     <td className="px-6 py-4 text-center">
                         <button 
