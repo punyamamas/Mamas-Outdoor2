@@ -144,9 +144,11 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
     
     // Scaling Insights Logic
     const insights = [];
-    const totalCount = filteredTransactions.length || 1;
-    const avgValue = totalRealIncome / totalCount;
-    const pendingRatio = pendingCount / totalCount;
+    const totalCount = filteredTransactions.length; // FIX: Remove || 1 logic to allow 0
+    const safeDivisor = totalCount === 0 ? 1 : totalCount; // Use this specifically for division to avoid NaN
+    
+    const avgValue = totalRealIncome / safeDivisor;
+    const pendingRatio = pendingCount / safeDivisor;
 
     // Insight 1: Volume & Expansion
     if (totalCount > 50) {
@@ -182,7 +184,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
     }
 
     // Insight 3: Cashflow & Risk
-    if (pendingRatio > 0.3) {
+    if (pendingRatio > 0.3 && totalCount > 0) {
         insights.push({
             type: 'risk',
             icon: AlertTriangle,
@@ -191,7 +193,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
             title: "Waspada Cashflow Macet",
             desc: `30%+ transaksi belum lunas. Pertegas aturan: Wajib DP 50% di awal & Pelunasan saat ambil barang (No Bon).`
         });
-    } else {
+    } else if (totalCount > 0) {
         insights.push({
             type: 'safe',
             icon: CheckCircle,
