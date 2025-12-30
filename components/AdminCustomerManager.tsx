@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Users, Search, MessageCircle, TrendingUp, History, Star, ArrowUpRight, Crown, MapPin, Globe, Navigation, Target } from 'lucide-react';
+import { Users, Search, MessageCircle, TrendingUp, History, Star, ArrowUpRight, Crown, MapPin, Globe, Navigation, Target, Layers, Info, AlertTriangle } from 'lucide-react';
 import { Transaction } from '../types';
 
 interface AdminCustomerManagerProps {
@@ -15,6 +15,12 @@ interface CustomerStats {
   lastRentalDate: string;
   firstRentalDate: string;
   status: 'New' | 'Regular' | 'Loyal' | 'VIP';
+}
+
+interface CohortData {
+  cohortMonth: string; // YYYY-MM
+  totalCustomers: number;
+  retentionCounts: number[]; // Index 0 = Month 0, Index 1 = Month 1, dst.
 }
 
 const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transactions }) => {
@@ -108,6 +114,87 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
     return { data: sorted, total: customers.length, validLocations: validCount };
   }, [customers]);
 
+  // COHORT ANALYSIS LOGIC
+  const cohortStats = useMemo(() => {
+    // 1. Map setiap customer ke "Cohort Month" (Bulan pertama mereka transaksi)
+    const customerCohorts: Record<string, string> = {}; // Phone -> '2024-01'
+    const customerActivity: Record<string, Set<string>> = {}; // Phone -> Set('2024-01', '2024-02')
+
+    // Helper: Get YYYY-MM
+    const getMonthStr = (dateStr: string) => dateStr.slice(0, 7);
+    
+    // Helper: Month Difference
+    const getMonthDiff = (start: string, current: string) => {
+        const d1 = new Date(start + '-01');
+        const d2 = new Date(current + '-01');
+        return (d2.getFullYear() - d1.getFullYear()) * 12 + (d2.getMonth() - d1.getMonth());
+    };
+
+    // Build Maps
+    transactions.forEach(trx => {
+        const phone = trx.customerWhatsapp.replace(/\D/g, '');
+        if (!phone) return;
+        
+        const trxMonth = getMonthStr(trx.rentalDate);
+
+        // Tentukan Cohort (Bulan Pertama)
+        if (!customerCohorts[phone]) {
+            customerCohorts[phone] = trxMonth; // Set first seen
+        } else {
+            // Jika data tidak urut, pastikan kita ambil bulan paling awal
+            if (trxMonth < customerCohorts[phone]) {
+                customerCohorts[phone] = trxMonth;
+            }
+        }
+
+        // Catat Aktivitas
+        if (!customerActivity[phone]) customerActivity[phone] = new Set();
+        customerActivity[phone].add(trxMonth);
+    });
+
+    // 2. Aggregate Data into Grid
+    // Map: CohortMonth -> { size: 0, retention: { 0: 0, 1: 0, ... } }
+    const grid: Record<string, { size: number, retention: Record<number, number> }> = {};
+
+    Object.keys(customerCohorts).forEach(phone => {
+        const cohortMonth = customerCohorts[phone];
+        if (!grid[cohortMonth]) grid[cohortMonth] = { size: 0, retention: {} };
+        
+        // Tambah ukuran cohort
+        grid[cohortMonth].size += 1;
+
+        // Cek aktivitas di bulan-bulan berikutnya
+        customerActivity[phone].forEach(activeMonth => {
+            const diff = getMonthDiff(cohortMonth, activeMonth);
+            if (diff >= 0) {
+                if (!grid[cohortMonth].retention[diff]) grid[cohortMonth].retention[diff] = 0;
+                grid[cohortMonth].retention[diff] += 1;
+            }
+        });
+    });
+
+    // 3. Convert to Array & Sort by Date Descending (Terbaru diatas)
+    const result: CohortData[] = Object.entries(grid)
+        .map(([month, data]) => {
+            // Convert map retention to array
+            const retentionArr: number[] = [];
+            const maxMonth = Math.max(...Object.keys(data.retention).map(Number), 0);
+            
+            for (let i = 0; i <= Math.min(maxMonth, 11); i++) { // Limit 12 bulan
+                retentionArr[i] = data.retention[i] || 0;
+            }
+            
+            return {
+                cohortMonth: month,
+                totalCustomers: data.size,
+                retentionCounts: retentionArr
+            };
+        })
+        .sort((a, b) => b.cohortMonth.localeCompare(a.cohortMonth)); // Sort Descending
+
+    return result;
+  }, [transactions]);
+
   // Filtering
   const filteredCustomers = customers.filter(c => 
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -131,9 +218,9 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
     }
   };
 
-  // Helper Heatmap Color
+  // Helper Heatmap Color for Location
   const getHeatmapColor = (index: number) => {
-      if (index === 0) return 'bg-red-500 text-white border-red-600 scale-110 shadow-lg shadow-red-200'; // Hotspot Utama
+      if (index === 0) return 'bg-red-500 text-white border-red-600 scale-110 shadow-lg shadow-red-200'; 
       if (index === 1) return 'bg-orange-500 text-white border-orange-600 shadow-md'; 
       if (index === 2) return 'bg-yellow-400 text-yellow-900 border-yellow-500';
       if (index < 5) return 'bg-blue-400 text-white border-blue-500';
@@ -141,14 +228,61 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
   };
 
   const getHeatmapSize = (count: number, max: number) => {
-      const minSize = 60; // px
+      const minSize = 60; 
       const variableSize = 60;
       const percent = count / max;
       return minSize + (variableSize * percent);
   };
 
+  // Helper Heatmap Color for Cohort Cell (Based on Percentage)
+  const getCohortCellColor = (percent: number) => {
+      if (percent >= 50) return 'bg-green-600 text-white';
+      if (percent >= 30) return 'bg-green-400 text-white';
+      if (percent >= 15) return 'bg-green-200 text-green-800';
+      if (percent >= 5) return 'bg-green-50 text-green-800';
+      return 'bg-white text-gray-400';
+  };
+
+  // COHORT INSIGHT GENERATOR
+  const getCohortInsight = () => {
+      if (cohortStats.length < 2) return null;
+      
+      let totalM1Retention = 0;
+      let m1Count = 0;
+      
+      cohortStats.forEach(c => {
+          if (c.retentionCounts[1] !== undefined && c.totalCustomers > 0) {
+              totalM1Retention += (c.retentionCounts[1] / c.totalCustomers);
+              m1Count++;
+          }
+      });
+      
+      const avgM1Retention = m1Count > 0 ? (totalM1Retention / m1Count) * 100 : 0;
+
+      if (avgM1Retention < 10) {
+          return {
+              type: 'danger',
+              title: 'Retensi Awal Rendah (<10%)',
+              desc: 'Banyak pelanggan hilang setelah sewa pertama. Cek kualitas alat atau keramahan pelayanan saat pengambilan barang.'
+          };
+      } else if (avgM1Retention > 30) {
+          return {
+              type: 'success',
+              title: 'Customer Sangat Setia (>30%)',
+              desc: 'Retensi bulan ke-1 sangat bagus! Pelanggan suka dengan layanan Mamas Outdoor. Pertahankan!'
+          };
+      }
+      return {
+          type: 'neutral',
+          title: 'Retensi Normal (10-30%)',
+          desc: 'Performa standar rental. Coba tawarkan diskon khusus untuk penyewaan kedua agar mereka kembali.'
+      };
+  };
+
+  const cohortInsight = getCohortInsight();
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
         
       {/* 1. ANALISIS GEOSPASIAL (HEATMAP) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -217,13 +351,92 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
                 </div>
             )}
             
-            {/* Background Decoration */}
             <div className="absolute top-0 right-0 -mr-10 -mt-10 w-40 h-40 bg-blue-50 rounded-full blur-3xl opacity-50 pointer-events-none"></div>
             <div className="absolute bottom-0 left-0 -ml-10 -mb-10 w-40 h-40 bg-nature-50 rounded-full blur-3xl opacity-50 pointer-events-none"></div>
          </div>
       </div>
 
-      {/* 2. TABEL PELANGGAN */}
+      {/* 2. ANALISIS KOHORT (RETENTION) - NEW FEATURE */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+         <div className="p-6 border-b border-gray-100 flex flex-col md:flex-row justify-between items-start gap-4">
+            <div>
+               <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                  <Layers size={20} className="text-purple-600"/> Analisis Kohort (Retensi Pelanggan)
+               </h3>
+               <p className="text-xs text-gray-500 mt-1 max-w-xl">
+                  Membaca pola kesetiaan pelanggan. Kolom "Bulan 1" menunjukkan berapa % pelanggan yang kembali menyewa di bulan berikutnya.
+               </p>
+            </div>
+            
+            {/* Business Insight Box */}
+            {cohortInsight && (
+               <div className={`px-4 py-3 rounded-xl border flex items-start gap-3 max-w-md ${
+                  cohortInsight.type === 'danger' ? 'bg-red-50 border-red-100 text-red-800' :
+                  cohortInsight.type === 'success' ? 'bg-green-50 border-green-100 text-green-800' :
+                  'bg-blue-50 border-blue-100 text-blue-800'
+               }`}>
+                  <div className="mt-0.5"><Info size={16}/></div>
+                  <div>
+                     <h5 className="font-bold text-xs uppercase mb-0.5">{cohortInsight.title}</h5>
+                     <p className="text-xs leading-relaxed opacity-90">{cohortInsight.desc}</p>
+                  </div>
+               </div>
+            )}
+         </div>
+
+         <div className="overflow-x-auto p-6">
+            {cohortStats.length === 0 ? (
+                <div className="text-center py-10 text-gray-400 italic bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                   Belum cukup data transaksi untuk membuat analisis kohort.
+                </div>
+            ) : (
+                <table className="w-full text-xs text-center border-separate border-spacing-1">
+                   <thead>
+                      <tr>
+                         <th className="p-2 text-left w-32 font-bold text-gray-700 bg-gray-100 rounded">Angkatan (Cohort)</th>
+                         <th className="p-2 w-20 font-bold text-gray-700 bg-gray-100 rounded">Pelanggan</th>
+                         {Array.from({length: 12}).map((_, i) => (
+                            <th key={i} className="p-2 w-16 font-medium text-gray-500 bg-gray-50 rounded">Bulan {i}</th>
+                         ))}
+                      </tr>
+                   </thead>
+                   <tbody>
+                      {cohortStats.map((row, idx) => (
+                         <tr key={idx}>
+                            <td className="p-2 text-left font-bold text-gray-800 bg-gray-50 rounded">
+                               {new Date(row.cohortMonth + '-01').toLocaleDateString('id-ID', {month: 'long', year: 'numeric'})}
+                            </td>
+                            <td className="p-2 font-mono text-gray-600 bg-gray-50 rounded border border-gray-100">
+                               {row.totalCustomers} org
+                            </td>
+                            {Array.from({length: 12}).map((_, i) => {
+                               const count = row.retentionCounts[i];
+                               const percent = row.totalCustomers > 0 ? Math.round((count / row.totalCustomers) * 100) : 0;
+                               // Month 0 is always 100% basically, keep it distinct
+                               const cellColor = i === 0 ? 'bg-white text-gray-300' : getCohortCellColor(percent);
+                               
+                               return (
+                                  <td key={i} className={`p-2 rounded transition hover:scale-105 cursor-default ${cellColor} border border-gray-100`}>
+                                     {count > 0 ? (
+                                        <div className="flex flex-col">
+                                           <span className="font-bold">{percent}%</span>
+                                           {i > 0 && <span className="text-[9px] opacity-70">({count})</span>}
+                                        </div>
+                                     ) : (
+                                        <span className="text-gray-200">-</span>
+                                     )}
+                                  </td>
+                               )
+                            })}
+                         </tr>
+                      ))}
+                   </tbody>
+                </table>
+            )}
+         </div>
+      </div>
+
+      {/* 3. TABEL PELANGGAN (EXISTING) */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
         {/* Header */}
         <div className="p-6 border-b border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4 bg-nature-50">
