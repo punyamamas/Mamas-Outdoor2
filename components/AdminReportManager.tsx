@@ -8,10 +8,18 @@ const AdminReportManager: React.FC = () => {
   const [startDate, setStartDate] = useState(() => {
     const d = new Date();
     d.setDate(1); // First day of month
-    return d.toISOString().split('T')[0];
+    // Format YYYY-MM-DD in Local Time
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   });
   const [endDate, setEndDate] = useState(() => {
-    return new Date().toISOString().split('T')[0]; // Today
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`; // Today
   });
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -75,19 +83,28 @@ const AdminReportManager: React.FC = () => {
     .sort((a, b) => b.count - a.count)
     .slice(0, 5);
 
-  // 4. Daily Revenue Trend
+  // 4. Daily Revenue Trend (FIXED LOGIC)
   const dailyRevenueMap: { [date: string]: number } = {};
   validTransactions.forEach(t => {
-    const date = t.rentalDate.split('T')[0]; // YYYY-MM-DD
-    dailyRevenueMap[date] = (dailyRevenueMap[date] || 0) + t.totalPrice;
+    // Normalize date string (just in case)
+    const dateStr = t.rentalDate.includes('T') ? t.rentalDate.split('T')[0] : t.rentalDate;
+    dailyRevenueMap[dateStr] = (dailyRevenueMap[dateStr] || 0) + t.totalPrice;
   });
 
-  const getDatesInRange = (start: string, end: string) => {
+  // Safe Date Range Generation (Local Timezone)
+  const getDatesInRange = (startStr: string, endStr: string) => {
     const arr = [];
-    const dt = new Date(start);
-    const endDt = new Date(end);
+    const [sY, sM, sD] = startStr.split('-').map(Number);
+    const [eY, eM, eD] = endStr.split('-').map(Number);
+    
+    const dt = new Date(sY, sM - 1, sD);
+    const endDt = new Date(eY, eM - 1, eD);
+
     while (dt <= endDt) {
-      arr.push(new Date(dt).toISOString().split('T')[0]);
+      const y = dt.getFullYear();
+      const m = String(dt.getMonth() + 1).padStart(2, '0');
+      const d = String(dt.getDate()).padStart(2, '0');
+      arr.push(`${y}-${m}-${d}`);
       dt.setDate(dt.getDate() + 1);
     }
     return arr;
@@ -95,12 +112,12 @@ const AdminReportManager: React.FC = () => {
 
   const datesInRange = getDatesInRange(startDate, endDate);
   const chartData = datesInRange.map(date => ({
-    date: new Date(date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }),
+    dateShort: new Date(date.split('-').map(Number).join('/')).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }), // Force generic parser
     fullDate: date,
     revenue: dailyRevenueMap[date] || 0
   }));
 
-  const maxRevenue = Math.max(...chartData.map(d => d.revenue), 1);
+  const maxRevenue = Math.max(...chartData.map(d => d.revenue), 100000); // Min scale 100k
 
   // 5. Top Customers
   const customerFrequency: { [key: string]: { count: number, totalSpent: number } } = {};
@@ -148,9 +165,6 @@ const AdminReportManager: React.FC = () => {
         daysLate = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
         
         // LOGIKA DENDA BARU:
-        // Lat 1 hari = Harga 2 hari
-        // Lat 2 hari = Harga 3 hari
-        // Rumus Durasi Perhitungan = Hari Terlambat + 1
         const calculationDuration = daysLate + 1;
 
         // Hitung total denda berdasarkan harga item
@@ -226,27 +240,21 @@ const AdminReportManager: React.FC = () => {
     document.body.removeChild(link);
   };
 
-  // WA: TEMPLATE PENGINGAT (Lewat jam 19:00, belum ganti hari)
   const sendDeadlineReminder = (t: any) => {
     let phone = t.customerWhatsapp;
     if (phone.startsWith('0')) phone = '62' + phone.slice(1);
     
     const itemList = t.items.map((i: any) => `- ${i.quantity}x ${i.name}`).join('\n');
-    
     const message = `Halo Kak *${t.customerName}*,\n\nKami dari *Mamas Outdoor Purwokerto* menginformasikan bahwa saat ini sudah melewati pukul 19.00 WIB.\n\nMasa sewa alat berikut:\n${itemList}\n\n*Berakhir HARI INI*.\n\nMohon segera dikembalikan malam ini sebelum pergantian hari untuk menghindari perhitungan denda otomatis (1 hari sewa) mulai besok.\n\nJika sedang dalam perjalanan, mohon konfirmasinya.\nTerima kasih.`;
-    
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
   };
 
-  // WA: TEMPLATE DENDA (Sudah ganti hari)
   const sendOverdueNotice = (t: any) => {
     let phone = t.customerWhatsapp;
     if (phone.startsWith('0')) phone = '62' + phone.slice(1);
     
     const itemList = t.items.map((i: any) => `- ${i.quantity}x ${i.name}`).join('\n');
-    
     const message = `Halo Kak *${t.customerName}*,\n\nKami dari *Mamas Outdoor Purwokerto*.\n\nStatus pengembalian alat:\n${itemList}\n\nSaat ini statusnya *TERLAMBAT ${t.daysLate} HARI*.\n\n*Estimasi Denda Saat Ini: Rp${t.fineAmount.toLocaleString('id-ID')}*\n\nMohon segera dikembalikan dan diselesaikan pembayarannya untuk menghentikan akumulasi denda.\n\nTerima kasih.`;
-    
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
   };
 
@@ -303,7 +311,7 @@ const AdminReportManager: React.FC = () => {
           <div className="flex justify-center items-center h-64">
              <Loader2 className="animate-spin text-nature-600" size={32} />
           </div>
-        ) : transactions.length === 0 ? (
+        ) : transactions.length === 0 && chartData.every(d => d.revenue === 0) ? (
           <div className="text-center py-20 text-gray-400">
              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                <Calendar size={32} />
@@ -316,7 +324,6 @@ const AdminReportManager: React.FC = () => {
              {/* ALERT BOXES */}
              {(overdueItems.length > 0 || reminderItems.length > 0) && (
                <div className="flex flex-col gap-4">
-                 
                  {/* 1. TERLAMBAT (FINE) */}
                  {overdueItems.length > 0 && (
                    <div className="bg-red-50 border-l-4 border-red-600 p-4 rounded-r-xl shadow-sm">
@@ -324,9 +331,6 @@ const AdminReportManager: React.FC = () => {
                          <AlertTriangle className="text-red-600 mt-0.5" size={24} />
                          <div className="flex-1">
                             <h4 className="font-bold text-red-800 text-lg">Terlambat & Kena Denda ({overdueItems.length})</h4>
-                            <p className="text-sm text-red-700 mb-2">
-                               Transaksi berikut sudah ganti hari dan terkena denda otomatis.
-                            </p>
                             <div className="flex flex-wrap gap-2 mt-2">
                                {overdueItems.map(t => (
                                   <button 
@@ -350,9 +354,6 @@ const AdminReportManager: React.FC = () => {
                          <BellRing className="text-orange-500 mt-0.5" size={24} />
                          <div className="flex-1">
                             <h4 className="font-bold text-orange-800 text-lg">Pengingat Batas Waktu ({reminderItems.length})</h4>
-                            <p className="text-sm text-orange-700 mb-2">
-                               Sudah lewat jam 19:00. Segera ingatkan sebelum ganti hari (kena denda).
-                            </p>
                             <div className="flex flex-wrap gap-2 mt-2">
                                {reminderItems.map(t => (
                                   <button 
@@ -398,27 +399,61 @@ const AdminReportManager: React.FC = () => {
                 </div>
              </div>
 
-             {/* 2. REVENUE CHART */}
-             <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
-                <h4 className="font-bold text-gray-800 mb-6 flex items-center gap-2">
-                   <BarChart3 size={20} className="text-nature-600"/> Tren Pendapatan Harian
-                </h4>
-                <div className="h-48 flex items-end gap-2 overflow-x-auto pb-2">
-                   {chartData.map((d, i) => {
-                      const heightPercent = (d.revenue / maxRevenue) * 100;
-                      return (
-                         <div key={i} className="flex flex-col justify-end items-center flex-1 min-w-[40px] group relative">
-                            <div className="mb-2 opacity-0 group-hover:opacity-100 absolute -top-8 bg-gray-800 text-white text-[10px] px-2 py-1 rounded transition-opacity pointer-events-none whitespace-nowrap z-10">
-                               {d.fullDate}: Rp{d.revenue.toLocaleString('id-ID')}
+             {/* 2. REVENUE CHART FIX */}
+             <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm overflow-hidden">
+                <div className="flex justify-between items-center mb-6">
+                   <h4 className="font-bold text-gray-800 flex items-center gap-2">
+                      <BarChart3 size={20} className="text-nature-600"/> Tren Pendapatan Harian
+                   </h4>
+                   <div className="text-xs text-gray-400">
+                      Omset berdasarkan Tanggal Sewa
+                   </div>
+                </div>
+                
+                {/* Scrollable Container for Chart */}
+                <div className="overflow-x-auto pb-4 custom-scrollbar">
+                   <div className="h-64 flex items-end gap-3 min-w-full w-max px-2">
+                      {chartData.map((d, i) => {
+                         const heightPercent = Math.round((d.revenue / maxRevenue) * 100);
+                         const barHeight = d.revenue > 0 ? `${Math.max(heightPercent, 2)}%` : '2px';
+                         const isToday = d.fullDate === new Date().toISOString().split('T')[0];
+
+                         return (
+                            <div key={i} className="flex flex-col justify-end items-center flex-1 min-w-[32px] group relative h-full">
+                               {/* Hover Tooltip */}
+                               <div className="mb-2 opacity-0 group-hover:opacity-100 absolute bottom-full bg-gray-900 text-white text-[10px] px-3 py-1.5 rounded-lg shadow-xl transition-all pointer-events-none whitespace-nowrap z-20 transform translate-y-2 group-hover:translate-y-0">
+                                  <div className="font-bold">{d.fullDate}</div>
+                                  <div className="text-green-300">Rp{d.revenue.toLocaleString('id-ID')}</div>
+                                  {/* Triangle pointer */}
+                                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                               </div>
+                               
+                               {/* Bar */}
+                               <div className="w-full relative flex items-end justify-center h-full">
+                                  <div 
+                                    className={`w-full rounded-t-md transition-all duration-700 ease-out relative ${
+                                       d.revenue > 0 
+                                          ? isToday ? 'bg-nature-600' : 'bg-nature-400 group-hover:bg-nature-500' 
+                                          : 'bg-gray-100'
+                                    }`}
+                                    style={{ height: barHeight }}
+                                  >
+                                     {d.revenue > 0 && (
+                                        <div className="absolute -top-5 left-1/2 -translate-x-1/2 text-[9px] font-bold text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                                           {heightPercent}%
+                                        </div>
+                                     )}
+                                  </div>
+                               </div>
+                               
+                               {/* Label */}
+                               <div className={`text-[9px] font-medium mt-3 whitespace-nowrap -rotate-45 origin-top-left translate-y-2 ${isToday ? 'text-nature-700 font-bold' : 'text-gray-400'}`}>
+                                  {d.dateShort}
+                               </div>
                             </div>
-                            <div 
-                              className={`w-full rounded-t-lg transition-all duration-500 ${d.revenue > 0 ? 'bg-nature-500 hover:bg-nature-600' : 'bg-gray-100 h-1'}`}
-                              style={{ height: d.revenue > 0 ? `${Math.max(heightPercent, 5)}%` : '4px' }}
-                            ></div>
-                            <span className="text-[10px] text-gray-500 font-medium mt-2 whitespace-nowrap">{d.date}</span>
-                         </div>
-                      )
-                   })}
+                         )
+                      })}
+                   </div>
                 </div>
              </div>
 
