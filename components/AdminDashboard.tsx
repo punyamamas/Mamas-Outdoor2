@@ -12,6 +12,7 @@ import AdminWarehouseManager from './AdminWarehouseManager';
 import AdminTransactionManager from './AdminTransactionManager';
 import AdminFinanceManager from './AdminFinanceManager';
 import AdminReportManager from './AdminReportManager';
+import AdminCustomerManager from './AdminCustomerManager';
 
 interface AdminDashboardProps {
   products: Product[];
@@ -40,7 +41,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'warehouse' | 'categories' | 'transactions' | 'finance' | 'reports'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'warehouse' | 'categories' | 'transactions' | 'finance' | 'reports' | 'customers'>('dashboard');
   const [isRefreshing, setIsRefreshing] = useState(false);
   
   // Transaction State
@@ -57,9 +58,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
-  // Fetch Transactions when tab changes
+  // Fetch Transactions when tab changes to one that needs transaction data
   useEffect(() => {
-    if (isAuthenticated && activeTab === 'transactions') {
+    if (isAuthenticated && (activeTab === 'transactions' || activeTab === 'customers' || activeTab === 'reports')) {
       fetchTransactions();
     }
   }, [isAuthenticated, activeTab]);
@@ -102,7 +103,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleRefreshData = async () => {
     setIsRefreshing(true);
     await onRefresh();
-    if (activeTab === 'transactions') await fetchTransactions();
+    if (activeTab === 'transactions' || activeTab === 'customers' || activeTab === 'reports') await fetchTransactions();
     setTimeout(() => setIsRefreshing(false), 500);
   };
 
@@ -148,6 +149,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             {activeTab === 'warehouse' ? 'Laporan Inventaris' : 
              activeTab === 'finance' ? 'Keuangan & Kas' : 
              activeTab === 'reports' ? 'Analisis Bisnis' : 
+             activeTab === 'customers' ? 'Database Pelanggan' :
              `${activeTab} Overview`}
           </h1>
           <div className="flex items-center gap-4">
@@ -195,6 +197,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 onStatusUpdate={handleTransactionStatusUpdate}
                 onDeleteTransaction={handleDeleteTransaction}
                 onRefreshData={fetchTransactions}
+             />
+          )}
+
+          {activeTab === 'customers' && (
+             <AdminCustomerManager 
+                transactions={transactions} 
              />
           )}
 

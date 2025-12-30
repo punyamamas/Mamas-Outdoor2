@@ -1,9 +1,9 @@
 import React from 'react';
-import { LayoutDashboard, ClipboardList, Warehouse, Package, Tags, LogOut, DollarSign, PieChart } from 'lucide-react';
+import { LayoutDashboard, ClipboardList, Warehouse, Package, Tags, LogOut, DollarSign, PieChart, Users } from 'lucide-react';
 
 interface AdminSidebarProps {
   activeTab: string;
-  setActiveTab: (tab: 'dashboard' | 'products' | 'warehouse' | 'categories' | 'transactions' | 'finance' | 'reports') => void;
+  setActiveTab: (tab: 'dashboard' | 'products' | 'warehouse' | 'categories' | 'transactions' | 'finance' | 'reports' | 'customers') => void;
   onLogout: () => void;
 }
 
@@ -25,6 +25,12 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ activeTab, setActiveTab, on
           className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition ${activeTab === 'transactions' ? 'bg-white/10 text-white font-bold' : 'text-nature-200 hover:bg-white/5'}`}
         >
           <ClipboardList size={20} /> Transaksi
+        </button>
+        <button 
+          onClick={() => setActiveTab('customers')}
+          className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition ${activeTab === 'customers' ? 'bg-white/10 text-white font-bold' : 'text-nature-200 hover:bg-white/5'}`}
+        >
+          <Users size={20} /> Pelanggan
         </button>
         <button 
           onClick={() => setActiveTab('finance')}
