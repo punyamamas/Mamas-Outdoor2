@@ -78,7 +78,15 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
   });
 
   // --- SUMMARY LOGIC (Based on Filtered Data) ---
-  const summaryTotalRealIncome = filteredTransactions.reduce((acc, t) => acc + (t.amountPaid || 0), 0);
+  // UPDATE: Logic 'Total Transaksi' (Uang Rill)
+  // Rumus: Sum(Min(AmountPaid, TotalPrice))
+  // Jika tagihan 13k, bayar 15k -> yang dihitung 13k (2k kembalian tidak dihitung)
+  const summaryTotalRealIncome = filteredTransactions.reduce((acc, t) => {
+    const paid = t.amountPaid || 0;
+    const bill = t.totalPrice;
+    return acc + Math.min(paid, bill);
+  }, 0);
+
   const summaryTotalCount = filteredTransactions.length;
   const summaryPendingCount = filteredTransactions.filter(t => t.status === 'pending' || t.status === 'partial_payment').length;
 
@@ -300,13 +308,13 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
       {/* 1. SUMMARY CARDS & FILTERS */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         
-        {/* Card: Total Income */}
+        {/* Card: Total Income (Renamed to Total Transaksi) */}
         <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
           <div className="p-3 bg-green-50 text-green-600 rounded-lg">
              <DollarSign size={24} />
           </div>
           <div>
-             <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Total Kas Masuk (Rill)</p>
+             <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Total Transaksi</p>
              <h4 className="text-xl font-black text-gray-900">Rp{summaryTotalRealIncome.toLocaleString('id-ID')}</h4>
           </div>
         </div>
