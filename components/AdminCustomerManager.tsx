@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Users, Search, MessageCircle, TrendingUp, History, Star, ArrowUpRight, Crown, MapPin, Globe, Navigation, Target, Layers, Info, AlertTriangle } from 'lucide-react';
+import { Users, Search, MessageCircle, TrendingUp, History, Star, ArrowUpRight, Crown, MapPin, Globe, Navigation, Target, Layers, Info, AlertTriangle, Award, Gift, DollarSign, PieChart } from 'lucide-react';
 import { Transaction } from '../types';
 
 interface AdminCustomerManagerProps {
@@ -82,6 +82,40 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
     return Object.values(customerMap).sort((a, b) => b.totalSpent - a.totalSpent); // Sort by Spend
   }, [transactions]);
 
+  // CLV (CUSTOMER LIFETIME VALUE) ANALYSIS LOGIC
+  const clvStats = useMemo(() => {
+      if (customers.length === 0) return null;
+
+      const sortedBySpend = [...customers].sort((a, b) => b.totalSpent - a.totalSpent);
+      const totalRevenue = sortedBySpend.reduce((acc, c) => acc + c.totalSpent, 0);
+      const totalCount = sortedBySpend.length;
+
+      // 1. Segmentation (Whales/Sultan = Top 20%, Dolphins = Next 30%, Minnows = Bottom 50%)
+      const whaleLimit = Math.ceil(totalCount * 0.2);
+      const dolphinLimit = Math.ceil(totalCount * 0.5); // Cumulative (20+30)
+
+      const whales = sortedBySpend.slice(0, whaleLimit);
+      const dolphins = sortedBySpend.slice(whaleLimit, dolphinLimit);
+      const minnows = sortedBySpend.slice(dolphinLimit);
+
+      // 2. Revenue Contribution
+      const whaleRevenue = whales.reduce((acc, c) => acc + c.totalSpent, 0);
+      const dolphinRevenue = dolphins.reduce((acc, c) => acc + c.totalSpent, 0);
+      const minnowRevenue = minnows.reduce((acc, c) => acc + c.totalSpent, 0);
+
+      // 3. Average CLV
+      const avgClv = totalRevenue / totalCount;
+
+      return {
+          whales: { count: whales.length, revenue: whaleRevenue, list: whales },
+          dolphins: { count: dolphins.length, revenue: dolphinRevenue },
+          minnows: { count: minnows.length, revenue: minnowRevenue },
+          totalRevenue,
+          totalCount,
+          avgClv
+      };
+  }, [customers]);
+
   // GEOSPATIAL ANALYSIS LOGIC
   const locationStats = useMemo(() => {
     const stats: Record<string, number> = {};
@@ -89,14 +123,9 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
 
     customers.forEach(c => {
         let loc = c.location;
-        // Cleaning: Ambil kata pertama/kedua sebelum koma (biasanya Kecamatan/Kota)
-        // Contoh: "Purwokerto Utara, Banyumas" -> "Purwokerto Utara"
         if (loc && loc !== '-') {
-            // Hapus kata "(IP Detected)" agar bersih
             loc = loc.replace('(IP Detected)', '').trim();
-            // Ambil bagian depan sebelum koma
             loc = loc.split(',')[0].trim();
-            
             if (loc) {
                 stats[loc] = (stats[loc] || 0) + 1;
                 validCount++;
@@ -106,7 +135,6 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
         }
     });
 
-    // Convert to array and sort
     const sorted = Object.entries(stats)
         .map(([name, count]) => ({ name, count, percentage: validCount > 0 ? (count / customers.length) * 100 : 0 }))
         .sort((a, b) => b.count - a.count);
@@ -116,54 +144,40 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
 
   // COHORT ANALYSIS LOGIC
   const cohortStats = useMemo(() => {
-    // 1. Map setiap customer ke "Cohort Month" (Bulan pertama mereka transaksi)
-    const customerCohorts: Record<string, string> = {}; // Phone -> '2024-01'
-    const customerActivity: Record<string, Set<string>> = {}; // Phone -> Set('2024-01', '2024-02')
+    const customerCohorts: Record<string, string> = {}; 
+    const customerActivity: Record<string, Set<string>> = {}; 
 
-    // Helper: Get YYYY-MM
     const getMonthStr = (dateStr: string) => dateStr.slice(0, 7);
-    
-    // Helper: Month Difference
     const getMonthDiff = (start: string, current: string) => {
         const d1 = new Date(start + '-01');
         const d2 = new Date(current + '-01');
         return (d2.getFullYear() - d1.getFullYear()) * 12 + (d2.getMonth() - d1.getMonth());
     };
 
-    // Build Maps
     transactions.forEach(trx => {
         const phone = trx.customerWhatsapp.replace(/\D/g, '');
         if (!phone) return;
-        
         const trxMonth = getMonthStr(trx.rentalDate);
 
-        // Tentukan Cohort (Bulan Pertama)
         if (!customerCohorts[phone]) {
-            customerCohorts[phone] = trxMonth; // Set first seen
+            customerCohorts[phone] = trxMonth; 
         } else {
-            // Jika data tidak urut, pastikan kita ambil bulan paling awal
             if (trxMonth < customerCohorts[phone]) {
                 customerCohorts[phone] = trxMonth;
             }
         }
 
-        // Catat Aktivitas
         if (!customerActivity[phone]) customerActivity[phone] = new Set();
         customerActivity[phone].add(trxMonth);
     });
 
-    // 2. Aggregate Data into Grid
-    // Map: CohortMonth -> { size: 0, retention: { 0: 0, 1: 0, ... } }
     const grid: Record<string, { size: number, retention: Record<number, number> }> = {};
 
     Object.keys(customerCohorts).forEach(phone => {
         const cohortMonth = customerCohorts[phone];
         if (!grid[cohortMonth]) grid[cohortMonth] = { size: 0, retention: {} };
-        
-        // Tambah ukuran cohort
         grid[cohortMonth].size += 1;
 
-        // Cek aktivitas di bulan-bulan berikutnya
         customerActivity[phone].forEach(activeMonth => {
             const diff = getMonthDiff(cohortMonth, activeMonth);
             if (diff >= 0) {
@@ -173,24 +187,20 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
         });
     });
 
-    // 3. Convert to Array & Sort by Date Descending (Terbaru diatas)
     const result: CohortData[] = Object.entries(grid)
         .map(([month, data]) => {
-            // Convert map retention to array
             const retentionArr: number[] = [];
             const maxMonth = Math.max(...Object.keys(data.retention).map(Number), 0);
-            
-            for (let i = 0; i <= Math.min(maxMonth, 11); i++) { // Limit 12 bulan
+            for (let i = 0; i <= Math.min(maxMonth, 11); i++) { 
                 retentionArr[i] = data.retention[i] || 0;
             }
-            
             return {
                 cohortMonth: month,
                 totalCustomers: data.size,
                 retentionCounts: retentionArr
             };
         })
-        .sort((a, b) => b.cohortMonth.localeCompare(a.cohortMonth)); // Sort Descending
+        .sort((a, b) => b.cohortMonth.localeCompare(a.cohortMonth));
 
     return result;
   }, [transactions]);
@@ -202,7 +212,6 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
     c.location.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Helper WA
   const openWa = (phone: string) => {
     let p = phone.replace(/\D/g, '');
     if (p.startsWith('0')) p = '62' + p.slice(1);
@@ -218,7 +227,6 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
     }
   };
 
-  // Helper Heatmap Color for Location
   const getHeatmapColor = (index: number) => {
       if (index === 0) return 'bg-red-500 text-white border-red-600 scale-110 shadow-lg shadow-red-200'; 
       if (index === 1) return 'bg-orange-500 text-white border-orange-600 shadow-md'; 
@@ -234,7 +242,6 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
       return minSize + (variableSize * percent);
   };
 
-  // Helper Heatmap Color for Cohort Cell (Based on Percentage)
   const getCohortCellColor = (percent: number) => {
       if (percent >= 50) return 'bg-green-600 text-white';
       if (percent >= 30) return 'bg-green-400 text-white';
@@ -243,40 +250,24 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
       return 'bg-white text-gray-400';
   };
 
-  // COHORT INSIGHT GENERATOR
   const getCohortInsight = () => {
       if (cohortStats.length < 2) return null;
-      
       let totalM1Retention = 0;
       let m1Count = 0;
-      
       cohortStats.forEach(c => {
           if (c.retentionCounts[1] !== undefined && c.totalCustomers > 0) {
               totalM1Retention += (c.retentionCounts[1] / c.totalCustomers);
               m1Count++;
           }
       });
-      
       const avgM1Retention = m1Count > 0 ? (totalM1Retention / m1Count) * 100 : 0;
 
       if (avgM1Retention < 10) {
-          return {
-              type: 'danger',
-              title: 'Retensi Awal Rendah (<10%)',
-              desc: 'Banyak pelanggan hilang setelah sewa pertama. Cek kualitas alat atau keramahan pelayanan saat pengambilan barang.'
-          };
+          return { type: 'danger', title: 'Retensi Awal Rendah (<10%)', desc: 'Banyak pelanggan hilang setelah sewa pertama.' };
       } else if (avgM1Retention > 30) {
-          return {
-              type: 'success',
-              title: 'Customer Sangat Setia (>30%)',
-              desc: 'Retensi bulan ke-1 sangat bagus! Pelanggan suka dengan layanan Mamas Outdoor. Pertahankan!'
-          };
+          return { type: 'success', title: 'Customer Setia (>30%)', desc: 'Retensi bulan ke-1 sangat bagus! Pertahankan.' };
       }
-      return {
-          type: 'neutral',
-          title: 'Retensi Normal (10-30%)',
-          desc: 'Performa standar rental. Coba tawarkan diskon khusus untuk penyewaan kedua agar mereka kembali.'
-      };
+      return { type: 'neutral', title: 'Retensi Normal (10-30%)', desc: 'Performa standar rental.' };
   };
 
   const cohortInsight = getCohortInsight();
@@ -309,7 +300,7 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
                {locationStats.data.length === 0 && <p className="text-gray-400 text-sm italic">Belum ada data lokasi.</p>}
             </div>
             <div className="mt-4 pt-4 border-t border-gray-100 text-xs text-gray-500">
-               Total {locationStats.validLocations} pelanggan terdeteksi lokasinya dari {locationStats.total} total pelanggan.
+               Total {locationStats.validLocations} pelanggan terdeteksi lokasinya.
             </div>
          </div>
 
@@ -356,7 +347,122 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
          </div>
       </div>
 
-      {/* 2. ANALISIS KOHORT (RETENTION) - NEW FEATURE */}
+      {/* 2. ANALISIS CLV (CUSTOMER LIFETIME VALUE) - NEW FEATURE */}
+      {clvStats && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            
+            {/* CLV TIERS CARD */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col">
+                <div className="flex justify-between items-start mb-6">
+                    <div>
+                        <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                            <Crown size={20} className="text-yellow-500" /> Analisis CLV (Nilai Pelanggan)
+                        </h3>
+                        <p className="text-xs text-gray-500 mt-1">
+                            Rata-rata uang yang dihabiskan 1 pelanggan: <span className="font-bold text-nature-700">Rp{clvStats.avgClv.toLocaleString('id-ID', {maximumFractionDigits:0})}</span>
+                        </p>
+                    </div>
+                    <div className="bg-yellow-50 p-2 rounded-lg border border-yellow-100">
+                        <Award className="text-yellow-600" size={24}/>
+                    </div>
+                </div>
+
+                <div className="space-y-4 flex-1">
+                    {/* WHALES */}
+                    <div className="relative p-4 rounded-xl bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200">
+                        <div className="flex justify-between items-center mb-2">
+                            <span className="font-bold text-yellow-800 flex items-center gap-2"><Crown size={14} fill="currentColor"/> Sultan Outdoor (Top 20%)</span>
+                            <span className="text-xs font-bold text-yellow-700 bg-white px-2 py-1 rounded-full shadow-sm">{clvStats.whales.count} Org</span>
+                        </div>
+                        <div className="flex justify-between items-end">
+                            <div>
+                                <p className="text-[10px] text-yellow-700 uppercase tracking-wide">Kontribusi Omset</p>
+                                <p className="text-xl font-black text-yellow-900">Rp{clvStats.whales.revenue.toLocaleString('id-ID')}</p>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-[10px] text-yellow-700 uppercase tracking-wide">Porsi</p>
+                                <p className="text-lg font-bold text-yellow-800">{Math.round((clvStats.whales.revenue / clvStats.totalRevenue) * 100)}%</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* DOLPHINS */}
+                    <div className="relative p-4 rounded-xl bg-blue-50 border border-blue-100">
+                        <div className="flex justify-between items-center mb-2">
+                            <span className="font-bold text-blue-800 flex items-center gap-2"><Star size={14} className="text-blue-500"/> Juragan (Middle 30%)</span>
+                            <span className="text-xs font-bold text-blue-700 bg-white px-2 py-1 rounded-full shadow-sm">{clvStats.dolphins.count} Org</span>
+                        </div>
+                        <div className="flex justify-between items-end">
+                            <div>
+                                <p className="text-xl font-black text-blue-900">Rp{clvStats.dolphins.revenue.toLocaleString('id-ID')}</p>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-lg font-bold text-blue-800">{Math.round((clvStats.dolphins.revenue / clvStats.totalRevenue) * 100)}%</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* MINNOWS */}
+                    <div className="relative p-4 rounded-xl bg-gray-50 border border-gray-200">
+                        <div className="flex justify-between items-center mb-2">
+                            <span className="font-bold text-gray-700 flex items-center gap-2"><Users size={14} className="text-gray-400"/> Pendaki Hemat (Bottom 50%)</span>
+                            <span className="text-xs font-bold text-gray-600 bg-white px-2 py-1 rounded-full border">{clvStats.minnows.count} Org</span>
+                        </div>
+                        <div className="flex justify-between items-end">
+                            <div>
+                                <p className="text-lg font-black text-gray-800">Rp{clvStats.minnows.revenue.toLocaleString('id-ID')}</p>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-base font-bold text-gray-600">{Math.round((clvStats.minnows.revenue / clvStats.totalRevenue) * 100)}%</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* ACTIONABLE INSIGHT: WHALES FOCUS */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col">
+                <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-4">
+                    <Gift size={20} className="text-red-500" /> Action: Personal Touch
+                </h3>
+                <p className="text-sm text-gray-600 mb-6 leading-relaxed">
+                    Pelanggan "Sultan" adalah aset terbesar. Jaga hubungan personal dengan mereka. 
+                    Kirim pesan WA manual berisi ucapan terima kasih atau diskon eksklusif.
+                </p>
+
+                <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-3">
+                    {clvStats.whales.list.slice(0, 5).map((whale, idx) => (
+                        <div key={idx} className="flex items-center justify-between p-3 rounded-xl border border-yellow-100 bg-yellow-50/50 hover:bg-yellow-50 transition group">
+                            <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-full bg-yellow-100 text-yellow-700 flex items-center justify-center text-xs font-bold border border-yellow-200">
+                                    #{idx+1}
+                                </div>
+                                <div>
+                                    <p className="font-bold text-gray-800 text-sm">{whale.name}</p>
+                                    <p className="text-[10px] text-gray-500 uppercase tracking-wide font-bold">Total: Rp{whale.totalSpent.toLocaleString('id-ID')}</p>
+                                </div>
+                            </div>
+                            <button 
+                                onClick={() => openWa(whale.whatsapp)}
+                                className="p-2 bg-white text-green-600 rounded-lg shadow-sm border border-green-100 hover:bg-green-50 transition text-xs font-bold flex items-center gap-1"
+                            >
+                                <MessageCircle size={14} /> Sapa
+                            </button>
+                        </div>
+                    ))}
+                </div>
+                
+                <div className="mt-4 pt-4 border-t border-gray-100">
+                    <div className="flex gap-2 items-start bg-blue-50 p-3 rounded-lg text-blue-800 text-xs">
+                        <Info size={14} className="mt-0.5 shrink-0"/>
+                        <p><strong>Pareto Insight:</strong> {Math.round((clvStats.whales.revenue / clvStats.totalRevenue) * 100)}% omset Anda berasal dari {clvStats.whales.count} orang ini saja.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+      )}
+
+      {/* 3. ANALISIS KOHORT (RETENTION) */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
          <div className="p-6 border-b border-gray-100 flex flex-col md:flex-row justify-between items-start gap-4">
             <div>
@@ -368,7 +474,6 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
                </p>
             </div>
             
-            {/* Business Insight Box */}
             {cohortInsight && (
                <div className={`px-4 py-3 rounded-xl border flex items-start gap-3 max-w-md ${
                   cohortInsight.type === 'danger' ? 'bg-red-50 border-red-100 text-red-800' :
@@ -412,7 +517,6 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
                             {Array.from({length: 12}).map((_, i) => {
                                const count = row.retentionCounts[i];
                                const percent = row.totalCustomers > 0 ? Math.round((count / row.totalCustomers) * 100) : 0;
-                               // Month 0 is always 100% basically, keep it distinct
                                const cellColor = i === 0 ? 'bg-white text-gray-300' : getCohortCellColor(percent);
                                
                                return (
@@ -436,7 +540,7 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
          </div>
       </div>
 
-      {/* 3. TABEL PELANGGAN (EXISTING) */}
+      {/* 4. TABEL PELANGGAN (EXISTING) */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
         {/* Header */}
         <div className="p-6 border-b border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4 bg-nature-50">
