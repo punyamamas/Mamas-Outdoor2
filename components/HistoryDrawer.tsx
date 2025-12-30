@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { X, Calendar, Package, Clock, History, CheckCircle, AlertCircle, Loader, Printer, Trash2, RotateCcw, Wallet } from 'lucide-react';
+import { X, Calendar, Package, Clock, History, CheckCircle, AlertCircle, Loader, Printer, Trash2, RotateCcw, Wallet, Star } from 'lucide-react';
 import { Transaction } from '../types';
 import { printInvoice, refreshTransactions } from '../services/transactionService';
+import ReviewModal from './ReviewModal';
+import Toast from './Toast';
 
 interface HistoryDrawerProps {
   isOpen: boolean;
@@ -11,6 +13,12 @@ interface HistoryDrawerProps {
 const HistoryDrawer: React.FC<HistoryDrawerProps> = ({ isOpen, onClose }) => {
   const [history, setHistory] = useState<Transaction[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
+  
+  // Review Logic
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [reviewTrx, setReviewTrx] = useState<Transaction | null>(null);
+  const [reviewedIds, setReviewedIds] = useState<string[]>([]);
+  const [showToast, setShowToast] = useState(false);
 
   // Load history whenever the drawer opens AND Sync with Database
   useEffect(() => {
@@ -19,6 +27,10 @@ const HistoryDrawer: React.FC<HistoryDrawerProps> = ({ isOpen, onClose }) => {
     if (isOpen) {
       loadAndSyncHistory();
       
+      // Load local reviewed IDs
+      const localReviewed = localStorage.getItem('mamasReviewedIds');
+      if (localReviewed) setReviewedIds(JSON.parse(localReviewed));
+
       // AUTO REFRESH: Setiap 5 detik, cek status terbaru ke server (Polling Sederhana)
       intervalId = setInterval(() => {
         loadAndSyncHistory(true); // true = silent refresh (tanpa loading spinner)
@@ -87,6 +99,20 @@ const HistoryDrawer: React.FC<HistoryDrawerProps> = ({ isOpen, onClose }) => {
     }
   };
 
+  const handleOpenReview = (trx: Transaction) => {
+    setReviewTrx(trx);
+    setIsReviewModalOpen(true);
+  };
+
+  const handleReviewSuccess = () => {
+    if (reviewTrx) {
+        const newIds = [...reviewedIds, reviewTrx.id];
+        setReviewedIds(newIds);
+        localStorage.setItem('mamasReviewedIds', JSON.stringify(newIds));
+        setShowToast(true);
+    }
+  };
+
   const getStatusDisplay = (trx: Transaction) => {
     // Priority logic: Check Amount Paid First for Visual Feedback
     const paid = trx.amountPaid || 0;
@@ -116,6 +142,20 @@ const HistoryDrawer: React.FC<HistoryDrawerProps> = ({ isOpen, onClose }) => {
       <div className="absolute inset-y-0 right-0 max-w-full flex">
         <div className="w-screen max-w-md bg-white shadow-xl flex flex-col h-full animate-slide-in-right">
           
+          {/* Toast */}
+          <Toast message="Terima kasih ulasannya! ⭐" isVisible={showToast} onClose={() => setShowToast(false)} />
+
+          {/* Review Modal */}
+          {reviewTrx && (
+            <ReviewModal 
+              isOpen={isReviewModalOpen} 
+              onClose={() => setIsReviewModalOpen(false)}
+              transactionId={reviewTrx.id}
+              customerName={reviewTrx.customerName}
+              onSuccess={handleReviewSuccess}
+            />
+          )}
+
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-nature-50">
             <div className="flex items-center gap-2">
@@ -159,6 +199,7 @@ const HistoryDrawer: React.FC<HistoryDrawerProps> = ({ isOpen, onClose }) => {
                   const total = trx.totalPrice;
                   const percentagePaid = Math.min(100, Math.max(0, (paid / total) * 100));
                   const remaining = Math.max(0, total - paid);
+                  const isReviewed = reviewedIds.includes(trx.id);
                   
                   return (
                     <div key={trx.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition relative group">
@@ -231,12 +272,30 @@ const HistoryDrawer: React.FC<HistoryDrawerProps> = ({ isOpen, onClose }) => {
                           ))}
                         </div>
 
-                        <button 
-                          onClick={() => printInvoice(trx, 'view')} // UPDATE: Mode 'view' untuk pelanggan
-                          className="w-full py-2.5 rounded-lg border border-gray-200 text-gray-700 font-bold text-sm hover:bg-gray-50 hover:text-nature-600 transition flex items-center justify-center gap-2"
-                        >
-                          <Printer size={16} /> Lihat Nota Transaksi
-                        </button>
+                        <div className="flex gap-2">
+                          <button 
+                            onClick={() => printInvoice(trx, 'view')}
+                            className="flex-1 py-2.5 rounded-lg border border-gray-200 text-gray-700 font-bold text-xs hover:bg-gray-50 hover:text-nature-600 transition flex items-center justify-center gap-2"
+                          >
+                            <Printer size={14} /> Nota
+                          </button>
+                          
+                          {/* TOMBOL REVIEW (Hanya jika Completed dan Belum Review) */}
+                          {trx.status === 'completed' && !isReviewed && (
+                            <button 
+                              onClick={() => handleOpenReview(trx)}
+                              className="flex-1 py-2.5 rounded-lg bg-nature-600 text-white font-bold text-xs hover:bg-nature-700 transition flex items-center justify-center gap-2 shadow-sm animate-pulse"
+                            >
+                              <Star size={14} className="fill-current" /> Beri Ulasan
+                            </button>
+                          )}
+                          
+                          {isReviewed && (
+                             <div className="flex-1 py-2.5 rounded-lg bg-green-50 text-green-700 font-bold text-xs border border-green-200 flex items-center justify-center gap-1 opacity-75 cursor-default">
+                                <CheckCircle size={14} /> Sudah Diulas
+                             </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   );

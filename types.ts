@@ -75,6 +75,18 @@ export interface Transaction {
   // pending (Belum Bayar) -> partial_payment (Cicil) -> booked (Lunas/Booking) -> rented (Sedang Sewa) -> completed (Selesai)
   status: 'pending' | 'partial_payment' | 'booked' | 'rented' | 'completed' | 'cancelled'; 
   paymentMethod?: 'transfer' | 'cash'; 
+  isReviewed?: boolean; // New Field: Penanda sudah direview atau belum
+}
+
+// NEW: Interface Review
+export interface Review {
+  id: string;
+  created_at: string;
+  transaction_id: string;
+  customer_name: string;
+  rating: number; // 1-5
+  comment: string;
+  is_public: boolean; // Untuk moderasi admin nanti
 }
 
 // NEW: Interface untuk mencatat log keuangan (Kas Kecil / Arus Kas Harian)
