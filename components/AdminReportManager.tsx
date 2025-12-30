@@ -245,7 +245,7 @@ const AdminReportManager: React.FC = () => {
     
     const itemList = t.items.map((i: any) => `- ${i.quantity}x ${i.name}`).join('\n');
     
-    const message = `Halo Kak *${t.customerName}*,\n\nKami dari *Mamas Outdoor Purwokerto*.\n\nStatus pengembalian alat:\n${itemList}\n\nSaat ini statusnya *TERLAMBAT ${t.daysLate} HARI*.\n\nSesuai ketentuan, keterlambatan dikenakan denda setara harga sewa ${t.daysLate+1} hari.\n*Estimasi Denda Saat Ini: Rp${t.fineAmount.toLocaleString('id-ID')}*\n\nMohon segera dikembalikan dan diselesaikan pembayarannya untuk menghentikan akumulasi denda.\n\nTerima kasih.`;
+    const message = `Halo Kak *${t.customerName}*,\n\nKami dari *Mamas Outdoor Purwokerto*.\n\nStatus pengembalian alat:\n${itemList}\n\nSaat ini statusnya *TERLAMBAT ${t.daysLate} HARI*.\n\n*Estimasi Denda Saat Ini: Rp${t.fineAmount.toLocaleString('id-ID')}*\n\nMohon segera dikembalikan dan diselesaikan pembayarannya untuk menghentikan akumulasi denda.\n\nTerima kasih.`;
     
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
   };
