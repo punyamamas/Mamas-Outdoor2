@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { ClipboardList, Loader2, Calendar, Eye, Trash2, X, User, CreditCard, Banknote, ArrowRightLeft, Save, Calculator, CheckCircle, RotateCcw, Wallet, Edit, Plus, Minus, Search, ShoppingBag, Printer, Filter, DollarSign, Receipt } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { ClipboardList, Loader2, Calendar, Eye, Trash2, X, User, CreditCard, Banknote, ArrowRightLeft, Save, Calculator, CheckCircle, RotateCcw, Wallet, Edit, Plus, Minus, Search, ShoppingBag, Printer, Filter, DollarSign, Receipt, BarChart3, TrendingUp, Lightbulb, AlertTriangle, ArrowUpRight } from 'lucide-react';
 import { Transaction, Product, CartItem } from '../types';
 import { updateTransactionPayment, updateTransactionItems, updateTransactionDetails, printInvoice } from '../services/transactionService';
 
@@ -101,18 +101,99 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
     return matchSearch && matchDate && matchStatus;
   });
 
-  // --- SUMMARY LOGIC (Based on Filtered Data) ---
-  // UPDATE: Logic 'Total Transaksi' (Uang Rill)
-  // Rumus: Sum(Min(AmountPaid, TotalPrice))
-  // Jika tagihan 13k, bayar 15k -> yang dihitung 13k (2k kembalian tidak dihitung)
-  const summaryTotalRealIncome = filteredTransactions.reduce((acc, t) => {
-    const paid = t.amountPaid || 0;
-    const bill = t.totalPrice;
-    return acc + Math.min(paid, bill);
-  }, 0);
+  // --- ANALYTICS & INSIGHTS LOGIC (Memoized) ---
+  const analyticsData = useMemo(() => {
+    const dataMap: Record<string, { date: string; income: number; pending: number }> = {};
+    let totalRealIncome = 0;
+    let totalPotentialLost = 0; // Piutang
+    let pendingCount = 0;
 
-  const summaryTotalCount = filteredTransactions.length;
-  const summaryPendingCount = filteredTransactions.filter(t => t.status === 'pending' || t.status === 'partial_payment').length;
+    filteredTransactions.forEach(t => {
+        const date = t.rentalDate.split('T')[0];
+        if (!dataMap[date]) dataMap[date] = { date, income: 0, pending: 0 };
+
+        const paid = t.amountPaid || 0;
+        const bill = t.totalPrice;
+        const realIncome = Math.min(paid, bill);
+        const pending = Math.max(0, bill - paid);
+
+        dataMap[date].income += realIncome;
+        dataMap[date].pending += pending;
+
+        totalRealIncome += realIncome;
+        totalPotentialLost += pending;
+        
+        if (t.status === 'pending' || t.status === 'partial_payment') pendingCount++;
+    });
+
+    // Chart Data (Sorted by Date)
+    const chartData = Object.values(dataMap).sort((a, b) => a.date.localeCompare(b.date));
+    
+    // Scaling Insights Logic
+    const insights = [];
+    const totalCount = filteredTransactions.length || 1;
+    const avgValue = totalRealIncome / totalCount;
+    const pendingRatio = pendingCount / totalCount;
+
+    // Insight 1: Volume & Expansion
+    if (totalCount > 50) {
+        insights.push({
+            type: 'growth',
+            icon: TrendingUp,
+            color: 'text-green-600',
+            bg: 'bg-green-50',
+            title: "Trafik Tinggi (Scale Up)",
+            desc: "Volume transaksi tinggi! Pertimbangkan menambah stok alat 'Fast Moving' (Tenda/Carrier) atau rekrut admin part-time untuk operasional."
+        });
+    } else if (totalCount < 10 && totalCount > 0) {
+        insights.push({
+            type: 'marketing',
+            icon: Lightbulb,
+            color: 'text-yellow-600',
+            bg: 'bg-yellow-50',
+            title: "Butuh Marketing",
+            desc: "Transaksi masih sepi. Coba buat promo 'Diskon Mahasiswa Baru' atau ajak kerjasama Open Trip lokal."
+        });
+    }
+
+    // Insight 2: Pricing & Bundling
+    if (avgValue < 40000 && totalCount > 0) {
+        insights.push({
+            type: 'pricing',
+            icon: DollarSign,
+            color: 'text-blue-600',
+            bg: 'bg-blue-50',
+            title: "Tingkatkan Nilai Transaksi",
+            desc: "Rata-rata sewa kecil (<40rb). Buat 'Paket Hemat' (Tenda+Kompor+Nesting) agar pelanggan menyewa lebih banyak item sekaligus."
+        });
+    }
+
+    // Insight 3: Cashflow & Risk
+    if (pendingRatio > 0.3) {
+        insights.push({
+            type: 'risk',
+            icon: AlertTriangle,
+            color: 'text-red-600',
+            bg: 'bg-red-50',
+            title: "Waspada Cashflow Macet",
+            desc: `30%+ transaksi belum lunas. Pertegas aturan: Wajib DP 50% di awal & Pelunasan saat ambil barang (No Bon).`
+        });
+    } else {
+        insights.push({
+            type: 'safe',
+            icon: CheckCircle,
+            color: 'text-nature-600',
+            bg: 'bg-nature-50',
+            title: "Keuangan Sehat",
+            desc: "Mayoritas pembayaran lancar. Pertahankan sistem penagihan ini untuk menjaga arus kas tetap positif."
+        });
+    }
+
+    return { chartData, totalRealIncome, totalPotentialLost, totalCount, pendingCount, insights };
+  }, [filteredTransactions]);
+
+  // Max value for Chart Scaling
+  const maxChartValue = Math.max(...analyticsData.chartData.map(d => d.income + d.pending), 100000);
 
   // Fungsi Reset Filter ke Default
   const handleResetFilter = () => {
@@ -342,15 +423,26 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
     <div className="space-y-6">
       
       {/* 1. SUMMARY CARDS */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Card: Total Income (Renamed to Total Transaksi) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Card: Total Income */}
         <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
           <div className="p-3 bg-green-50 text-green-600 rounded-lg">
              <DollarSign size={24} />
           </div>
           <div>
-             <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Total Transaksi</p>
-             <h4 className="text-xl font-black text-gray-900">Rp{summaryTotalRealIncome.toLocaleString('id-ID')}</h4>
+             <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Total Masuk (Net)</p>
+             <h4 className="text-xl font-black text-gray-900">Rp{analyticsData.totalRealIncome.toLocaleString('id-ID')}</h4>
+          </div>
+        </div>
+
+        {/* Card: Pending (Potential) */}
+        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
+          <div className="p-3 bg-orange-50 text-orange-600 rounded-lg">
+             <AlertTriangle size={24} />
+          </div>
+          <div>
+             <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Piutang (Belum Bayar)</p>
+             <h4 className="text-xl font-black text-gray-900">Rp{analyticsData.totalPotentialLost.toLocaleString('id-ID')}</h4>
           </div>
         </div>
 
@@ -360,13 +452,105 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
              <Receipt size={24} />
           </div>
           <div>
-             <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Jml Transaksi</p>
-             <h4 className="text-xl font-black text-gray-900">{summaryTotalCount} <span className="text-sm font-medium text-gray-400 font-normal">Nota</span></h4>
+             <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Jml Transaksi</p>
+             <h4 className="text-xl font-black text-gray-900">{analyticsData.totalCount} <span className="text-sm font-medium text-gray-400 font-normal">Nota</span></h4>
+          </div>
+        </div>
+
+        {/* Card: Conversion/Analysis Mini */}
+        <div className="bg-nature-50 p-4 rounded-xl border border-nature-100 shadow-sm flex items-center gap-4">
+          <div className="p-3 bg-white text-nature-600 rounded-lg border border-nature-100">
+             <BarChart3 size={24} />
+          </div>
+          <div>
+             <p className="text-[10px] text-nature-700 font-bold uppercase tracking-wider">Saran Sistem</p>
+             <h4 className="text-sm font-bold text-gray-900">{analyticsData.insights.length} Insight Tersedia</h4>
           </div>
         </div>
       </div>
 
-      {/* 2. FILTER TOOLBAR (TIDY LAYOUT) */}
+      {/* 2. ANALYTICS SECTION (GRAFIK & SARAN) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-slide-in-right">
+         {/* CHART: REVENUE TREND */}
+         <div className="lg:col-span-2 bg-white p-5 rounded-2xl border border-gray-200 shadow-sm flex flex-col h-80">
+            <div className="flex justify-between items-center mb-4">
+               <h4 className="font-bold text-gray-800 flex items-center gap-2">
+                  <TrendingUp size={18} className="text-nature-600"/> Grafik Tren Transaksi
+               </h4>
+               <div className="flex items-center gap-2 text-[10px] font-bold">
+                  <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-nature-500"></div>Pemasukan</span>
+                  <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-orange-300"></div>Piutang</span>
+               </div>
+            </div>
+            
+            {/* Chart Container */}
+            <div className="flex-1 flex items-end gap-2 overflow-x-auto pb-2 custom-scrollbar">
+               {analyticsData.chartData.length === 0 ? (
+                  <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 text-sm">
+                     <BarChart3 size={40} className="mb-2 opacity-20"/>
+                     Belum ada data untuk ditampilkan grafik.
+                  </div>
+               ) : (
+                  analyticsData.chartData.map((d, i) => {
+                     const total = d.income + d.pending;
+                     const heightPercent = Math.max(15, Math.round((total / maxChartValue) * 100)); // Min 15% height for visibility
+                     const incomePercent = total > 0 ? (d.income / total) * 100 : 0;
+                     const pendingPercent = total > 0 ? (d.pending / total) * 100 : 0;
+
+                     return (
+                        <div key={i} className="flex flex-col justify-end items-center flex-1 min-w-[30px] h-full group relative">
+                           {/* Tooltip */}
+                           <div className="absolute bottom-full mb-2 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-900 text-white text-[10px] p-2 rounded-lg pointer-events-none z-10 w-24 text-center">
+                              <p className="font-bold border-b border-gray-700 pb-1 mb-1">{new Date(d.date).toLocaleDateString('id-ID', {day:'numeric', month:'short'})}</p>
+                              <div className="text-green-400">In: Rp{(d.income/1000).toFixed(0)}k</div>
+                              <div className="text-orange-400">Out: Rp{(d.pending/1000).toFixed(0)}k</div>
+                           </div>
+
+                           {/* Stacked Bar */}
+                           <div className="w-full rounded-t-md overflow-hidden relative flex flex-col-reverse shadow-sm transition-all hover:brightness-110 cursor-pointer" style={{ height: `${heightPercent}%` }}>
+                              <div className="bg-nature-500 w-full transition-all duration-500" style={{ height: `${incomePercent}%` }}></div>
+                              <div className="bg-orange-300 w-full transition-all duration-500" style={{ height: `${pendingPercent}%` }}></div>
+                           </div>
+                           
+                           {/* Label Date */}
+                           <span className="text-[9px] text-gray-400 mt-2 font-medium truncate w-full text-center">
+                              {new Date(d.date).getDate()}
+                           </span>
+                        </div>
+                     )
+                  })
+               )}
+            </div>
+         </div>
+
+         {/* INSIGHTS / SARAN BISNIS */}
+         <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm flex flex-col h-80 overflow-hidden">
+            <h4 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+               <Lightbulb size={18} className="text-yellow-500"/> Saran Scale-Up Bisnis
+            </h4>
+            <div className="flex-1 overflow-y-auto pr-2 space-y-3 custom-scrollbar">
+               {analyticsData.insights.map((insight, idx) => {
+                  const Icon = insight.icon;
+                  return (
+                     <div key={idx} className={`p-3 rounded-xl border flex gap-3 items-start ${insight.bg} border-transparent`}>
+                        <div className={`p-1.5 rounded-lg bg-white shrink-0 ${insight.color}`}>
+                           <Icon size={16} />
+                        </div>
+                        <div>
+                           <h5 className={`text-xs font-bold ${insight.color} uppercase tracking-wide mb-0.5`}>{insight.title}</h5>
+                           <p className="text-xs text-gray-600 leading-relaxed">{insight.desc}</p>
+                        </div>
+                     </div>
+                  );
+               })}
+               <div className="p-3 bg-gray-50 rounded-xl border border-dashed border-gray-200 text-center">
+                  <p className="text-[10px] text-gray-400">Analisis diperbarui otomatis berdasarkan data transaksi yang ditampilkan.</p>
+               </div>
+            </div>
+         </div>
+      </div>
+
+      {/* 3. FILTER TOOLBAR (TIDY LAYOUT) */}
       <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-end">
             
