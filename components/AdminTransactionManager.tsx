@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ClipboardList, Loader2, Calendar, Eye, Trash2, X, User, CreditCard, Banknote, ArrowRightLeft, Save, Calculator, CheckCircle, RotateCcw, Wallet, Edit, Plus, Minus, Search, ShoppingBag, Printer } from 'lucide-react';
+import { ClipboardList, Loader2, Calendar, Eye, Trash2, X, User, CreditCard, Banknote, ArrowRightLeft, Save, Calculator, CheckCircle, RotateCcw, Wallet, Edit, Plus, Minus, Search, ShoppingBag, Printer, Filter, DollarSign, Receipt } from 'lucide-react';
 import { Transaction, Product, CartItem } from '../types';
 import { updateTransactionPayment, updateTransactionItems, updateTransactionDetails, printInvoice } from '../services/transactionService';
 
@@ -22,6 +22,11 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
 }) => {
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   
+  // --- FILTER STATES ---
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterDate, setFilterDate] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
+
   // State: Nominal yang SEDANG diketik (Pembayaran Baru) - DIBAGI DUA
   const [cashInput, setCashInput] = useState<number>(0);
   const [transferInput, setTransferInput] = useState<number>(0);
@@ -55,6 +60,27 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
       setEditDuration(selectedTransaction.duration);
     }
   }, [selectedTransaction]);
+
+  // --- FILTERING LOGIC ---
+  const filteredTransactions = transactions.filter(t => {
+    // 1. Search (ID or Name)
+    const lowerSearch = searchTerm.toLowerCase();
+    const matchSearch = t.customerName.toLowerCase().includes(lowerSearch) || 
+                        t.id.toLowerCase().includes(lowerSearch);
+
+    // 2. Date Filter (Rental Date)
+    const matchDate = filterDate ? t.rentalDate === filterDate : true;
+
+    // 3. Status Filter
+    const matchStatus = filterStatus === 'all' ? true : t.status === filterStatus;
+
+    return matchSearch && matchDate && matchStatus;
+  });
+
+  // --- SUMMARY LOGIC (Based on Filtered Data) ---
+  const summaryTotalRealIncome = filteredTransactions.reduce((acc, t) => acc + (t.amountPaid || 0), 0);
+  const summaryTotalCount = filteredTransactions.length;
+  const summaryPendingCount = filteredTransactions.filter(t => t.status === 'pending' || t.status === 'partial_payment').length;
 
   // Kalkulasi Realtime untuk Tampilan Kasir
   const calculateFinancials = () => {
@@ -269,91 +295,178 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-      <div className="p-5 border-b border-gray-100">
-        <h3 className="font-bold text-gray-800 flex items-center gap-2">
-          <ClipboardList size={18} /> Daftar Transaksi
-        </h3>
+    <div className="space-y-6">
+      
+      {/* 1. SUMMARY CARDS & FILTERS */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        
+        {/* Card: Total Income */}
+        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
+          <div className="p-3 bg-green-50 text-green-600 rounded-lg">
+             <DollarSign size={24} />
+          </div>
+          <div>
+             <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Total Kas Masuk (Rill)</p>
+             <h4 className="text-xl font-black text-gray-900">Rp{summaryTotalRealIncome.toLocaleString('id-ID')}</h4>
+          </div>
+        </div>
+
+        {/* Card: Transaction Count */}
+        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
+          <div className="p-3 bg-blue-50 text-blue-600 rounded-lg">
+             <Receipt size={24} />
+          </div>
+          <div>
+             <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Jml Transaksi</p>
+             <h4 className="text-xl font-black text-gray-900">{summaryTotalCount} <span className="text-sm font-medium text-gray-400 font-normal">Nota</span></h4>
+          </div>
+        </div>
+
+        {/* Card: Filter Controls (Wide) */}
+        <div className="md:col-span-2 bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-center">
+           <div className="flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-1">
+                 <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
+                 <input 
+                   type="text" 
+                   placeholder="Cari Nama / ID..." 
+                   className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-nature-500 outline-none transition"
+                   value={searchTerm}
+                   onChange={(e) => setSearchTerm(e.target.value)}
+                 />
+              </div>
+              <div className="relative">
+                 <Calendar className="absolute left-3 top-2.5 text-gray-400" size={16} />
+                 <input 
+                   type="date" 
+                   className="pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-nature-500 outline-none transition text-gray-600 font-medium"
+                   value={filterDate}
+                   onChange={(e) => setFilterDate(e.target.value)}
+                 />
+                 {filterDate && (
+                    <button 
+                      onClick={() => setFilterDate('')}
+                      className="absolute right-2 top-2 text-gray-400 hover:text-red-500"
+                    >
+                       <X size={14} />
+                    </button>
+                 )}
+              </div>
+              <div className="relative">
+                 <Filter className="absolute left-3 top-2.5 text-gray-400" size={16} />
+                 <select 
+                   className="pl-9 pr-8 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-nature-500 outline-none transition appearance-none bg-white text-gray-600 font-medium cursor-pointer"
+                   value={filterStatus}
+                   onChange={(e) => setFilterStatus(e.target.value)}
+                 >
+                    <option value="all">Semua Status</option>
+                    <option value="pending">Belum Bayar</option>
+                    <option value="partial_payment">Cicilan</option>
+                    <option value="booked">Lunas (Booking)</option>
+                    <option value="rented">Sedang Sewa</option>
+                    <option value="completed">Selesai</option>
+                    <option value="cancelled">Dibatalkan</option>
+                 </select>
+              </div>
+           </div>
+        </div>
       </div>
 
-      {isLoading ? (
-        <div className="p-10 text-center flex justify-center"><Loader2 className="animate-spin text-gray-400" /></div>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-gray-600">
-            <thead className="bg-gray-50 text-gray-700 font-bold uppercase text-xs">
-              <tr>
-                <th className="px-6 py-4">ID / Tanggal</th>
-                <th className="px-6 py-4">Penyewa</th>
-                <th className="px-6 py-4">Keuangan</th>
-                <th className="px-6 py-4">Status & Aksi</th>
-                <th className="px-6 py-4 text-center">Detail</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {transactions.map(trx => {
-                const paid = trx.amountPaid || 0;
-                const totalTrx = trx.totalPrice;
-                const isPaidOffTrx = paid >= totalTrx;
-                
-                return (
-                  <tr key={trx.id} className="hover:bg-gray-50 transition">
-                    <td className="px-6 py-4 align-middle">
-                      <div className="font-mono text-xs text-gray-500">#{trx.id.slice(0, 6)}</div>
-                      <div className="text-xs font-bold text-gray-700 mt-1">
-                        {new Date(trx.created_at || '').toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 align-middle">
-                      <div className="font-bold text-gray-900">{trx.customerName}</div>
-                      <div className="text-xs text-gray-500">{trx.customerWhatsapp}</div>
-                    </td>
-                    <td className="px-6 py-4 align-middle">
-                      <div className="font-bold text-nature-700">Rp{totalTrx.toLocaleString('id-ID')}</div>
-                      <div className="mt-1">
-                        {isPaidOffTrx ? (
-                           <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded font-bold uppercase">Lunas</span>
-                        ) : paid === 0 ? (
-                           <span className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded font-bold uppercase">Belum Bayar</span>
-                        ) : (
-                           <span className="text-[10px] bg-orange-100 text-orange-700 px-2 py-0.5 rounded font-bold uppercase">
-                             Sisa: Rp{(totalTrx - paid).toLocaleString('id-ID')}
-                           </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 align-middle">
-                      <select
-                        value={trx.status}
-                        onChange={(e) => onStatusUpdate(trx.id, e.target.value)}
-                        className={`text-xs border rounded px-2 py-1.5 focus:ring-nature-500 outline-none w-40 font-bold cursor-pointer transition capitalize ${getStatusBadge(trx.status)}`}
-                      >
-                        <option value="pending" className="text-gray-600">Belum Bayar</option>
-                        <option value="partial_payment" className="text-orange-600">Cicil (Belum Lunas)</option>
-                        <option value="booked" className="text-blue-600">Booking (Siap Ambil)</option>
-                        <option value="rented" className="text-purple-600">Sedang Sewa</option>
-                        <option value="completed" className="text-green-600">Selesai (Kembali)</option>
-                        <option value="cancelled" className="text-red-600">Dibatalkan</option>
-                      </select>
-                    </td>
-                    <td className="px-6 py-4 align-middle text-center">
-                      <button
-                        onClick={() => setSelectedTransaction(trx)}
-                        className="inline-flex items-center gap-1 bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-xs font-bold transition"
-                      >
-                        <Eye size={14} />
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-              {transactions.length === 0 && (
-                <tr><td colSpan={5} className="text-center py-8 text-gray-400">Belum ada transaksi</td></tr>
-              )}
-            </tbody>
-          </table>
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="p-5 border-b border-gray-100 flex justify-between items-center">
+          <h3 className="font-bold text-gray-800 flex items-center gap-2">
+            <ClipboardList size={18} /> Daftar Transaksi
+          </h3>
+          <span className="text-xs text-gray-400">Menampilkan {filteredTransactions.length} data</span>
         </div>
-      )}
+
+        {isLoading ? (
+          <div className="p-10 text-center flex justify-center"><Loader2 className="animate-spin text-gray-400" /></div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm text-gray-600">
+              <thead className="bg-gray-50 text-gray-700 font-bold uppercase text-xs">
+                <tr>
+                  <th className="px-6 py-4">ID / Tanggal</th>
+                  <th className="px-6 py-4">Penyewa</th>
+                  <th className="px-6 py-4">Keuangan</th>
+                  <th className="px-6 py-4">Status & Aksi</th>
+                  <th className="px-6 py-4 text-center">Detail</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {filteredTransactions.map(trx => {
+                  const paid = trx.amountPaid || 0;
+                  const totalTrx = trx.totalPrice;
+                  const isPaidOffTrx = paid >= totalTrx;
+                  
+                  return (
+                    <tr key={trx.id} className="hover:bg-gray-50 transition">
+                      <td className="px-6 py-4 align-middle">
+                        <div className="font-mono text-xs text-gray-500">#{trx.id.slice(0, 6)}</div>
+                        <div className="text-xs font-bold text-gray-700 mt-1">
+                          {new Date(trx.rentalDate || '').toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 align-middle">
+                        <div className="font-bold text-gray-900">{trx.customerName}</div>
+                        <div className="text-xs text-gray-500">{trx.customerWhatsapp}</div>
+                      </td>
+                      <td className="px-6 py-4 align-middle">
+                        <div className="font-bold text-nature-700">Rp{totalTrx.toLocaleString('id-ID')}</div>
+                        <div className="mt-1">
+                          {isPaidOffTrx ? (
+                             <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded font-bold uppercase">Lunas</span>
+                          ) : paid === 0 ? (
+                             <span className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded font-bold uppercase">Belum Bayar</span>
+                          ) : (
+                             <span className="text-[10px] bg-orange-100 text-orange-700 px-2 py-0.5 rounded font-bold uppercase">
+                               Sisa: Rp{(totalTrx - paid).toLocaleString('id-ID')}
+                             </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 align-middle">
+                        <select
+                          value={trx.status}
+                          onChange={(e) => onStatusUpdate(trx.id, e.target.value)}
+                          className={`text-xs border rounded px-2 py-1.5 focus:ring-nature-500 outline-none w-40 font-bold cursor-pointer transition capitalize ${getStatusBadge(trx.status)}`}
+                        >
+                          <option value="pending" className="text-gray-600">Belum Bayar</option>
+                          <option value="partial_payment" className="text-orange-600">Cicil (Belum Lunas)</option>
+                          <option value="booked" className="text-blue-600">Booking (Siap Ambil)</option>
+                          <option value="rented" className="text-purple-600">Sedang Sewa</option>
+                          <option value="completed" className="text-green-600">Selesai (Kembali)</option>
+                          <option value="cancelled" className="text-red-600">Dibatalkan</option>
+                        </select>
+                      </td>
+                      <td className="px-6 py-4 align-middle text-center">
+                        <button
+                          onClick={() => setSelectedTransaction(trx)}
+                          className="inline-flex items-center gap-1 bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-xs font-bold transition"
+                        >
+                          <Eye size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {filteredTransactions.length === 0 && (
+                  <tr><td colSpan={5} className="text-center py-12 text-gray-400">
+                    <p className="mb-2">Tidak ada transaksi yang cocok.</p>
+                    <button 
+                      onClick={() => {setSearchTerm(''); setFilterDate(''); setFilterStatus('all')}}
+                      className="text-nature-600 font-bold text-xs underline"
+                    >
+                      Reset Filter
+                    </button>
+                  </td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       {/* MODAL KASIR INTERAKTIF */}
       {selectedTransaction && (
