@@ -22,11 +22,26 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
 }) => {
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   
+  // Helper untuk format tanggal YYYY-MM-DD (Local Time)
+  const getLocalISOString = (date: Date) => {
+    const offset = date.getTimezoneOffset() * 60000;
+    return new Date(date.getTime() - offset).toISOString().split('T')[0];
+  };
+
   // --- FILTER STATES ---
   const [searchTerm, setSearchTerm] = useState('');
-  // Changed: From single filterDate to Range
-  const [filterStartDate, setFilterStartDate] = useState('');
-  const [filterEndDate, setFilterEndDate] = useState('');
+  
+  // Default: 1 Bulan kebelakang dari hari ini
+  const [filterStartDate, setFilterStartDate] = useState(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 1);
+    return getLocalISOString(d);
+  });
+  
+  const [filterEndDate, setFilterEndDate] = useState(() => {
+    return getLocalISOString(new Date());
+  });
+
   const [filterStatus, setFilterStatus] = useState('all');
 
   // State: Nominal yang SEDANG diketik (Pembayaran Baru) - DIBAGI DUA
@@ -98,6 +113,18 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
 
   const summaryTotalCount = filteredTransactions.length;
   const summaryPendingCount = filteredTransactions.filter(t => t.status === 'pending' || t.status === 'partial_payment').length;
+
+  // Fungsi Reset Filter ke Default
+  const handleResetFilter = () => {
+    setSearchTerm('');
+    // Reset ke 1 bulan terakhir
+    const end = new Date();
+    const start = new Date();
+    start.setMonth(start.getMonth() - 1);
+    setFilterStartDate(getLocalISOString(start));
+    setFilterEndDate(getLocalISOString(end));
+    setFilterStatus('all');
+  };
 
   // Kalkulasi Realtime untuk Tampilan Kasir
   const calculateFinancials = () => {
@@ -314,9 +341,8 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
   return (
     <div className="space-y-6">
       
-      {/* 1. SUMMARY CARDS & FILTERS */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        
+      {/* 1. SUMMARY CARDS */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Card: Total Income (Renamed to Total Transaksi) */}
         <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
           <div className="p-3 bg-green-50 text-green-600 rounded-lg">
@@ -338,67 +364,83 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
              <h4 className="text-xl font-black text-gray-900">{summaryTotalCount} <span className="text-sm font-medium text-gray-400 font-normal">Nota</span></h4>
           </div>
         </div>
+      </div>
 
-        {/* Card: Filter Controls (Wide) */}
-        <div className="md:col-span-2 bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col justify-center">
-           <div className="flex flex-col sm:flex-row gap-3">
-              <div className="relative flex-1">
+      {/* 2. FILTER TOOLBAR (TIDY LAYOUT) */}
+      <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-end">
+            
+            {/* Search */}
+            <div className="lg:col-span-4 space-y-1">
+               <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">Cari Pelanggan</label>
+               <div className="relative">
                  <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
                  <input 
                    type="text" 
-                   placeholder="Cari Nama / ID..." 
+                   placeholder="Nama / ID Transaksi..." 
                    className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-nature-500 outline-none transition"
                    value={searchTerm}
                    onChange={(e) => setSearchTerm(e.target.value)}
                  />
-              </div>
-              
-              {/* DATE RANGE FILTER */}
-              <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-2 py-1 focus-within:ring-2 focus-within:ring-nature-500 focus-within:border-transparent transition">
-                 <Calendar className="text-gray-400" size={16} />
+               </div>
+            </div>
+
+            {/* Date Range */}
+            <div className="lg:col-span-5 space-y-1">
+               <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">Periode Sewa</label>
+               <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-2 py-1.5 focus-within:ring-2 focus-within:ring-nature-500 focus-within:border-transparent transition">
+                 <Calendar className="text-gray-400 ml-1" size={16} />
                  <input 
                    type="date" 
-                   className="text-xs sm:text-sm border-none outline-none text-gray-600 font-medium bg-transparent w-24 sm:w-auto"
+                   className="text-xs sm:text-sm border-none outline-none text-gray-700 font-bold bg-transparent flex-1 w-full"
                    value={filterStartDate}
                    onChange={(e) => setFilterStartDate(e.target.value)}
-                   title="Tanggal Mulai"
                  />
-                 <span className="text-gray-300">-</span>
+                 <span className="text-gray-300 font-light">|</span>
                  <input 
                    type="date" 
-                   className="text-xs sm:text-sm border-none outline-none text-gray-600 font-medium bg-transparent w-24 sm:w-auto"
+                   className="text-xs sm:text-sm border-none outline-none text-gray-700 font-bold bg-transparent flex-1 w-full"
                    value={filterEndDate}
                    onChange={(e) => setFilterEndDate(e.target.value)}
-                   title="Tanggal Selesai"
                  />
-                 {(filterStartDate || filterEndDate) && (
-                    <button 
-                      onClick={() => { setFilterStartDate(''); setFilterEndDate(''); }}
-                      className="text-gray-400 hover:text-red-500 ml-1"
-                    >
-                       <X size={14} />
-                    </button>
-                 )}
-              </div>
+               </div>
+            </div>
 
-              <div className="relative">
-                 <Filter className="absolute left-3 top-2.5 text-gray-400" size={16} />
-                 <select 
-                   className="pl-9 pr-8 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-nature-500 outline-none transition appearance-none bg-white text-gray-600 font-medium cursor-pointer"
-                   value={filterStatus}
-                   onChange={(e) => setFilterStatus(e.target.value)}
-                 >
-                    <option value="all">Semua Status</option>
-                    <option value="pending">Belum Bayar</option>
-                    <option value="partial_payment">Cicilan</option>
-                    <option value="booked">Lunas (Booking)</option>
-                    <option value="rented">Sedang Sewa</option>
-                    <option value="completed">Selesai</option>
-                    <option value="cancelled">Dibatalkan</option>
-                 </select>
-              </div>
-           </div>
-        </div>
+            {/* Status & Reset */}
+            <div className="lg:col-span-3 flex gap-2">
+               <div className="space-y-1 flex-1">
+                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">Status</label>
+                  <div className="relative">
+                     <select 
+                       className="w-full pl-3 pr-8 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-nature-500 outline-none transition appearance-none bg-white text-gray-700 font-bold cursor-pointer"
+                       value={filterStatus}
+                       onChange={(e) => setFilterStatus(e.target.value)}
+                     >
+                        <option value="all">Semua</option>
+                        <option value="pending">Belum Bayar</option>
+                        <option value="partial_payment">Cicilan</option>
+                        <option value="booked">Lunas (Booking)</option>
+                        <option value="rented">Sedang Sewa</option>
+                        <option value="completed">Selesai</option>
+                        <option value="cancelled">Dibatalkan</option>
+                     </select>
+                     <Filter className="absolute right-3 top-2.5 text-gray-400 pointer-events-none" size={14} />
+                  </div>
+               </div>
+               
+               <div className="space-y-1">
+                  <label className="invisible text-[10px] font-bold uppercase tracking-wide">Reset</label>
+                  <button 
+                    onClick={handleResetFilter}
+                    className="h-[38px] px-3 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg transition flex items-center justify-center border border-gray-200"
+                    title="Reset Filter ke Default (1 Bulan)"
+                  >
+                     <RotateCcw size={16} />
+                  </button>
+               </div>
+            </div>
+
+         </div>
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
@@ -484,7 +526,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                   <tr><td colSpan={5} className="text-center py-12 text-gray-400">
                     <p className="mb-2">Tidak ada transaksi yang cocok.</p>
                     <button 
-                      onClick={() => {setSearchTerm(''); setFilterStartDate(''); setFilterEndDate(''); setFilterStatus('all')}}
+                      onClick={handleResetFilter}
                       className="text-nature-600 font-bold text-xs underline"
                     >
                       Reset Filter
