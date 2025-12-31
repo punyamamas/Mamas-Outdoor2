@@ -1,7 +1,8 @@
+
 import React, { useEffect, useState } from 'react';
-import { X, Calendar, Package, Clock, History, CheckCircle, AlertCircle, Loader, Printer, Trash2, RotateCcw, Wallet, Star } from 'lucide-react';
+import { X, Calendar, Package, Clock, History, CheckCircle, AlertCircle, Loader, Printer, Trash2, RotateCcw, Wallet, Star, Search, Smartphone } from 'lucide-react';
 import { Transaction } from '../types';
-import { printInvoice, refreshTransactions } from '../services/transactionService';
+import { printInvoice, refreshTransactions, getTransactionsByPhone } from '../services/transactionService';
 import ReviewModal from './ReviewModal';
 import Toast from './Toast';
 
@@ -13,6 +14,10 @@ interface HistoryDrawerProps {
 const HistoryDrawer: React.FC<HistoryDrawerProps> = ({ isOpen, onClose }) => {
   const [history, setHistory] = useState<Transaction[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
+  
+  // Search History State
+  const [searchPhone, setSearchPhone] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
   
   // Review Logic
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
@@ -45,7 +50,7 @@ const HistoryDrawer: React.FC<HistoryDrawerProps> = ({ isOpen, onClose }) => {
   const loadAndSyncHistory = async (silent = false) => {
     const savedHistory = localStorage.getItem('mamasHistory');
     if (!savedHistory) {
-      setHistory([]);
+      if (!silent) setHistory([]);
       return;
     }
 
@@ -69,10 +74,6 @@ const HistoryDrawer: React.FC<HistoryDrawerProps> = ({ isOpen, onClose }) => {
         if (result.success) {
           // LOGIKA PENTING:
           // Jika koneksi sukses, kita PERCAYA SEPENUHNYA pada server.
-          // Jika server hanya mengembalikan 2 data padahal kita kirim 3 ID, berarti 1 ID sudah dihapus admin.
-          // Maka kita timpa data lokal dengan data server.
-          // Ini juga otomatis mengupdate status, item, harga, dll jika diedit admin.
-          
           const freshData = result.data;
           
           // Sort terbaru diatas
@@ -81,13 +82,51 @@ const HistoryDrawer: React.FC<HistoryDrawerProps> = ({ isOpen, onClose }) => {
           setHistory(sorted);
           localStorage.setItem('mamasHistory', JSON.stringify(sorted));
         }
-        // Jika result.success = false (misal internet mati), kita diamkan saja (tetap pakai data lokal/cache).
       }
 
     } catch (e) {
       console.error("Failed to parse history", e);
     } finally {
       if (!silent) setIsSyncing(false);
+    }
+  };
+
+  const handleSearchHistory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchPhone || searchPhone.length < 8) return alert("Masukkan nomor WA yang valid!");
+    
+    setIsSearching(true);
+    try {
+        const foundTransactions = await getTransactionsByPhone(searchPhone);
+        
+        if (foundTransactions.length === 0) {
+            alert("Tidak ditemukan riwayat sewa dengan nomor ini.");
+        } else {
+            // Merge logic: Tambahkan ke history lokal jika belum ada
+            const currentHistory = [...history];
+            let addedCount = 0;
+            
+            foundTransactions.forEach(ft => {
+                if (!currentHistory.some(ch => ch.id === ft.id)) {
+                    currentHistory.push(ft);
+                    addedCount++;
+                }
+            });
+            
+            if (addedCount > 0) {
+                const sorted = currentHistory.sort((a, b) => new Date(b.rentalDate).getTime() - new Date(a.rentalDate).getTime());
+                setHistory(sorted);
+                localStorage.setItem('mamasHistory', JSON.stringify(sorted));
+                alert(`Berhasil memulihkan ${addedCount} transaksi lama!`);
+            } else {
+                alert("Semua riwayat sudah ada di list Anda.");
+            }
+        }
+    } catch (err) {
+        alert("Gagal mencari data. Coba lagi nanti.");
+    } finally {
+        setIsSearching(false);
+        setSearchPhone('');
     }
   };
 
@@ -178,6 +217,28 @@ const HistoryDrawer: React.FC<HistoryDrawerProps> = ({ isOpen, onClose }) => {
             </div>
           </div>
 
+          {/* RESTORE HISTORY SECTION */}
+          <div className="px-6 py-4 bg-gray-50 border-b border-gray-100">
+             <form onSubmit={handleSearchHistory} className="relative">
+                <Smartphone className="absolute left-3 top-2.5 text-gray-400" size={16} />
+                <input 
+                  type="text" 
+                  placeholder="Cek riwayat? Masukkan No WA..." 
+                  className="w-full pl-9 pr-20 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-nature-500 outline-none transition bg-white"
+                  value={searchPhone}
+                  onChange={(e) => setSearchPhone(e.target.value)}
+                />
+                <button 
+                  type="submit"
+                  disabled={isSearching || !searchPhone}
+                  className="absolute right-1 top-1 bg-nature-600 text-white px-3 py-1.5 rounded-md text-xs font-bold hover:bg-nature-700 disabled:opacity-50 transition"
+                >
+                   {isSearching ? <Loader size={14} className="animate-spin"/> : 'Cari'}
+                </button>
+             </form>
+             <p className="text-[10px] text-gray-400 mt-1 italic text-center">Gunakan fitur ini jika ganti HP atau history hilang.</p>
+          </div>
+
           {/* Content */}
           <div className="flex-1 overflow-y-auto p-6 bg-gray-50">
             {history.length === 0 ? (
@@ -185,7 +246,7 @@ const HistoryDrawer: React.FC<HistoryDrawerProps> = ({ isOpen, onClose }) => {
                 <div className="bg-white p-4 rounded-full shadow-sm">
                    <Clock size={40} className="text-gray-300" />
                 </div>
-                <p>Belum ada riwayat penyewaan.</p>
+                <p>Belum ada riwayat penyewaan di perangkat ini.</p>
                 <button onClick={onClose} className="text-nature-600 font-medium hover:underline">
                   Mulai petualanganmu sekarang!
                 </button>
