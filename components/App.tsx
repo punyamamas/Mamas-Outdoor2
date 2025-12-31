@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Navbar from './components/Navbar';
 import CartDrawer from './components/CartDrawer';
 import HistoryDrawer from './components/HistoryDrawer';
@@ -7,18 +7,20 @@ import GeminiAdvisor from './components/GeminiAdvisor';
 import TermsModal from './components/TermsModal';
 import { AdminDashboard } from './components/AdminDashboard';
 import ProductDetailModal from './components/ProductDetailModal';
-import Toast from './components/Toast'; // Import Toast
-import ImageLoader from './components/ImageLoader'; // Import ImageLoader
+import Toast from './components/Toast'; 
+import ImageLoader from './components/ImageLoader'; 
 import { PRODUCTS, CATEGORIES as CONSTANT_CATEGORIES } from './constants'; 
-import { CartItem, Product, Category } from './types';
+import { CartItem, Product, Category, Transaction } from './types';
 import { getProducts, addProduct, updateProduct, deleteProduct } from './services/productService';
 import { getCategories, addCategory, updateCategory, deleteCategory } from './services/categoryService';
-import { MapPin, Star, Plus, Check, School, Github, Loader2, Flame, Lock, Calendar, Users, ArrowRight as ArrowIcon, ChevronDown, ShieldCheck, Zap, ShoppingCart, Info, Weight, Tent, Wind, ArrowUpDown, Search, XCircle, ShoppingBag, ClipboardList, MessageCircle, Truck } from 'lucide-react';
+import { getTransactions } from './services/transactionService'; // Import getTransactions
+import { MapPin, Star, Plus, Check, School, Github, Loader2, Flame, Lock, Calendar, Users, ArrowRight as ArrowIcon, ChevronDown, ShieldCheck, Zap, ShoppingCart, Info, Weight, Tent, Wind, ArrowUpDown, Search, XCircle, ShoppingBag, ClipboardList, MessageCircle, Truck, CalendarCheck } from 'lucide-react';
 
 function App() {
   const [currentPage, setCurrentPage] = useState<'home' | 'admin'>('home');
   const [products, setProducts] = useState<Product[]>([]); 
   const [categories, setCategories] = useState<Category[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]); // Store Transactions for Availability Check
   const [isLoading, setIsLoading] = useState(true); 
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -39,20 +41,27 @@ function App() {
   // State untuk Toast Notification
   const [toast, setToast] = useState<{ show: boolean; message: string }>({ show: false, message: '' });
 
+  // --- AVAILABILITY STATE ---
+  // Default: Hari ini, Durasi 2 Hari
+  const [checkDate, setCheckDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [checkDuration, setCheckDuration] = useState(2);
+
   // Define fetch data functions
   const fetchData = async () => {
     // Only show loading on initial load or empty state
     if (products.length === 0) setIsLoading(true);
     
     try {
-      // Fetch concurrently
-      const [productsData, categoriesData] = await Promise.all([
+      // Fetch concurrently: Products, Categories, and Active Transactions
+      const [productsData, categoriesData, transactionsData] = await Promise.all([
         getProducts(),
-        getCategories()
+        getCategories(),
+        getTransactions()
       ]);
       
       setProducts(productsData);
       setCategories(categoriesData);
+      setTransactions(transactionsData);
     } catch (error) {
       console.error("Failed to load data", error);
       setProducts(PRODUCTS); 
@@ -98,34 +107,83 @@ function App() {
     setToast({ show: true, message });
   };
 
-  // Helper untuk mendapatkan stok yang tersedia berdasarkan konfigurasi (Varian/Size/Base/PAKET)
-  const getAvailableStock = (product: Product, size?: string, color?: string): number => {
-    // 1. Logic PAKET Dinamis
-    if (product.packageItems && product.packageItems.length > 0) {
-        const possibleStocks = product.packageItems.map(pi => {
-            // Cari produk child di daftar global 'products'
-            const child = products.find(p => p.id === pi.productId);
-            // Jika child tidak ketemu atau stok 0, maka paket 0
-            if (!child || child.stock <= 0) return 0;
-            // Hitung berapa paket bisa dibuat dari stok child ini
-            return Math.floor(child.stock / pi.quantity);
-        });
-        
-        // Stok paket adalah nilai minimum dari ketersediaan komponennya
-        return possibleStocks.length > 0 ? Math.min(...possibleStocks) : 0;
-    }
+  // --- AVAILABILITY LOGIC ENGINE ---
+  // Menghitung barang yang sedang "Booked" atau "Rented" pada tanggal yang dipilih user
+  const bookedStockMap = useMemo(() => {
+    const bookedMap: Record<string, number> = {}; // ProductID -> Jumlah Booked
+    
+    // Convert User Selected Date Range to Timestamp
+    const userStart = new Date(checkDate).getTime();
+    const userEnd = new Date(checkDate).getTime() + (checkDuration * 24 * 60 * 60 * 1000);
 
-    // 2. Advanced Variants (Color + Size)
+    transactions.forEach(trx => {
+        // Skip jika transaksi batal atau sudah selesai (sudah kembali)
+        // Note: 'completed' berarti barang sudah kembali ke gudang, jadi stok aman.
+        if (trx.status === 'cancelled' || trx.status === 'completed') return;
+
+        // Hitung Range Tanggal Transaksi Ini
+        const trxStart = new Date(trx.rentalDate).getTime();
+        const trxEnd = new Date(trx.rentalDate).getTime() + (trx.duration * 24 * 60 * 60 * 1000);
+
+        // Cek Tumpang Tindih Tanggal (Overlap)
+        // Logic: (StartA < EndB) && (EndA > StartB)
+        const isOverlapping = (userStart < trxEnd) && (userEnd > trxStart);
+
+        if (isOverlapping) {
+            trx.items.forEach(item => {
+                bookedMap[item.id] = (bookedMap[item.id] || 0) + item.quantity;
+                
+                // Handle Paket: Jika item adalah paket, kurangi juga stok komponennya?
+                // Idealnya: Transaksi menyimpan item paket. 
+                // Untuk simplifikasi visual, kita hitung item ID utama saja.
+                // Jika arsitektur kompleks, kita perlu recursive check.
+            });
+        }
+    });
+
+    return bookedMap;
+  }, [transactions, checkDate, checkDuration]);
+
+
+  // Helper untuk mendapatkan stok yang tersedia berdasarkan konfigurasi & tanggal
+  const getAvailableStock = (product: Product, size?: string, color?: string): number => {
+    // 1. Ambil Stok Fisik Dasar dari Database (Total Gudang)
+    let physicalStock = product.stock;
+
+    // 2. Logic Varian/Size
     if (product.variants && product.variants.length > 0 && size && color) {
       const variant = product.variants.find(v => v.size === size && v.color === color);
-      return variant ? variant.stock : 0;
+      physicalStock = variant ? variant.stock : 0;
+    } else if (product.sizes && size && Object.keys(product.sizes).length > 0) {
+       physicalStock = product.sizes[size] || 0;
     }
-    // 3. Simple Sizes (Legacy)
-    if (product.sizes && size && Object.keys(product.sizes).length > 0) {
-       return product.sizes[size] || 0;
+
+    // 3. Logic PAKET Dinamis (Recursive)
+    if (product.packageItems && product.packageItems.length > 0) {
+        const possibleStocks = product.packageItems.map(pi => {
+            const child = products.find(p => p.id === pi.productId);
+            if (!child) return 0;
+            // Hitung stok child yang tersedia (Physical - Booked)
+            const childBooked = bookedStockMap[child.id] || 0;
+            const childPhysical = child.stock;
+            const childAvailable = Math.max(0, childPhysical - childBooked);
+            
+            return Math.floor(childAvailable / pi.quantity);
+        });
+        physicalStock = possibleStocks.length > 0 ? Math.min(...possibleStocks) : 0;
+    } 
+    else {
+        // 4. Kurangi dengan Transaksi yang sedang berjalan (Availability Check)
+        // Hanya kurangi jika BUKAN paket (paket sudah dihitung dari komponennya di atas)
+        // Tapi tunggu, jika paket itu sendiri disewa (sebagai ID paket), kita harus kurangi juga?
+        // Asumsi: Di cartItem tersimpan ID paket. Jadi bookedMap[product.id] valid untuk paket juga.
+        
+        // PENTING: Untuk produk biasa, Available = Physical - Booked
+        const bookedQty = bookedStockMap[product.id] || 0;
+        physicalStock = Math.max(0, physicalStock - bookedQty);
     }
-    // 4. Base Stock (Standard)
-    return product.stock || 0;
+
+    return physicalStock;
   };
 
   const addToCart = (product: Product, selectedSize?: string, selectedColor?: string) => {
@@ -142,7 +200,7 @@ function App() {
 
     // VALIDASI STOK
     if (currentQtyInCart + 1 > maxStock) {
-      showToast(`Ups! Stok hanya tersedia ${maxStock} unit.`);
+      showToast(`Ups! Untuk tanggal ${checkDate}, sisa stok hanya ${maxStock} unit.`);
       return;
     }
 
@@ -533,7 +591,6 @@ function App() {
 
       {/* Catalog Section Revamped */}
       <section id="katalog" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 bg-white">
-        {/* ... (Existing Catalog Code) ... */}
         <div className="text-center mb-8">
           <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-4 tracking-tight">
             Pilih <span className="text-transparent bg-clip-text bg-gradient-to-r from-nature-600 to-red-500">Gear Andalan</span>
@@ -543,16 +600,41 @@ function App() {
           </p>
         </div>
 
-        {/* SEARCH BAR */}
-        <div className="max-w-xl mx-auto mb-8 px-4 relative group">
-           <div className="relative">
+        {/* SEARCH BAR & DATE CHECKER */}
+        <div className="max-w-4xl mx-auto mb-8 px-4 flex flex-col md:flex-row gap-4 items-end">
+           {/* Date Availability Checker */}
+           <div className="w-full md:w-auto bg-nature-50 p-3 rounded-2xl border border-nature-100 shadow-sm flex flex-col sm:flex-row gap-3 items-center flex-1">
+              <div className="flex items-center gap-2 text-nature-700 font-bold text-sm whitespace-nowrap">
+                 <CalendarCheck size={18} /> Cek Tanggal:
+              </div>
+              <input 
+                type="date" 
+                className="bg-white border border-nature-200 rounded-lg px-3 py-2 text-sm font-bold text-gray-700 outline-none focus:ring-2 focus:ring-nature-500 w-full sm:w-auto"
+                value={checkDate}
+                onChange={(e) => setCheckDate(e.target.value)}
+              />
+              <span className="text-nature-400 font-bold text-sm">+</span>
+              <select 
+                className="bg-white border border-nature-200 rounded-lg px-3 py-2 text-sm font-bold text-gray-700 outline-none focus:ring-2 focus:ring-nature-500 w-full sm:w-auto"
+                value={checkDuration}
+                onChange={(e) => setCheckDuration(Number(e.target.value))}
+              >
+                 <option value={2}>2 Hari (Min)</option>
+                 <option value={3}>3 Hari</option>
+                 <option value={4}>4 Hari</option>
+                 <option value={5}>5 Hari</option>
+              </select>
+           </div>
+
+           {/* Search Input */}
+           <div className="relative group w-full md:w-auto flex-1">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-nature-600 transition" size={20} />
               <input
                 type="text"
-                placeholder="Cari alat gunung (misal: Tenda, Carrier)..."
+                placeholder="Cari alat (Tenda, Carrier)..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-12 pr-10 py-3 bg-gray-50 border border-gray-200 rounded-full focus:ring-2 focus:ring-nature-500 focus:border-transparent outline-none transition text-gray-800 font-medium"
+                className="w-full pl-12 pr-10 py-3 bg-gray-50 border border-gray-200 rounded-full focus:ring-2 focus:ring-nature-500 focus:border-transparent outline-none transition text-gray-800 font-medium h-[52px]"
               />
               {searchQuery && (
                 <button 
@@ -644,7 +726,7 @@ function App() {
               const inCart = cartItems.find(i => i.id === product.id);
               const displayPrice = product.price2Days || 0;
               
-              // CALCULATE DISPLAY STOCK (Dynamic for Packages)
+              // CALCULATE DISPLAY STOCK (Dynamic for Packages) based on DATE
               const displayStock = getAvailableStock(product);
 
               return (
@@ -672,7 +754,7 @@ function App() {
                        <span className={`px-3 py-1.5 rounded-full text-[10px] font-bold shadow-sm backdrop-blur-md border border-white/20 ${
                          displayStock > 0 ? 'bg-white/90 text-nature-700' : 'bg-red-600 text-white'
                        }`}>
-                         Stok: {displayStock}
+                         Stok Tgl Ini: {displayStock}
                        </span>
                     </div>
 
@@ -760,7 +842,6 @@ function App() {
       </section>
       
       {/* Event Section */}
-      {/* ... (Event section unchanged) ... */}
       <section id="event" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
          <div className="mb-10 text-center">
           <span className="text-nature-600 font-bold tracking-widest uppercase text-sm mb-2 block">Agenda & Kegiatan</span>
