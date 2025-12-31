@@ -1,8 +1,8 @@
 
 import React, { useEffect, useState } from 'react';
-import { X, Calendar, Package, Clock, History, CheckCircle, AlertCircle, Loader, Printer, Trash2, RotateCcw, Wallet, Star, Search, Smartphone } from 'lucide-react';
+import { X, Calendar, Package, Clock, History, CheckCircle, AlertCircle, Loader, Printer, Trash2, RotateCcw, Wallet, Star, Search, Smartphone, Upload, Image as ImageIcon } from 'lucide-react';
 import { Transaction } from '../types';
-import { printInvoice, refreshTransactions, getTransactionsByPhone } from '../services/transactionService';
+import { printInvoice, refreshTransactions, getTransactionsByPhone, uploadPaymentProof } from '../services/transactionService';
 import ReviewModal from './ReviewModal';
 import Toast from './Toast';
 
@@ -24,6 +24,9 @@ const HistoryDrawer: React.FC<HistoryDrawerProps> = ({ isOpen, onClose }) => {
   const [reviewTrx, setReviewTrx] = useState<Transaction | null>(null);
   const [reviewedIds, setReviewedIds] = useState<string[]>([]);
   const [showToast, setShowToast] = useState(false);
+
+  // Upload Logic
+  const [isUploading, setIsUploading] = useState<string | null>(null); // Transaction ID yang sedang diupload
 
   // Load history whenever the drawer opens AND Sync with Database
   useEffect(() => {
@@ -65,20 +68,14 @@ const HistoryDrawer: React.FC<HistoryDrawerProps> = ({ isOpen, onClose }) => {
       }
       
       // 2. Sync WITH SERVER
-      // Filter ID yang valid (bukan timestamp dummy lama, tapi ID dari server)
       const localIds = parsedLocal.map(t => t.id);
       
       if (localIds.length > 0) {
         const result = await refreshTransactions(localIds);
         
         if (result.success) {
-          // LOGIKA PENTING:
-          // Jika koneksi sukses, kita PERCAYA SEPENUHNYA pada server.
           const freshData = result.data;
-          
-          // Sort terbaru diatas
           const sorted = freshData.sort((a, b) => new Date(b.rentalDate).getTime() - new Date(a.rentalDate).getTime());
-          
           setHistory(sorted);
           localStorage.setItem('mamasHistory', JSON.stringify(sorted));
         }
@@ -130,6 +127,32 @@ const HistoryDrawer: React.FC<HistoryDrawerProps> = ({ isOpen, onClose }) => {
     }
   };
 
+  const handleUploadProof = async (e: React.ChangeEvent<HTMLInputElement>, trxId: string) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    const file = e.target.files[0];
+    
+    // Validasi ukuran (max 5MB)
+    if (file.size > 5 * 1024 * 1024) return alert("Ukuran file maksimal 5MB");
+
+    setIsUploading(trxId);
+    
+    try {
+      const url = await uploadPaymentProof(trxId, file);
+      if (url) {
+        // Update local state immediately
+        setHistory(prev => prev.map(t => t.id === trxId ? { ...t, paymentProofUrl: url } : t));
+        alert("Bukti transfer berhasil diupload! Tunggu konfirmasi admin.");
+      } else {
+        alert("Gagal upload. Pastikan internet lancar.");
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Error upload proof");
+    } finally {
+      setIsUploading(null);
+    }
+  };
+
   const deleteHistoryItem = (id: string) => {
     if (window.confirm("Hapus riwayat ini dari HP anda? (Data sewa di Admin tetap aman)")) {
       const updatedHistory = history.filter(t => t.id !== id);
@@ -153,11 +176,9 @@ const HistoryDrawer: React.FC<HistoryDrawerProps> = ({ isOpen, onClose }) => {
   };
 
   const getStatusDisplay = (trx: Transaction) => {
-    // Priority logic: Check Amount Paid First for Visual Feedback
     const paid = trx.amountPaid || 0;
     const total = trx.totalPrice;
     
-    // Jika status database 'partial_payment' ATAU (pending tapi sudah ada uang masuk)
     if (trx.status === 'partial_payment' || (trx.status === 'pending' && paid > 0 && paid < total)) {
        return { label: 'Sudah DP (Belum Lunas)', color: 'bg-orange-100 text-orange-700', icon: Wallet };
     }
@@ -261,6 +282,7 @@ const HistoryDrawer: React.FC<HistoryDrawerProps> = ({ isOpen, onClose }) => {
                   const percentagePaid = Math.min(100, Math.max(0, (paid / total) * 100));
                   const remaining = Math.max(0, total - paid);
                   const isReviewed = reviewedIds.includes(trx.id);
+                  const showUpload = (trx.status === 'pending' || trx.status === 'partial_payment') && remaining > 0;
                   
                   return (
                     <div key={trx.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition relative group">
@@ -319,6 +341,46 @@ const HistoryDrawer: React.FC<HistoryDrawerProps> = ({ isOpen, onClose }) => {
                               <p className="text-[10px] text-gray-400 mt-1 text-right">Sudah masuk: Rp{paid.toLocaleString('id-ID')}</p>
                            )}
                         </div>
+
+                        {/* UPLOAD BUKTI BAYAR (NEW) */}
+                        {showUpload && (
+                           <div className="mb-4 bg-blue-50 p-3 rounded-lg border border-blue-100">
+                              {trx.paymentProofUrl ? (
+                                <div className="flex items-center justify-between">
+                                   <div className="flex items-center gap-2 text-xs font-bold text-green-700">
+                                      <CheckCircle size={14} /> Bukti Terkirim
+                                   </div>
+                                   <a href={trx.paymentProofUrl} target="_blank" rel="noreferrer" className="text-[10px] text-blue-600 underline">Lihat</a>
+                                </div>
+                              ) : (
+                                <div>
+                                   <label className="text-[10px] font-bold text-blue-800 uppercase tracking-wide mb-2 block flex items-center gap-1">
+                                      <Upload size={12}/> Upload Bukti Transfer
+                                   </label>
+                                   <div className="relative">
+                                      <input 
+                                        type="file" 
+                                        accept="image/*"
+                                        onChange={(e) => handleUploadProof(e, trx.id)}
+                                        className="hidden"
+                                        id={`upload-${trx.id}`}
+                                        disabled={isUploading === trx.id}
+                                      />
+                                      <label 
+                                        htmlFor={`upload-${trx.id}`}
+                                        className="flex items-center justify-center gap-2 w-full py-2 bg-white border border-blue-200 rounded-lg text-xs font-bold text-blue-600 hover:bg-blue-100 cursor-pointer transition shadow-sm"
+                                      >
+                                         {isUploading === trx.id ? (
+                                            <><Loader size={12} className="animate-spin"/> Mengupload...</>
+                                         ) : (
+                                            <><ImageIcon size={14}/> Pilih Gambar</>
+                                         )}
+                                      </label>
+                                   </div>
+                                </div>
+                              )}
+                           </div>
+                        )}
 
                         {/* Items List */}
                         <div className="bg-gray-50 rounded-lg p-3 space-y-2 mb-4">

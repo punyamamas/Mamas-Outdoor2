@@ -78,6 +78,7 @@ export interface Transaction {
   totalPrice: number; // Mapped from total_price (Rental + Fine)
   fineAmount?: number; // NEW: Khusus menyimpan nominal denda
   amountPaid: number; // New Field: Total yang sudah dibayar
+  paymentProofUrl?: string; // NEW: URL Bukti Transfer
   items: CartItem[];
   // Status Update: 
   // pending (Belum Bayar) -> partial_payment (Cicil) -> booked (Lunas/Booking) -> rented (Sedang Sewa) -> completed (Selesai)

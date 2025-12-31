@@ -1,8 +1,10 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { ClipboardList, Loader2, Calendar, Eye, Trash2, X, User, CreditCard, Banknote, ArrowRightLeft, Save, Calculator, CheckCircle, RotateCcw, Wallet, Edit, Plus, Minus, Search, ShoppingBag, Printer, Filter, DollarSign, Receipt, BarChart3, TrendingUp, Lightbulb, AlertTriangle, ArrowUpRight, Share2, Image as ImageIcon, CreditCard as CardIcon } from 'lucide-react';
+import { ClipboardList, Loader2, Calendar, Eye, Trash2, X, User, CreditCard, Banknote, ArrowRightLeft, Save, Calculator, CheckCircle, RotateCcw, Wallet, Edit, Plus, Minus, Search, ShoppingBag, Printer, Filter, DollarSign, Receipt, BarChart3, TrendingUp, Lightbulb, AlertTriangle, ArrowUpRight, Share2, Image as ImageIcon, CreditCard as CardIcon, ExternalLink } from 'lucide-react';
 import { Transaction, Product, CartItem } from '../types';
 import { updateTransactionPayment, updateTransactionItems, updateTransactionDetails, printInvoice, applyTransactionFine, calculateOverdueFine, copyInvoiceToClipboard } from '../services/transactionService';
+
+// ... (Existing Interfaces & Components until the Modal Render) ...
 
 interface AdminTransactionManagerProps {
   transactions: Transaction[];
@@ -288,6 +290,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
   };
 
   const handleSavePayment = async () => {
+    // ... (Code preserved)
     if (!selectedTransaction) return;
     setIsSavingPayment(true);
     
@@ -490,6 +493,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
       
       {/* 1. SUMMARY CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* ... (Existing Summary Cards Code) ... */}
         {/* Card: Total Income */}
         <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
           <div className="p-3 bg-green-50 text-green-600 rounded-lg">
@@ -535,8 +539,9 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
         </div>
       </div>
 
-      {/* 2. ANALYTICS SECTION (GRAFIK & SARAN) */}
+      {/* 2. ANALYTICS SECTION (GRAFIK & SARAN) - Preserved */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-slide-in-right">
+         {/* ... (Existing Charts) ... */}
          {/* CHART: REVENUE TREND */}
          <div className="lg:col-span-2 bg-white p-5 rounded-2xl border border-gray-200 shadow-sm flex flex-col h-80">
             <div className="flex justify-between items-center mb-4">
@@ -616,8 +621,9 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
          </div>
       </div>
 
-      {/* 3. FILTER TOOLBAR (TIDY LAYOUT) */}
+      {/* 3. FILTER TOOLBAR (TIDY LAYOUT) - Preserved */}
       <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+         {/* ... (Existing Filter Logic) ... */}
          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-end">
             
             {/* Search */}
@@ -694,6 +700,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        {/* Table Header - Preserved */}
         <div className="p-5 border-b border-gray-100 flex justify-between items-center">
           <h3 className="font-bold text-gray-800 flex items-center gap-2">
             <ClipboardList size={18} /> Daftar Transaksi
@@ -735,6 +742,12 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                         {trx.customerIdentity && (
                            <div className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded mt-1 w-fit font-mono">
                               ID: {trx.customerIdentity}
+                           </div>
+                        )}
+                        {/* INDICATOR BUKTI BAYAR */}
+                        {trx.paymentProofUrl && (
+                           <div className="mt-1 flex items-center gap-1 text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded w-fit animate-pulse">
+                              <ImageIcon size={10} /> Ada Bukti Transfer
                            </div>
                         )}
                       </td>
@@ -817,7 +830,30 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                     
                     {/* LEFT COLUMN: ITEM DETAILS (EDITABLE) */}
                     <div className="flex flex-col gap-4 order-2 xl:order-1">
+                        
+                        {/* PAYMENT PROOF SECTION (NEW) */}
+                        {selectedTransaction.paymentProofUrl && (
+                           <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                 <ImageIcon className="text-blue-600" size={20}/>
+                                 <div>
+                                    <h4 className="text-sm font-bold text-blue-900">Bukti Transfer Masuk</h4>
+                                    <p className="text-xs text-blue-700">Pelanggan telah mengupload struk pembayaran.</p>
+                                 </div>
+                              </div>
+                              <a 
+                                href={selectedTransaction.paymentProofUrl} 
+                                target="_blank" 
+                                rel="noreferrer"
+                                className="bg-white text-blue-600 px-4 py-2 rounded-lg text-xs font-bold border border-blue-200 hover:bg-blue-100 flex items-center gap-2"
+                              >
+                                 <ExternalLink size={14}/> Lihat Bukti
+                              </a>
+                           </div>
+                        )}
+
                         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm flex flex-col h-full">
+                           {/* ... (Existing Items List Logic) ... */}
                            <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 flex justify-between items-center">
                               <h4 className="font-bold text-gray-700 text-sm flex items-center gap-2"><ShoppingBag size={16}/> Daftar Barang</h4>
                               {!isEditingItems ? (
@@ -928,7 +964,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                            </div>
                         </div>
 
-                        {/* Customer Info (EDITABLE) */}
+                        {/* Customer Info (EDITABLE) - Preserved */}
                         <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
                            <div className="flex justify-between items-center mb-3">
                               <h4 className="text-xs font-bold uppercase text-gray-400 flex items-center gap-2"><User size={14}/> Kontak & Durasi</h4>
@@ -1018,7 +1054,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                         </div>
                     </div>
 
-                    {/* RIGHT COLUMN: FINANCIALS (PAYMENT) */}
+                    {/* RIGHT COLUMN: FINANCIALS (PAYMENT) - Preserved */}
                     <div className="order-1 xl:order-2">
                         <div className="bg-gray-50 border border-gray-200 p-5 rounded-2xl shadow-sm h-full">
                            <h4 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2 border-b border-gray-200 pb-2">

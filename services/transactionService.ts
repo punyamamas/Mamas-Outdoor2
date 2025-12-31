@@ -5,7 +5,7 @@ import { Transaction, CartItem, UserDetails, PaymentLog } from '../types';
 import { processStockReduction, processStockRestoration } from './productService';
 import html2canvas from 'html2canvas';
 
-// ... (Existing functions: createTransaction, getTransactions, getTransactionsByDateRange, refreshTransactions, recordPaymentLog, getPaymentLogs) ...
+// ... (Existing functions: createTransaction, getTransactions, getTransactionsByDateRange, refreshTransactions, getTransactionsByPhone, recordPaymentLog, getPaymentLogs, updateTransactionPayment, applyTransactionFine, updateTransactionStatus, calculateItemPriceForDuration, calculateOverdueFine, updateTransactionDetails, updateTransactionItems, deleteTransaction, copyInvoiceToClipboard, printInvoice) ...
 
 // Existing createTransaction function (Preserved)
 export const createTransaction = async (
@@ -107,22 +107,13 @@ export const refreshTransactions = async (localIds: string[]): Promise<{ success
   };
 };
 
-// NEW FUNCTION: Get Transactions By Phone Number (Untuk Fitur Restore History Tanpa Login)
+// Existing getTransactionsByPhone function (Preserved)
 export const getTransactionsByPhone = async (phoneNumber: string): Promise<Transaction[]> => {
   if (!supabase || !phoneNumber) return [];
 
-  // Normalisasi input user (hapus karakter aneh)
   const cleanInput = phoneNumber.replace(/\D/g, '');
   if (cleanInput.length < 8) return [];
 
-  // Kita perlu strategi pencarian yang fleksibel karena format di DB bisa 08xxx, 628xxx, atau +628xxx
-  // Cara termudah: Ambil semua transaksi, lalu filter di client (jika data sedikit)
-  // Atau query menggunakan 'ilike' dengan wildcard (jika data banyak)
-  
-  // Strategi Query: Cari yang mengandung nomor tersebut (tanpa 0 atau 62 di depan untuk keamanan)
-  // Misal user input 0812345, kita cari %812345%
-  
-  // Ambil substring unik (misal 8 digit terakhir) untuk pencarian
   const searchKey = cleanInput.length > 4 ? cleanInput.slice(-8) : cleanInput;
 
   const { data, error } = await supabase
@@ -261,6 +252,52 @@ export const updateTransactionPayment = async (
   }
 
   return { success: true, newStatus };
+};
+
+// NEW FUNCTION: Upload Payment Proof
+export const uploadPaymentProof = async (transactionId: string, file: File): Promise<string | null> => {
+  if (!supabase) return null;
+
+  try {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${transactionId}_${Date.now()}.${fileExt}`;
+    const filePath = `${fileName}`;
+
+    // 1. Upload to Supabase Storage Bucket 'payment_proofs'
+    const { error: uploadError } = await supabase.storage
+      .from('payment_proofs')
+      .upload(filePath, file);
+
+    if (uploadError) {
+      // Check if bucket missing error
+      if(uploadError.message.includes('Bucket not found')) {
+          alert("Gagal: Bucket 'payment_proofs' belum dibuat di Supabase.");
+      }
+      console.error('Upload proof error:', uploadError);
+      return null;
+    }
+
+    // 2. Get Public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from('payment_proofs')
+      .getPublicUrl(filePath);
+
+    // 3. Update Transaction Record
+    const { error: updateError } = await supabase
+      .from('transactions')
+      .update({ payment_proof_url: publicUrl })
+      .eq('id', transactionId);
+
+    if (updateError) {
+      console.error('Update transaction proof url error:', updateError);
+      return null;
+    }
+
+    return publicUrl;
+  } catch (err) {
+    console.error("Upload handler error:", err);
+    return null;
+  }
 };
 
 // Existing applyTransactionFine function (Preserved)
@@ -529,8 +566,8 @@ export const copyInvoiceToClipboard = async (
   trx: Transaction, 
   invoiceType: 'full' | 'rental' | 'fine' = 'full'
 ) => {
-  // ... (Full implementation of copyInvoiceToClipboard as provided previously)
-  // Re-pasting the exact implementation to ensure file completeness
+  // ... (Full implementation as previous) ...
+  // [Code preserved for copyInvoiceToClipboard]
   const dateObj = new Date(trx.created_at || new Date());
   const dateStr = dateObj.toLocaleDateString('id-ID'); 
   const timeStr = dateObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }); 
@@ -687,6 +724,8 @@ export const printInvoice = (
   mode: 'print' | 'view' = 'print',
   invoiceType: 'full' | 'rental' | 'fine' = 'full'
 ) => {
+  // ... (Full implementation of printInvoice as previous) ...
+  // [Code preserved for printInvoice]
   const printWindow = window.open('', '', 'width=800,height=800');
   if (!printWindow) return alert('Izinkan pop-up untuk mencetak nota');
 
@@ -857,7 +896,7 @@ export const printInvoice = (
   printWindow.document.close();
 };
 
-// Existing mapDbToTransaction function (Preserved)
+// Existing mapDbToTransaction function (Updated)
 const mapDbToTransaction = (dbItem: any): Transaction => {
   return {
     id: dbItem.id.toString(),
@@ -872,6 +911,7 @@ const mapDbToTransaction = (dbItem: any): Transaction => {
     totalPrice: dbItem.total_price,
     fineAmount: dbItem.fine_amount || 0, 
     amountPaid: dbItem.amount_paid || 0, 
+    paymentProofUrl: dbItem.payment_proof_url || undefined, // NEW MAPPING
     items: dbItem.items,
     status: dbItem.status,
     paymentMethod: dbItem.payment_method || 'cash' 
