@@ -102,7 +102,7 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
         if (group.imageUrl) finalColorImages.push({ color: group.colorName, url: group.imageUrl });
         finalColors.push(group.colorName);
         Object.entries(group.sizes).forEach(([size, stock]) => {
-          const qty = Number(stock);
+          const qty = Number(stock as unknown);
           if (qty > 0) {
             finalVariants.push({ color: group.colorName, size, stock: qty });
             finalStock += qty;
@@ -112,7 +112,7 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
       finalSizes = {};
     } else {
       finalSizes = simpleSizes;
-      const sizeStock = Object.values(simpleSizes).reduce((a: number, b) => a + Number(b), 0);
+      const sizeStock = Object.values(simpleSizes).reduce((a: number, b: number) => a + Number(b), 0);
       finalStock = sizeStock > 0 ? sizeStock : (formData.stock || 0);
     }
 

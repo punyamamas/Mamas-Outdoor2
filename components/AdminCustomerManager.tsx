@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Users, Search, MessageCircle, TrendingUp, History, Star, ArrowUpRight, Crown, MapPin, Globe, Navigation, Target, Layers, Info, AlertTriangle, Award, Gift, DollarSign, PieChart, Share2, Megaphone, Briefcase, Zap, GitMerge, PackagePlus, Warehouse } from 'lucide-react';
 import { Transaction } from '../types';
@@ -18,6 +19,7 @@ interface CustomerStats {
   preferredCategory: string; 
   status: 'New' | 'Regular' | 'Loyal' | 'VIP';
   persona: 'Organizer (B2B)' | 'Mapala/Pro' | 'Camper Ceria' | 'Mahasiswa Hemat'; 
+  lateCount: number; // NEW FIELD
 }
 
 interface CohortData {
@@ -61,7 +63,8 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
           avgItemsPerRent: 0,
           preferredCategory: 'General',
           status: 'New',
-          persona: 'Mahasiswa Hemat' 
+          persona: 'Mahasiswa Hemat',
+          lateCount: 0 // Init
         };
       }
 
@@ -69,6 +72,11 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
       
       customer.totalRentals += 1;
       customer.totalSpent += trx.totalPrice;
+      
+      // Hitung keterlambatan jika ada denda
+      if (trx.fineAmount && trx.fineAmount > 0) {
+          customer.lateCount += 1;
+      }
       
       if (trx.customerLocation && trx.customerLocation !== '-' && trx.customerLocation.length > 3) {
          customer.location = trx.customerLocation;
@@ -772,6 +780,7 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
                 <th className="px-6 py-4">Persona/Komunitas</th>
                 <th className="px-6 py-4">Status</th>
                 <th className="px-6 py-4 text-center">Total Sewa</th>
+                <th className="px-6 py-4 text-center">Terlambat</th>
                 <th className="px-6 py-4 text-right">Total Belanja (CLV)</th>
                 <th className="px-6 py-4 text-center">Aksi</th>
                 </tr>
@@ -779,7 +788,7 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
             <tbody className="divide-y divide-gray-100">
                 {filteredCustomers.length === 0 ? (
                 <tr>
-                    <td colSpan={7} className="p-8 text-center text-gray-400">
+                    <td colSpan={8} className="p-8 text-center text-gray-400">
                     Belum ada data pelanggan yang cocok.
                     </td>
                 </tr>
@@ -821,6 +830,16 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
                     <td className="px-6 py-4 text-center">
                         <div className="font-bold text-gray-700">{cust.totalRentals}x</div>
                         <div className="text-[10px] text-gray-400">Transaksi</div>
+                    </td>
+                    {/* KOLOM TERLAMBAT */}
+                    <td className="px-6 py-4 text-center">
+                        {cust.lateCount > 0 ? (
+                            <span className="text-red-600 font-bold bg-red-50 px-2 py-1 rounded text-xs border border-red-100">
+                                {cust.lateCount}x
+                            </span>
+                        ) : (
+                            <span className="text-green-500 font-bold text-xs">-</span>
+                        )}
                     </td>
                     <td className="px-6 py-4 text-right">
                         <div className="font-black text-nature-700">Rp{cust.totalSpent.toLocaleString('id-ID')}</div>

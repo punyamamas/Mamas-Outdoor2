@@ -68,7 +68,8 @@ export interface Transaction {
   customerLocation?: string; // New Field: Lokasi dari IP Geolocation
   rentalDate: string; // Mapped from rental_date
   duration: number;
-  totalPrice: number; // Mapped from total_price
+  totalPrice: number; // Mapped from total_price (Rental + Fine)
+  fineAmount?: number; // NEW: Khusus menyimpan nominal denda
   amountPaid: number; // New Field: Total yang sudah dibayar
   items: CartItem[];
   // Status Update: 

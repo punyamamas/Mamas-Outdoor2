@@ -228,10 +228,11 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
 
   // Kalkulasi Realtime untuk Tampilan Kasir
   const calculateFinancials = () => {
-    if (!selectedTransaction) return { total: 0, prevPaid: 0, finalPaid: 0, remaining: 0, change: 0, isLunas: false, isKembalian: false, currentInputTotal: 0 };
+    if (!selectedTransaction) return { total: 0, prevPaid: 0, finalPaid: 0, remaining: 0, change: 0, isLunas: false, isKembalian: false, currentInputTotal: 0, existingFine: 0 };
 
     const total = selectedTransaction.totalPrice;
     const prevPaid = selectedTransaction.amountPaid || 0;
+    const existingFine = selectedTransaction.fineAmount || 0;
     
     // Total Masuk Sesi Ini = Cash + Transfer
     const currentInputTotal = cashInput + transferInput;
@@ -248,10 +249,10 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
     const isLunas = rawRemaining <= 0;
     const isKembalian = rawRemaining < 0;
 
-    return { total, prevPaid, finalPaid, remaining, change, isLunas, isKembalian, currentInputTotal };
+    return { total, prevPaid, finalPaid, remaining, change, isLunas, isKembalian, currentInputTotal, existingFine };
   };
 
-  const { total, prevPaid, remaining, change, isLunas, isKembalian, currentInputTotal } = calculateFinancials();
+  const { total, prevPaid, remaining, change, isLunas, isKembalian, currentInputTotal, existingFine } = calculateFinancials();
 
   // CALCULATE AUTOMATIC FINE (SYSTEM)
   const { daysLate, fineAmount: systemFine } = useMemo(() => {
@@ -271,11 +272,12 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
       // Update local state immediately
       setSelectedTransaction(prev => prev ? {
         ...prev,
-        totalPrice: (prev.totalPrice || 0) + fineInput
+        totalPrice: (prev.totalPrice || 0) + fineInput,
+        fineAmount: (prev.fineAmount || 0) + fineInput // Update fine separately too
       } : null);
       
       setFineInput(0);
-      alert("Denda berhasil ditambahkan ke total tagihan.");
+      alert("Denda berhasil ditambahkan ke total tagihan dan dicatat terpisah.");
     } else {
       alert("Gagal menambahkan denda.");
     }
@@ -718,6 +720,9 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                       </td>
                       <td className="px-6 py-4 align-middle">
                         <div className="font-bold text-nature-700">Rp{totalTrx.toLocaleString('id-ID')}</div>
+                        {trx.fineAmount && trx.fineAmount > 0 ? (
+                           <div className="text-[9px] text-red-500 font-bold">+ Denda Rp{trx.fineAmount.toLocaleString('id-ID')}</div>
+                        ) : null}
                         <div className="mt-1">
                           {isPaidOffTrx ? (
                              <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded font-bold uppercase">Lunas</span>
@@ -973,6 +978,12 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                                  <span className="text-sm text-gray-600">Total Tagihan</span>
                                  <span className="text-xl font-black text-gray-900">Rp{total.toLocaleString('id-ID')}</span>
                               </div>
+                              {existingFine > 0 && (
+                                <div className="flex justify-between items-center text-xs text-red-500">
+                                   <span>Termasuk Denda</span>
+                                   <span className="font-bold">+ Rp{existingFine.toLocaleString('id-ID')}</span>
+                                </div>
+                              )}
                               <div className="flex justify-between items-center">
                                  <span className="text-sm text-gray-600">Sudah Dibayar</span>
                                  <span className="text-base font-bold text-green-600">Rp{prevPaid.toLocaleString('id-ID')}</span>
@@ -1028,7 +1039,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                                   {isApplyingFine ? <Loader2 size={12} className="animate-spin"/> : '+ Add'}
                                 </button>
                               </div>
-                              <p className="text-[9px] text-red-500 mt-1 italic leading-tight">*Menambah total tagihan. Uang masuk akan tercatat sebagai omset saat dibayar.</p>
+                              <p className="text-[9px] text-red-500 mt-1 italic leading-tight">*Denda akan ditambahkan ke tagihan dan dicatat sebagai pendapatan denda terpisah.</p>
                            </div>
 
                            {/* Payment Inputs */}

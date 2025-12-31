@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { PieChart, Calendar, TrendingUp, TrendingDown, Package, Loader2, Printer, CheckCircle, XCircle, Download, BarChart3, Clock, Users, ArrowUpRight, AlertTriangle, MessageCircle, BellRing, Calculator, Tent, Backpack, Flame, Map, Trophy } from 'lucide-react';
 import { Transaction } from '../types';
@@ -57,9 +58,13 @@ const AdminReportManager: React.FC = () => {
   // --- REPORT LOGIC ---
   const validTransactions = transactions.filter(t => t.status !== 'cancelled');
   
-  // 1. Total Revenue (Nilai Transaksi)
+  // 1. Total Revenue (Nilai Transaksi TOTAL termasuk denda)
   const totalRevenue = validTransactions.reduce((acc, t) => acc + t.totalPrice, 0);
   
+  // NEW: Breakdown Revenue (Sewa vs Denda)
+  const totalFineRevenue = validTransactions.reduce((acc, t) => acc + (t.fineAmount || 0), 0);
+  const totalRentalRevenue = totalRevenue - totalFineRevenue;
+
   // 2. Real Income (Uang Masuk Rill)
   const totalIncome = validTransactions.reduce((acc, t) => {
     const paid = t.amountPaid || 0;
@@ -410,10 +415,19 @@ const AdminReportManager: React.FC = () => {
              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
                    <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-2">
-                     <TrendingUp size={16} className="text-green-500"/> Pendapatan (Omset)
+                     <TrendingUp size={16} className="text-green-500"/> Total Omset
                    </p>
                    <h4 className="text-3xl font-black text-gray-900">Rp{totalRevenue.toLocaleString('id-ID')}</h4>
-                   <p className="text-xs text-gray-400 mt-2">Total nilai sewa dari {validTransactions.length} transaksi valid</p>
+                   <div className="mt-3 space-y-1">
+                      <div className="flex justify-between text-xs text-gray-500">
+                         <span>Sewa Alat:</span>
+                         <span className="font-bold text-gray-700">Rp{totalRentalRevenue.toLocaleString('id-ID')}</span>
+                      </div>
+                      <div className="flex justify-between text-xs text-red-500">
+                         <span>Pendapatan Denda:</span>
+                         <span className="font-bold">+ Rp{totalFineRevenue.toLocaleString('id-ID')}</span>
+                      </div>
+                   </div>
                 </div>
                 
                 <div className="bg-green-50 p-6 rounded-2xl border border-green-100">

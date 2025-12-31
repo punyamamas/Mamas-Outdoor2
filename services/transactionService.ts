@@ -20,6 +20,7 @@ export const createTransaction = async (
     rental_date: userDetails.rentalDate,
     duration: userDetails.duration,
     total_price: totalPrice,
+    fine_amount: 0, // Inisialisasi denda 0
     amount_paid: 0, // Default belum bayar
     items: cartItems, 
     status: 'pending',
@@ -219,32 +220,44 @@ export const updateTransactionPayment = async (
   return { success: true, newStatus };
 };
 
-// NEW: Apply Fine (Menambah Total Tagihan)
+// NEW: Apply Fine (Menambah Total Tagihan & Mencatat Nominal Denda Terpisah)
 export const applyTransactionFine = async (
   id: string, 
   fineAmount: number
 ): Promise<{ success: boolean; newTotal?: number }> => {
   if (!supabase) return { success: false };
 
-  // 1. Get current total
+  // 1. Get current totals
   const { data: trx, error: fetchError } = await supabase
     .from('transactions')
-    .select('total_price')
+    .select('total_price, fine_amount')
     .eq('id', id)
     .single();
 
   if (fetchError || !trx) return { success: false };
 
-  const newTotal = (trx.total_price || 0) + fineAmount;
+  const currentFine = Number(trx.fine_amount) || 0;
+  const currentTotal = Number(trx.total_price) || 0;
 
-  // 2. Update database
+  const newFine = currentFine + fineAmount;
+  const newTotal = currentTotal + fineAmount;
+
+  // 2. Update database (Update both Total and Fine columns)
   const { error } = await supabase
     .from('transactions')
-    .update({ total_price: newTotal })
+    .update({ 
+      total_price: newTotal,
+      fine_amount: newFine
+    })
     .eq('id', id);
 
   if (error) {
     console.error("Error applying fine:", error);
+    // Fallback: Jika kolom fine_amount belum ada, update total_price saja
+    if (error.message.includes('fine_amount')) {
+       await supabase.from('transactions').update({ total_price: newTotal }).eq('id', id);
+       return { success: true, newTotal };
+    }
     return { success: false };
   }
 
@@ -349,22 +362,26 @@ export const updateTransactionDetails = async (
   // 1. Get current items to recalculate price
   const { data: trx, error: fetchError } = await supabase
     .from('transactions')
-    .select('items')
+    .select('items, fine_amount')
     .eq('id', id)
     .single();
 
   if (fetchError || !trx) return false;
 
   const items = trx.items as CartItem[];
+  const currentFine = Number(trx.fine_amount) || 0;
   
-  // 2. Recalculate Total Price based on new Duration
-  let newTotalPrice = 0;
+  // 2. Recalculate Base Rental Price
+  let rentalPrice = 0;
   for (const item of items) {
       const unitPrice = calculateItemPriceForDuration(item, duration);
-      newTotalPrice += (unitPrice * item.quantity);
+      rentalPrice += (unitPrice * item.quantity);
   }
 
-  // 3. Update Database
+  // 3. New Total = New Rental Price + Existing Fine
+  const newTotalPrice = rentalPrice + currentFine;
+
+  // 4. Update Database
   const { error } = await supabase
     .from('transactions')
     .update({
@@ -402,15 +419,19 @@ export const updateTransactionItems = async (
   const oldItems = trx.items as CartItem[];
   const duration = trx.duration;
   const status = trx.status;
+  const currentFine = Number(trx.fine_amount) || 0;
 
-  // 2. Calculate New Total Price
-  let newTotalPrice = 0;
+  // 2. Calculate New Base Rental Price
+  let rentalPrice = 0;
   for (const item of newItems) {
       const unitPrice = calculateItemPriceForDuration(item, duration);
-      newTotalPrice += (unitPrice * item.quantity);
+      rentalPrice += (unitPrice * item.quantity);
   }
 
-  // 3. Handle Stock Rotation if active transaction
+  // 3. New Total = Rental + Fine
+  const newTotalPrice = rentalPrice + currentFine;
+
+  // 4. Handle Stock Rotation if active transaction
   const isActive = ['pending', 'partial_payment', 'booked', 'rented'].includes(status);
   
   if (isActive) {
@@ -418,7 +439,7 @@ export const updateTransactionItems = async (
       await processStockReduction(newItems);
   }
 
-  // 4. Update Transaction
+  // 5. Update Transaction
   const { error } = await supabase
     .from('transactions')
     .update({
@@ -470,7 +491,6 @@ export const deleteTransaction = async (id: string): Promise<boolean> => {
 };
 
 // FUNCTION TO PRINT INVOICE
-// Updated: Menambahkan mode 'print' (auto) atau 'view' (manual)
 export const printInvoice = (trx: Transaction, mode: 'print' | 'view' = 'print') => {
   // Buka window baru, ukuran disesuaikan tapi browser akan handle print preview
   const printWindow = window.open('', '', 'width=800,height=800');
@@ -478,25 +498,26 @@ export const printInvoice = (trx: Transaction, mode: 'print' | 'view' = 'print')
 
   // Format Tanggal dan Waktu
   const dateObj = new Date(trx.created_at || new Date());
-  const dateStr = dateObj.toLocaleDateString('id-ID'); // 28/12/2025
-  const timeStr = dateObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }); // 21:43
+  const dateStr = dateObj.toLocaleDateString('id-ID'); 
+  const timeStr = dateObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }); 
 
   // Hitung Tanggal Pinjam (Rental Date) & Kembali
   const rentalDateObj = new Date(trx.rentalDate);
   const rentalDateStr = rentalDateObj.toLocaleDateString('id-ID');
 
   const returnDateObj = new Date(trx.rentalDate);
-  returnDateObj.setDate(returnDateObj.getDate() + (trx.duration - 1)); // -1 karena hari pertama dihitung
+  returnDateObj.setDate(returnDateObj.getDate() + (trx.duration - 1)); 
   const returnDateStr = returnDateObj.toLocaleDateString('id-ID');
 
   const paid = trx.amountPaid || 0;
   const remaining = Math.max(0, trx.totalPrice - paid);
   const change = Math.max(0, paid - trx.totalPrice);
+  const fine = trx.fineAmount || 0; // Tampilkan denda di struk jika ada
   
   // Status Logic & Cap Text
   const isLunas = remaining <= 0;
   const statusLabel = isLunas ? 'LUNAS' : 'BELUM LUNAS';
-  const stampColor = isLunas ? '#000000' : '#000000'; // Gunakan hitam pekat untuk thermal printer
+  const stampColor = isLunas ? '#000000' : '#000000'; 
   const paymentMethodDisplay = trx.paymentMethod === 'transfer' ? 'Transfer' : 'Cash';
   
   // Format Mata Uang Helper
@@ -525,6 +546,17 @@ export const printInvoice = (trx: Transaction, mode: 'print' | 'view' = 'print')
     `;
   }).join('');
 
+  // Row Denda jika ada
+  const fineHtml = fine > 0 ? `
+    <div class="item-row" style="margin-top:5px; border-top:1px dotted #ccc; padding-top:5px;">
+      <div class="item-name" style="color:red;">DENDA KETERLAMBATAN</div>
+      <div class="item-calc">
+        <span>Extra Charge</span>
+        <span>${fmt(fine)}</span>
+      </div>
+    </div>
+  ` : '';
+
   // Tombol Manual Print hanya muncul jika mode = 'view'
   const manualPrintButton = mode === 'view' ? `
     <div class="no-print" style="margin-top: 30px; text-align: center; padding-bottom: 20px;">
@@ -542,117 +574,47 @@ export const printInvoice = (trx: Transaction, mode: 'print' | 'view' = 'print')
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <style>
           @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700;900&display=swap');
-          
-          /* SETUP HALAMAN CETAK 80mm */
-          @page {
-            size: 80mm auto; 
-            margin: 0mm; 
-          }
-
-          body { 
-            font-family: 'Roboto Mono', monospace, sans-serif; 
-            padding: 5px;
-            width: 78mm;
-            margin: 0 auto; 
-            color: #000;
-            background: #fff;
-            font-size: 12px;
-            line-height: 1.4;
-            position: relative;
-          }
-          
+          @page { size: 80mm auto; margin: 0mm; }
+          body { font-family: 'Roboto Mono', monospace, sans-serif; padding: 5px; width: 78mm; margin: 0 auto; color: #000; background: #fff; font-size: 12px; line-height: 1.4; position: relative; }
           .header { text-align: center; margin-bottom: 10px; }
-          
-          /* Style untuk Logo Image - Hitam Putih High Contrast untuk Thermal */
-          .logo-img {
-            width: 70px;
-            height: auto;
-            margin: 15px auto 5px; /* UPDATE: Menambahkan margin top 15px */
-            display: block;
-            /* Penting: Ubah ke grayscale agar printer thermal bisa membacanya dengan jelas */
-            /* Sebagian printer thermal akan mencetak 'merah' sebagai abu-abu/hitam */
-            filter: grayscale(100%) contrast(150%);
-          }
-          
+          .logo-img { width: 70px; height: auto; margin: 15px auto 5px; display: block; filter: grayscale(100%) contrast(150%); }
           .brand-name { font-size: 18px; font-weight: 900; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px;}
           .address { font-size: 11px; color: #000; margin-bottom: 2px; }
           .wa { font-size: 11px; font-weight: bold; margin-top: 4px;}
-          
-          .dashed-line { 
-            border-bottom: 1px dashed #000; 
-            margin: 10px 0; 
-            width: 100%;
-          }
-
+          .dashed-line { border-bottom: 1px dashed #000; margin: 10px 0; width: 100%; }
           .meta-table { width: 100%; font-size: 11px; }
           .meta-table td { padding: 1px 0; vertical-align: top; }
           .meta-label { width: 35%; }
           .meta-val { text-align: right; font-weight: 500; }
-
           .items-container { margin-top: 10px; margin-bottom: 10px; }
           .item-row { margin-bottom: 8px; }
           .item-name { font-weight: 700; font-size: 12px; margin-bottom: 2px; }
           .item-calc { display: flex; justify-content: space-between; font-size: 12px; color: #000; }
-
           .summary-table { width: 100%; font-size: 12px; margin-top: 5px; }
           .summary-table td { padding: 2px 0; }
           .sum-label { text-align: left; }
           .sum-val { text-align: right; font-weight: bold; }
-          
           .footer-info { margin-top: 10px; margin-bottom: 10px; font-size: 11px; }
           .footer-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
           .footer-label { font-weight: 500; }
           .footer-val { font-weight: bold; }
-
           .footer-text { text-align: justify; margin-top: 15px; font-size: 11px; color: #000; line-height: 1.3; font-style: italic; }
-
-          /* STAMP CSS (CAP LUNAS) */
-          .stamp-container {
-             position: absolute;
-             top: 45%;
-             left: 50%;
-             transform: translate(-50%, -50%) rotate(-15deg);
-             z-index: 10;
-             pointer-events: none;
-             opacity: 0.25; 
-          }
-          .stamp {
-             border: 5px solid ${stampColor};
-             color: ${stampColor};
-             padding: 10px 20px;
-             font-size: 32px;
-             font-weight: 900;
-             text-transform: uppercase;
-             border-radius: 8px;
-             letter-spacing: 2px;
-             text-align: center;
-             display: inline-block;
-          }
-          
-          @media print {
-            body { margin: 0; width: 80mm; padding: 0 2mm; }
-            .no-print { display: none; }
-          }
+          .stamp-container { position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%) rotate(-15deg); z-index: 10; pointer-events: none; opacity: 0.25; }
+          .stamp { border: 5px solid ${stampColor}; color: ${stampColor}; padding: 10px 20px; font-size: 32px; font-weight: 900; text-transform: uppercase; border-radius: 8px; letter-spacing: 2px; text-align: center; display: inline-block; }
+          @media print { body { margin: 0; width: 80mm; padding: 0 2mm; } .no-print { display: none; } }
         </style>
       </head>
       <body>
-        <div class="stamp-container">
-           <div class="stamp">${statusLabel}</div>
-        </div>
-
+        <div class="stamp-container"><div class="stamp">${statusLabel}</div></div>
         <div class="header">
-          <!-- LOGO IMAGE MENGGANTIKAN SVG -->
           <img src="${logoUrl}" alt="Mamas Outdoor Logo" class="logo-img" id="invoiceLogo" />
-          
           <div class="brand-name">MAMAS OUTDOOR</div>
           <div class="address">Jalan Cenderawasih, RT 3/RW 7, Dukuhbandong,</div>
           <div class="address">Grendeng, Kec. Purwokerto Utara, Banyumas</div>
           <div class="address">Jawa Tengah, Indonesia 53122</div>
           <div class="wa">No. WhatsApp 085137411145</div>
         </div>
-
         <div class="dashed-line"></div>
-
         <table class="meta-table">
           <tr><td class="meta-label">No Nota</td><td class="meta-val">TRX/${trx.id.slice(0, 8).toUpperCase()}</td></tr>
           <tr><td class="meta-label">Antrian</td><td class="meta-val">5</td></tr>
@@ -661,92 +623,39 @@ export const printInvoice = (trx: Transaction, mode: 'print' | 'view' = 'print')
           <tr><td class="meta-label">Tanggal</td><td class="meta-val">${dateStr} - ${timeStr}</td></tr>
           <tr><td class="meta-label">Kasir</td><td class="meta-val">Admin Mamas Outdoor</td></tr>
         </table>
-
         <div class="dashed-line"></div>
-
         <div class="items-container">
           ${itemsHtml}
+          ${fineHtml}
         </div>
-
         <div class="dashed-line"></div>
-
         <table class="summary-table">
-          <tr>
-             <td class="sum-label">Status</td>
-             <td class="sum-val">${statusLabel}</td>
-          </tr>
-          <tr>
-             <td class="sum-label">Metode Bayar</td>
-             <td class="sum-val">${paymentMethodDisplay}</td>
-          </tr>
-          <tr>
-             <td class="sum-label" style="padding-top:10px;">Total</td>
-             <td class="sum-val" style="padding-top:10px;">${fmt(trx.totalPrice)}</td>
-          </tr>
-          <tr>
-             <td class="sum-label">DiBayar</td>
-             <td class="sum-val">${fmt(paid)}</td>
-          </tr>
-          <tr>
-             <td class="sum-label">Kembalian</td>
-             <td class="sum-val">${fmt(change)}</td>
-          </tr>
+          <tr><td class="sum-label">Status</td><td class="sum-val">${statusLabel}</td></tr>
+          <tr><td class="sum-label">Metode Bayar</td><td class="sum-val">${paymentMethodDisplay}</td></tr>
+          <tr><td class="sum-label" style="padding-top:10px;">Total Tagihan</td><td class="sum-val" style="padding-top:10px;">${fmt(trx.totalPrice)}</td></tr>
+          <tr><td class="sum-label">DiBayar</td><td class="sum-val">${fmt(paid)}</td></tr>
+          <tr><td class="sum-label">Kembalian</td><td class="sum-val">${fmt(change)}</td></tr>
         </table>
-
         <div class="dashed-line"></div>
-        
         <div class="footer-info">
-           <div class="footer-row">
-              <span class="footer-label">Tanggal Pinjam :</span>
-              <span class="footer-val">${rentalDateStr}</span>
-           </div>
-           <div class="footer-row">
-              <span class="footer-label">Tanggal Kembali :</span>
-              <span class="footer-val">${returnDateStr}</span>
-           </div>
-           <div class="footer-row" style="margin-top: 8px;">
-              <span class="footer-label">Identitas Jaminan :</span>
-           </div>
+           <div class="footer-row"><span class="footer-label">Tanggal Pinjam :</span><span class="footer-val">${rentalDateStr}</span></div>
+           <div class="footer-row"><span class="footer-label">Tanggal Kembali :</span><span class="footer-val">${returnDateStr}</span></div>
+           <div class="footer-row" style="margin-top: 8px;"><span class="footer-label">Identitas Jaminan :</span></div>
            <div style="border-bottom: 1px dotted #000; height: 24px; width: 100%; margin-bottom: 4px;"></div>
         </div>
-
         <div class="footer-text">
            Terima kasih atas kepercayaan Anda telah memilih kami sebagai mitra petualangan outdoor Anda. 
            Kami harap perlengkapan yang Anda sewa dapat menunjang kegiatan Anda dengan optimal.
         </div>
-
         ${manualPrintButton}
-
         <script>
-          // Logic: Tunggu gambar logo selesai loading baru print
-          // Ini mencegah logo hilang saat print otomatis
           window.onload = function() {
             var img = document.getElementById('invoiceLogo');
             var shouldAutoPrint = ${mode === 'print' ? 'true' : 'false'};
-            
-            function doPrint() {
-               // HANYA print otomatis jika mode = 'print'
-               if (shouldAutoPrint) {
-                  window.focus();
-                  setTimeout(function(){ window.print(); }, 500);
-               }
-            }
-
-            if (img.complete) {
-               doPrint();
-            } else {
-               img.onload = doPrint;
-               img.onerror = doPrint; // Print anyway if logo fails
-            }
+            function doPrint() { if (shouldAutoPrint) { window.focus(); setTimeout(function(){ window.print(); }, 500); } }
+            if (img.complete) { doPrint(); } else { img.onload = doPrint; img.onerror = doPrint; }
           }
-          
-          // Otomatis tutup window setelah print dialog ditutup (print/cancel)
-          // HANYA jika mode = 'print'
-          window.onafterprint = function() {
-             if (${mode === 'print' ? 'true' : 'false'}) {
-                window.close();
-             }
-          }
+          window.onafterprint = function() { if (${mode === 'print' ? 'true' : 'false'}) { window.close(); } }
         </script>
       </body>
     </html>
@@ -764,11 +673,12 @@ const mapDbToTransaction = (dbItem: any): Transaction => {
     customerName: dbItem.customer_name,
     customerWhatsapp: dbItem.customer_whatsapp,
     customerCampus: dbItem.customer_campus || '-', 
-    customerLocation: dbItem.customer_location || undefined, // MAP Location
+    customerLocation: dbItem.customer_location || undefined, 
     rentalDate: dbItem.rental_date,
     duration: dbItem.duration,
     totalPrice: dbItem.total_price,
-    amountPaid: dbItem.amount_paid || 0, // Map amount_paid
+    fineAmount: dbItem.fine_amount || 0, // MAP FINE COLUMN
+    amountPaid: dbItem.amount_paid || 0, 
     items: dbItem.items,
     status: dbItem.status,
     paymentMethod: dbItem.payment_method || 'cash' 
