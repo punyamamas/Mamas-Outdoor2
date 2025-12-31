@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { X, ShoppingCart, Check, Layers, Clock, Sparkles, Tag, ShieldCheck, Zap, Scissors, Palette, Heart, ShoppingBag, PackageOpen } from 'lucide-react';
+import { X, ShoppingCart, Check, Layers, Clock, Sparkles, Tag, ShieldCheck, Zap, Scissors, Palette, Heart, ShoppingBag, PackageOpen, Star, User } from 'lucide-react';
 import { Product } from '../types';
 import ImageLoader from './ImageLoader';
 
@@ -12,6 +12,13 @@ interface ProductDetailModalProps {
   onAddToCart: (product: Product, size?: string, color?: string) => void;
   isInCart: boolean;
 }
+
+// Helper Mock Reviews (Agar tampilan tidak kosong)
+const MOCK_REVIEWS = [
+  { id: 1, name: 'Budi Santoso', rating: 5, comment: 'Barang mantap, tenda aman gak bocor pas badai di Slamet!', date: '2 hari lalu' },
+  { id: 2, name: 'Siti Aminah', rating: 5, comment: 'Pelayanan ramah, alat bersih wangi. Recommended buat maba!', date: '1 minggu lalu' },
+  { id: 3, name: 'Rizky', rating: 4, comment: 'Carrier nyaman dipake, cuma agak berdebu dikit bagian bawah.', date: '2 minggu lalu' },
+];
 
 const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ 
   isOpen, 
@@ -25,6 +32,9 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [displayImage, setDisplayImage] = useState<string>('');
   const [isWishlisted, setIsWishlisted] = useState(false);
+  
+  // Tab State
+  const [activeTab, setActiveTab] = useState<'details' | 'reviews'>('details');
 
   // Reset selections when modal opens/product changes
   useEffect(() => {
@@ -32,6 +42,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       setSelectedSize(null);
       setSelectedColor(null);
       setDisplayImage(product.image);
+      setActiveTab('details');
       
       // Check Wishlist Status from LocalStorage
       const savedWishlist = localStorage.getItem('mamasWishlist');
@@ -259,187 +270,238 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 {product.name}
               </h2>
               
-              <div className="flex flex-wrap gap-2 mb-8">
+              <div className="flex flex-wrap gap-2 mb-6">
                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-nature-50 text-nature-700 text-xs font-bold border border-nature-100">
                     <ShieldCheck size={14} /> Terawat
                  </span>
                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-blue-50 text-blue-700 text-xs font-bold border border-blue-100">
                     <Zap size={14} /> Best Seller
                  </span>
+                 {/* Rating Badge */}
+                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-yellow-50 text-yellow-700 text-xs font-bold border border-yellow-100">
+                    <Star size={14} className="fill-current" /> 4.9 (24 Review)
+                 </span>
               </div>
 
-              <div className="bg-gray-50 p-5 rounded-2xl border border-gray-100 mb-8 relative overflow-hidden group hover:border-nature-200 transition">
-                <div className="absolute -right-4 -top-4 text-gray-200 opacity-50 transform rotate-12 group-hover:rotate-0 transition duration-500">
-                   <Sparkles size={80} strokeWidth={1} />
-                </div>
-                <h3 className="relative z-10 flex items-center gap-2 text-sm font-black text-gray-900 uppercase tracking-widest mb-3">
-                   <Sparkles className="text-adventure-500" size={16} /> Deskripsi
-                </h3>
-                <p className="relative z-10 text-gray-600 leading-relaxed text-sm md:text-base font-medium whitespace-pre-line">
-                  {product.description}
-                </p>
+              {/* TABS NAVIGATION */}
+              <div className="flex border-b border-gray-100 mb-6">
+                 <button 
+                   onClick={() => setActiveTab('details')}
+                   className={`pb-3 px-4 text-sm font-bold transition border-b-2 ${activeTab === 'details' ? 'border-nature-600 text-nature-700' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
+                 >
+                   Detail Produk
+                 </button>
+                 <button 
+                   onClick={() => setActiveTab('reviews')}
+                   className={`pb-3 px-4 text-sm font-bold transition border-b-2 ${activeTab === 'reviews' ? 'border-nature-600 text-nature-700' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
+                 >
+                   Ulasan (3)
+                 </button>
               </div>
 
-              {/* NEW: DISPLAY PACKAGE CONTENTS */}
-              {isPackage && packageContents.length > 0 && (
-                <div className="mb-8">
-                    <h3 className="flex items-center gap-2 text-sm font-black text-purple-800 uppercase tracking-widest mb-4 bg-purple-50 p-2 rounded-lg w-fit">
-                        <PackageOpen className="text-purple-600" size={16} /> Isi Paket Hemat Ini
-                    </h3>
-                    <div className="bg-white border border-purple-100 rounded-xl p-4 shadow-sm">
-                        <ul className="space-y-3">
-                            {packageContents.map((item, idx) => (
-                                <li key={idx} className="flex items-center justify-between text-sm">
-                                    <div className="flex items-center gap-3">
-                                        <span className="bg-purple-100 text-purple-700 font-bold px-2 py-1 rounded text-xs">
-                                            {item.qty}x
-                                        </span>
-                                        <span className="font-medium text-gray-700">{item.name}</span>
-                                    </div>
-                                    <div className="text-xs text-gray-400">
-                                        (Stok Gudang: {item.currentStock})
-                                    </div>
-                                </li>
-                            ))}
-                        </ul>
-                        <div className="mt-3 pt-3 border-t border-purple-50 text-xs text-purple-600 font-medium italic text-center">
-                            *Stok paket otomatis mengikuti ketersediaan item di atas.
-                        </div>
+              {activeTab === 'details' ? (
+                <>
+                  <div className="bg-gray-50 p-5 rounded-2xl border border-gray-100 mb-8 relative overflow-hidden group hover:border-nature-200 transition animate-slide-in-right">
+                    <div className="absolute -right-4 -top-4 text-gray-200 opacity-50 transform rotate-12 group-hover:rotate-0 transition duration-500">
+                      <Sparkles size={80} strokeWidth={1} />
                     </div>
-                </div>
-              )}
-
-              {/* Color Selector */}
-              {hasColors && (
-                <div className="mb-6">
-                  <h3 className="flex items-center gap-2 text-sm font-black text-gray-900 uppercase tracking-widest mb-4">
-                    <Palette className="text-nature-600" size={16} /> Pilih Warna
-                  </h3>
-                  <div className="flex flex-wrap gap-3">
-                    {availableColors.map((color) => {
-                      const isSelected = selectedColor === color;
-                      return (
-                        <button
-                          key={color}
-                          onClick={() => {
-                            setSelectedColor(color);
-                            // If switching color and curr size is invalid for new color, reset size
-                            if (hasAdvancedVariants && selectedSize) {
-                                const isValidSize = product.variants!.some(v => v.color === color && v.size === selectedSize && v.stock > 0);
-                                if (!isValidSize) setSelectedSize(null);
-                            }
-                          }}
-                          className={`
-                            px-4 py-2 rounded-full font-bold border-2 transition-all relative flex items-center gap-2
-                            ${isSelected
-                                ? 'bg-gray-800 border-gray-800 text-white shadow-lg transform scale-105'
-                                : 'bg-white border-gray-200 text-gray-700 hover:border-nature-400 hover:text-nature-600'
-                            }
-                          `}
-                        >
-                          {color}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Size Selector */}
-              {hasSizes && (
-                <div className="mb-8">
-                  <h3 className="flex items-center gap-2 text-sm font-black text-gray-900 uppercase tracking-widest mb-4">
-                    <Scissors className="text-nature-600" size={16} /> Pilih Ukuran
-                  </h3>
-                  {!selectedColor && hasAdvancedVariants && (
-                    <p className="text-xs text-red-500 mb-2 italic">*Pilih warna dulu untuk melihat stok ukuran</p>
-                  )}
-                  <div className="flex flex-wrap gap-3">
-                    {sortedSizes.map((size) => {
-                      // Determine availability
-                      let isAvailable = true;
-                      let stockForThis = 0;
-
-                      if (hasAdvancedVariants) {
-                        if (selectedColor) {
-                          const v = product.variants!.find(x => x.color === selectedColor && x.size === size);
-                          stockForThis = v ? v.stock : 0;
-                          isAvailable = stockForThis > 0;
-                        } else {
-                          isAvailable = false; // Force user to pick color first
-                        }
-                      } else {
-                        stockForThis = product.sizes![size] || 0;
-                        isAvailable = stockForThis > 0;
-                      }
-
-                      const isSelected = selectedSize === size;
-                      
-                      return (
-                        <button
-                          key={size}
-                          disabled={!isAvailable}
-                          onClick={() => setSelectedSize(size)}
-                          className={`
-                            min-w-[50px] px-4 py-2 rounded-xl font-bold border-2 transition-all relative overflow-hidden
-                            ${!isAvailable 
-                              ? 'bg-gray-100 text-gray-300 border-gray-200 cursor-not-allowed decoration-slice' 
-                              : isSelected
-                                ? 'bg-nature-600 border-nature-600 text-white shadow-lg scale-110'
-                                : 'bg-white border-gray-200 text-gray-700 hover:border-nature-400 hover:text-nature-600'
-                            }
-                          `}
-                        >
-                          {size}
-                          {!isAvailable && (
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              <div className="w-full h-0.5 bg-gray-300 -rotate-45"></div>
-                            </div>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  {selectedSize && (
-                    <p className="text-xs text-nature-600 mt-2 font-medium animate-pulse">
-                      Stok tersedia: {specificStock} unit
+                    <h3 className="relative z-10 flex items-center gap-2 text-sm font-black text-gray-900 uppercase tracking-widest mb-3">
+                      <Sparkles className="text-adventure-500" size={16} /> Deskripsi
+                    </h3>
+                    <p className="relative z-10 text-gray-600 leading-relaxed text-sm md:text-base font-medium whitespace-pre-line">
+                      {product.description}
                     </p>
-                  )}
-                </div>
-              )}
+                  </div>
 
-              {/* Pricing Grid - ONLY FOR RENTAL */}
-              {!product.isSale && (
-                <div className="mb-6">
-                    <h3 className="flex items-center gap-2 text-sm font-black text-gray-900 uppercase tracking-widest mb-4">
-                    <Clock className="text-nature-600" size={16} /> Durasi & Mahar
-                    </h3>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    {prices.map((p) => (
-                        <div 
-                        key={p.day} 
-                        className={`
-                            relative flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all duration-300
-                            ${p.day === 2 
-                            ? 'bg-nature-600 border-nature-600 text-white shadow-lg shadow-nature-200 transform scale-105 z-10' 
-                            : 'bg-white border-gray-100 text-gray-600 hover:border-gray-300'
-                            }
-                        `}
-                        >
-                        {p.day === 2 && (
-                            <span className="absolute -top-3 bg-adventure-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wide">
-                            Paling Laris
-                            </span>
-                        )}
-                        <span className={`text-[10px] uppercase font-bold mb-1 ${p.day === 2 ? 'text-nature-100' : 'text-gray-400'}`}>
-                            {p.label}
-                        </span>
-                        <span className={`text-sm md:text-base font-black ${p.day === 2 ? 'text-white' : 'text-gray-800'}`}>
-                            {fmt(p.price || 0)}
-                        </span>
+                  {/* NEW: DISPLAY PACKAGE CONTENTS */}
+                  {isPackage && packageContents.length > 0 && (
+                    <div className="mb-8">
+                        <h3 className="flex items-center gap-2 text-sm font-black text-purple-800 uppercase tracking-widest mb-4 bg-purple-50 p-2 rounded-lg w-fit">
+                            <PackageOpen className="text-purple-600" size={16} /> Isi Paket Hemat Ini
+                        </h3>
+                        <div className="bg-white border border-purple-100 rounded-xl p-4 shadow-sm">
+                            <ul className="space-y-3">
+                                {packageContents.map((item, idx) => (
+                                    <li key={idx} className="flex items-center justify-between text-sm">
+                                        <div className="flex items-center gap-3">
+                                            <span className="bg-purple-100 text-purple-700 font-bold px-2 py-1 rounded text-xs">
+                                                {item.qty}x
+                                            </span>
+                                            <span className="font-medium text-gray-700">{item.name}</span>
+                                        </div>
+                                        <div className="text-xs text-gray-400">
+                                            (Stok Gudang: {item.currentStock})
+                                        </div>
+                                    </li>
+                                ))}
+                            </ul>
+                            <div className="mt-3 pt-3 border-t border-purple-50 text-xs text-purple-600 font-medium italic text-center">
+                                *Stok paket otomatis mengikuti ketersediaan item di atas.
+                            </div>
                         </div>
-                    ))}
                     </div>
+                  )}
+
+                  {/* Color Selector */}
+                  {hasColors && (
+                    <div className="mb-6">
+                      <h3 className="flex items-center gap-2 text-sm font-black text-gray-900 uppercase tracking-widest mb-4">
+                        <Palette className="text-nature-600" size={16} /> Pilih Warna
+                      </h3>
+                      <div className="flex flex-wrap gap-3">
+                        {availableColors.map((color) => {
+                          const isSelected = selectedColor === color;
+                          return (
+                            <button
+                              key={color}
+                              onClick={() => {
+                                setSelectedColor(color);
+                                // If switching color and curr size is invalid for new color, reset size
+                                if (hasAdvancedVariants && selectedSize) {
+                                    const isValidSize = product.variants!.some(v => v.color === color && v.size === selectedSize && v.stock > 0);
+                                    if (!isValidSize) setSelectedSize(null);
+                                }
+                              }}
+                              className={`
+                                px-4 py-2 rounded-full font-bold border-2 transition-all relative flex items-center gap-2
+                                ${isSelected
+                                    ? 'bg-gray-800 border-gray-800 text-white shadow-lg transform scale-105'
+                                    : 'bg-white border-gray-200 text-gray-700 hover:border-nature-400 hover:text-nature-600'
+                                }
+                              `}
+                            >
+                              {color}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Size Selector */}
+                  {hasSizes && (
+                    <div className="mb-8">
+                      <h3 className="flex items-center gap-2 text-sm font-black text-gray-900 uppercase tracking-widest mb-4">
+                        <Scissors className="text-nature-600" size={16} /> Pilih Ukuran
+                      </h3>
+                      {!selectedColor && hasAdvancedVariants && (
+                        <p className="text-xs text-red-500 mb-2 italic">*Pilih warna dulu untuk melihat stok ukuran</p>
+                      )}
+                      <div className="flex flex-wrap gap-3">
+                        {sortedSizes.map((size) => {
+                          // Determine availability
+                          let isAvailable = true;
+                          let stockForThis = 0;
+
+                          if (hasAdvancedVariants) {
+                            if (selectedColor) {
+                              const v = product.variants!.find(x => x.color === selectedColor && x.size === size);
+                              stockForThis = v ? v.stock : 0;
+                              isAvailable = stockForThis > 0;
+                            } else {
+                              isAvailable = false; // Force user to pick color first
+                            }
+                          } else {
+                            stockForThis = product.sizes![size] || 0;
+                            isAvailable = stockForThis > 0;
+                          }
+
+                          const isSelected = selectedSize === size;
+                          
+                          return (
+                            <button
+                              key={size}
+                              disabled={!isAvailable}
+                              onClick={() => setSelectedSize(size)}
+                              className={`
+                                min-w-[50px] px-4 py-2 rounded-xl font-bold border-2 transition-all relative overflow-hidden
+                                ${!isAvailable 
+                                  ? 'bg-gray-100 text-gray-300 border-gray-200 cursor-not-allowed decoration-slice' 
+                                  : isSelected
+                                    ? 'bg-nature-600 border-nature-600 text-white shadow-lg scale-110'
+                                    : 'bg-white border-gray-200 text-gray-700 hover:border-nature-400 hover:text-nature-600'
+                                }
+                              `}
+                            >
+                              {size}
+                              {!isAvailable && (
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                  <div className="w-full h-0.5 bg-gray-300 -rotate-45"></div>
+                                </div>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {selectedSize && (
+                        <p className="text-xs text-nature-600 mt-2 font-medium animate-pulse">
+                          Stok tersedia: {specificStock} unit
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Pricing Grid - ONLY FOR RENTAL */}
+                  {!product.isSale && (
+                    <div className="mb-6">
+                        <h3 className="flex items-center gap-2 text-sm font-black text-gray-900 uppercase tracking-widest mb-4">
+                        <Clock className="text-nature-600" size={16} /> Durasi & Mahar
+                        </h3>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        {prices.map((p) => (
+                            <div 
+                            key={p.day} 
+                            className={`
+                                relative flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all duration-300
+                                ${p.day === 2 
+                                ? 'bg-nature-600 border-nature-600 text-white shadow-lg shadow-nature-200 transform scale-105 z-10' 
+                                : 'bg-white border-gray-100 text-gray-600 hover:border-gray-300'
+                                }
+                            `}
+                            >
+                            {p.day === 2 && (
+                                <span className="absolute -top-3 bg-adventure-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wide">
+                                Paling Laris
+                                </span>
+                            )}
+                            <span className={`text-[10px] uppercase font-bold mb-1 ${p.day === 2 ? 'text-nature-100' : 'text-gray-400'}`}>
+                                {p.label}
+                            </span>
+                            <span className={`text-sm md:text-base font-black ${p.day === 2 ? 'text-white' : 'text-gray-800'}`}>
+                                {fmt(p.price || 0)}
+                            </span>
+                            </div>
+                        ))}
+                        </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="space-y-4 animate-slide-in-right">
+                   {MOCK_REVIEWS.map((review) => (
+                      <div key={review.id} className="p-4 bg-gray-50 rounded-xl border border-gray-100">
+                         <div className="flex justify-between items-start mb-2">
+                            <div className="flex items-center gap-2">
+                               <div className="w-8 h-8 rounded-full bg-nature-100 text-nature-700 flex items-center justify-center font-bold text-xs">
+                                  {review.name.charAt(0)}
+                               </div>
+                               <div>
+                                  <p className="text-sm font-bold text-gray-900">{review.name}</p>
+                                  <div className="flex text-yellow-400">
+                                     {[...Array(5)].map((_, i) => (
+                                        <Star key={i} size={12} fill={i < review.rating ? "currentColor" : "none"} className={i >= review.rating ? "text-gray-300" : ""} />
+                                     ))}
+                                  </div>
+                               </div>
+                            </div>
+                            <span className="text-[10px] text-gray-400">{review.date}</span>
+                         </div>
+                         <p className="text-sm text-gray-600 leading-relaxed italic">"{review.comment}"</p>
+                      </div>
+                   ))}
+                   <div className="text-center p-4">
+                      <p className="text-xs text-gray-400">Ulasan diambil dari pelanggan terverifikasi.</p>
+                   </div>
                 </div>
               )}
             </div>

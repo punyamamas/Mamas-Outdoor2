@@ -1,5 +1,4 @@
 
-// ... imports existing ...
 import React, { useState, useEffect } from 'react';
 import Navbar from './components/Navbar';
 import CartDrawer from './components/CartDrawer';
@@ -8,13 +7,13 @@ import GeminiAdvisor from './components/GeminiAdvisor';
 import TermsModal from './components/TermsModal';
 import { AdminDashboard } from './components/AdminDashboard';
 import ProductDetailModal from './components/ProductDetailModal';
-import Toast from './components/Toast'; 
-import ImageLoader from './components/ImageLoader'; 
+import Toast from './components/Toast'; // Import Toast
+import ImageLoader from './components/ImageLoader'; // Import ImageLoader
 import { PRODUCTS, CATEGORIES as CONSTANT_CATEGORIES } from './constants'; 
 import { CartItem, Product, Category } from './types';
 import { getProducts, addProduct, updateProduct, deleteProduct } from './services/productService';
 import { getCategories, addCategory, updateCategory, deleteCategory } from './services/categoryService';
-import { MapPin, Star, Plus, Check, School, Github, Loader2, Flame, Lock, Calendar, Users, ArrowRight as ArrowIcon, ChevronDown, ShieldCheck, Zap, ShoppingCart, Info, Weight, Tent, Wind, ArrowUpDown, Search, XCircle, ShoppingBag } from 'lucide-react';
+import { MapPin, Star, Plus, Check, School, Github, Loader2, Flame, Lock, Calendar, Users, ArrowRight as ArrowIcon, ChevronDown, ShieldCheck, Zap, ShoppingCart, Info, Weight, Tent, Wind, ArrowUpDown, Search, XCircle, ShoppingBag, ClipboardList, MessageCircle, Truck } from 'lucide-react';
 
 function App() {
   const [currentPage, setCurrentPage] = useState<'home' | 'admin'>('home');
@@ -357,11 +356,11 @@ function App() {
         isOpen={isCartOpen} 
         onClose={() => setIsCartOpen(false)} 
         cartItems={cartItems}
-        products={products} // PASSING PRODUCTS HERE
+        products={products} // Add this prop
         onUpdateQuantity={updateQuantity}
         onRemoveItem={removeItem}
         onClearCart={clearCart}
-        onRefreshData={fetchData} 
+        onRefreshData={fetchData} // Pass function to update UI after checkout
       />
 
       <HistoryDrawer 
@@ -397,7 +396,30 @@ function App() {
         </div>
 
         <div className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex flex-col justify-center items-center">
-          {/* ... Hero Content ... */}
+          <div className="hidden 2xl:block absolute left-4 top-1/4 animate-float" style={{animationDelay: '0s'}}>
+            <div className="bg-white/10 backdrop-blur-md border border-white/20 p-4 rounded-2xl shadow-2xl flex items-center gap-4 w-72 text-left hover:scale-105 transition duration-300 cursor-default">
+               <div className="bg-green-500/20 p-3 rounded-xl text-green-400 shadow-inner">
+                 <School size={32} />
+               </div>
+               <div>
+                 <p className="text-white font-bold text-lg leading-tight">Diskon Mahasiswa</p>
+                 <p className="text-gray-300 text-sm font-medium mt-1">UNSOED, UMP, & Lainnya</p>
+               </div>
+            </div>
+          </div>
+
+          <div className="hidden 2xl:block absolute right-4 bottom-1/4 animate-float" style={{animationDelay: '3s'}}>
+            <div className="bg-white/10 backdrop-blur-md border border-white/20 p-4 rounded-2xl shadow-2xl flex items-center gap-4 w-72 text-left hover:scale-105 transition duration-300 cursor-default">
+               <div className="bg-orange-500/20 p-3 rounded-xl text-orange-400 shadow-inner">
+                 <ShieldCheck size={32} />
+               </div>
+               <div>
+                 <p className="text-white font-bold text-lg leading-tight">Alat Terawat</p>
+                 <p className="text-gray-300 text-sm font-medium mt-1">Bersih, Wangi, No Bocor</p>
+               </div>
+            </div>
+          </div>
+
           <div className="text-center max-w-5xl mx-auto relative z-20 px-4 flex flex-col items-center">
             <div className="inline-flex items-center gap-2 bg-nature-600/90 backdrop-blur-md px-5 py-2 rounded-full text-white text-xs md:text-sm font-bold mb-8 border border-white/10 uppercase tracking-widest shadow-xl shadow-nature-900/50 hover:bg-nature-700 hover:scale-105 transition duration-300 cursor-default">
               <Flame size={16} className="text-yellow-400 fill-current animate-pulse" />
@@ -434,6 +456,17 @@ function App() {
                 Tanya AI Dulu
               </a>
             </div>
+
+            <div className="mt-16 flex flex-wrap justify-center gap-6 2xl:hidden">
+              <div className="flex items-center gap-3 px-5 py-2 rounded-full border border-white/20 bg-black/40 backdrop-blur-md hover:bg-black/60 transition cursor-default">
+                <School size={18} className="text-green-400" />
+                <span className="text-white text-sm font-bold tracking-wide">Diskon Mahasiswa</span>
+              </div>
+              <div className="flex items-center gap-3 px-5 py-2 rounded-full border border-white/20 bg-black/40 backdrop-blur-md hover:bg-black/60 transition cursor-default">
+                <ShieldCheck size={18} className="text-orange-400" />
+                <span className="text-white text-sm font-bold tracking-wide">Alat Terawat & Bersih</span>
+              </div>
+            </div>
           </div>
         </div>
         
@@ -444,10 +477,94 @@ function App() {
         </div>
       </section>
 
+      {/* NEW SECTION: How It Works (Langkah Sewa) */}
+      <section className="bg-white py-16 border-b border-gray-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-black text-gray-900">Gampang Banget!</h2>
+            <p className="text-gray-500 mt-2">Cuma butuh 3 langkah buat dapetin gear impianmu.</p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {/* Step 1 */}
+            <div className="relative group">
+              <div className="absolute inset-0 bg-nature-100 rounded-2xl transform rotate-3 transition-transform group-hover:rotate-6"></div>
+              <div className="relative bg-white border border-gray-200 p-8 rounded-2xl shadow-sm text-center h-full hover:-translate-y-2 transition-transform duration-300">
+                <div className="w-16 h-16 bg-nature-50 rounded-full flex items-center justify-center mx-auto mb-6 text-nature-600">
+                  <ClipboardList size={32} />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">1. Pilih Alat</h3>
+                <p className="text-gray-500 text-sm leading-relaxed">
+                  Cari tenda atau carrier di katalog. Cek stok, pilih warna, dan masukkan ke keranjang.
+                </p>
+              </div>
+            </div>
+
+            {/* Step 2 */}
+            <div className="relative group">
+              <div className="absolute inset-0 bg-blue-100 rounded-2xl transform -rotate-3 transition-transform group-hover:-rotate-6"></div>
+              <div className="relative bg-white border border-gray-200 p-8 rounded-2xl shadow-sm text-center h-full hover:-translate-y-2 transition-transform duration-300">
+                <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-6 text-blue-600">
+                  <MessageCircle size={32} />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">2. Chat WhatsApp</h3>
+                <p className="text-gray-500 text-sm leading-relaxed">
+                  Klik tombol pesan. Admin Mamas akan konfirmasi total harga & ketersediaan tanggal.
+                </p>
+              </div>
+            </div>
+
+            {/* Step 3 */}
+            <div className="relative group">
+              <div className="absolute inset-0 bg-green-100 rounded-2xl transform rotate-3 transition-transform group-hover:rotate-6"></div>
+              <div className="relative bg-white border border-gray-200 p-8 rounded-2xl shadow-sm text-center h-full hover:-translate-y-2 transition-transform duration-300">
+                <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-6 text-green-600">
+                  <Truck size={32} />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">3. Ambil & Gas!</h3>
+                <p className="text-gray-500 text-sm leading-relaxed">
+                  Datang ke basecamp Grendeng, titip KTP, bayar, dan langsung berangkat muncak!
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Catalog Section Revamped */}
       <section id="katalog" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 bg-white">
-        {/* ... Search & Filter UI ... */}
-        
+        {/* ... (Existing Catalog Code) ... */}
+        <div className="text-center mb-8">
+          <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-4 tracking-tight">
+            Pilih <span className="text-transparent bg-clip-text bg-gradient-to-r from-nature-600 to-red-500">Gear Andalan</span>
+          </h2>
+          <p className="text-gray-500 text-lg max-w-2xl mx-auto">
+            Koleksi lengkap, bersih, dan terawat. Siap menemanimu menaklukkan puncak impian.
+          </p>
+        </div>
+
+        {/* SEARCH BAR */}
+        <div className="max-w-xl mx-auto mb-8 px-4 relative group">
+           <div className="relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-nature-600 transition" size={20} />
+              <input
+                type="text"
+                placeholder="Cari alat gunung (misal: Tenda, Carrier)..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-12 pr-10 py-3 bg-gray-50 border border-gray-200 rounded-full focus:ring-2 focus:ring-nature-500 focus:border-transparent outline-none transition text-gray-800 font-medium"
+              />
+              {searchQuery && (
+                <button 
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1"
+                >
+                  <XCircle size={18} />
+                </button>
+              )}
+           </div>
+        </div>
+
         {/* Dynamic Category Filter */}
         <div className="flex justify-center mb-8">
           <div className="inline-flex p-1.5 bg-gray-100 rounded-full overflow-x-auto max-w-full no-scrollbar">
@@ -643,6 +760,7 @@ function App() {
       </section>
       
       {/* Event Section */}
+      {/* ... (Event section unchanged) ... */}
       <section id="event" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
          <div className="mb-10 text-center">
           <span className="text-nature-600 font-bold tracking-widest uppercase text-sm mb-2 block">Agenda & Kegiatan</span>
@@ -652,14 +770,107 @@ function App() {
             Fasilitas lengkap, guide asik, dokumentasi kece.
           </p>
         </div>
-        {/* ... Event Content ... */}
-        {/* Same as before */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden group hover:shadow-xl transition duration-300">
+            <div className="relative h-64 overflow-hidden">
+              <img 
+                src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=800&auto=format&fit=crop" 
+                alt="Gunung Slamet" 
+                loading="lazy"
+                decoding="async"
+                className="w-full h-full object-cover group-hover:scale-105 transition duration-700"
+              />
+              <div className="absolute top-4 left-4 bg-white/90 backdrop-blur px-4 py-2 rounded-lg text-center shadow-lg">
+                <span className="block text-xs text-gray-500 font-bold uppercase">Agustus</span>
+                <span className="block text-2xl font-black text-nature-600">17</span>
+              </div>
+            </div>
+            <div className="p-8">
+              <div className="flex items-center gap-2 mb-3 text-sm font-medium text-nature-600">
+                <MapPin size={16} /> 
+                <span>Via Bambangan</span>
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-3">Upacara 17 Agustus Atap Jawa Tengah</h3>
+              <p className="text-gray-500 mb-6 leading-relaxed">
+                Rayakan kemerdekaan di puncak tertinggi Jawa Tengah (3.428 mdpl). Include transportasi PP Purwokerto, tenda, alat masak, dan porter tim.
+              </p>
+              <div className="flex items-center justify-between pt-6 border-t border-gray-50">
+                <div className="flex items-center gap-2 text-gray-500">
+                   <Users size={18} />
+                   <span className="text-sm">Sisa 5 Seat</span>
+                </div>
+                <a href="#" className="flex items-center gap-2 text-nature-600 font-bold hover:gap-3 transition">
+                  Daftar Sekarang <ArrowIcon size={18} />
+                </a>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden group hover:shadow-xl transition duration-300">
+            <div className="relative h-64 overflow-hidden">
+              <img 
+                src="https://images.unsplash.com/photo-1533240332313-0db49b459ad6?q=80&w=800&auto=format&fit=crop" 
+                alt="Camping Ceria" 
+                loading="lazy"
+                decoding="async"
+                className="w-full h-full object-cover group-hover:scale-105 transition duration-700"
+              />
+              <div className="absolute top-4 left-4 bg-white/90 backdrop-blur px-4 py-2 rounded-lg text-center shadow-lg">
+                <span className="block text-xs text-gray-500 font-bold uppercase">Setiap</span>
+                <span className="block text-xl font-black text-nature-600">Weekend</span>
+              </div>
+            </div>
+            <div className="p-8">
+              <div className="flex items-center gap-2 mb-3 text-sm font-medium text-nature-600">
+                <MapPin size={16} /> 
+                <span>Bukit Tranggulasih / Baturraden</span>
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-3">Paket Camping Ceria Anti Ribet</h3>
+              <p className="text-gray-500 mb-6 leading-relaxed">
+                Buat kamu yang mau healing tipis-tipis. Kami siapkan tenda berdiri, api unggun, dan jagung bakar. Datang tinggal bawa badan!
+              </p>
+              <div className="flex items-center justify-between pt-6 border-t border-gray-50">
+                <div className="flex items-center gap-2 text-gray-500">
+                   <Users size={18} />
+                   <span className="text-sm">Private Group</span>
+                </div>
+                <a href="#" className="flex items-center gap-2 text-nature-600 font-bold hover:gap-3 transition">
+                  Booking Tanggal <ArrowIcon size={18} />
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
       </section>
 
-      {/* Features & Footer */}
-      {/* Same as before */}
+      {/* Features Section */}
+      <section className="bg-gray-50 border-t border-gray-200 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="flex flex-col items-center text-center p-8 bg-white rounded-2xl shadow-sm border border-gray-100 hover:border-nature-200 transition group">
+            <div className="w-16 h-16 bg-nature-50 text-nature-600 rounded-2xl rotate-3 group-hover:rotate-6 transition duration-300 flex items-center justify-center mb-6">
+              <Star className="fill-current" size={28} />
+            </div>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">Gear Sultan</h3>
+            <p className="text-gray-500">Alat branded, bersih, dan wangi. Gak ada cerita tenda bocor pas badai.</p>
+          </div>
+          <div className="flex flex-col items-center text-center p-8 bg-white rounded-2xl shadow-sm border border-gray-100 hover:border-nature-200 transition group">
+             <div className="w-16 h-16 bg-adventure-50 text-adventure-600 rounded-2xl -rotate-3 group-hover:-rotate-6 transition duration-300 flex items-center justify-center mb-6">
+              <MapPin className="fill-current" size={28} />
+            </div>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">Lokasi UNSOED</h3>
+            <p className="text-gray-500">Basecamp strategis di Grendeng. Gas ambil alat sambil berangkat kuliah.</p>
+          </div>
+          <div className="flex flex-col items-center text-center p-8 bg-white rounded-2xl shadow-sm border border-gray-100 hover:border-nature-200 transition group">
+             <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl rotate-3 group-hover:rotate-6 transition duration-300 flex items-center justify-center mb-6">
+              <School className="fill-current" size={28} />
+            </div>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">Harga Mahasiswa</h3>
+            <p className="text-gray-500">Tunjukkan KTM sakti mu, dapatkan harga spesial kawan.</p>
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
       <footer id="contact" className="bg-gray-900 text-white pt-20 pb-10 border-t-4 border-nature-600 scroll-mt-10">
-        {/* ... Footer Content ... */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
             <div className="col-span-1 md:col-span-2">
