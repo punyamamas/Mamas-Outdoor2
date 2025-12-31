@@ -1,9 +1,11 @@
 
+// ... existing imports ...
 import { supabase } from './supabase';
 import { Transaction, CartItem, UserDetails, PaymentLog } from '../types';
 import { processStockReduction, processStockRestoration } from './productService';
 import html2canvas from 'html2canvas';
 
+// ... createTransaction, getTransactions, etc. unchanged ...
 // Create new transaction (Checkout)
 export const createTransaction = async (
   userDetails: UserDetails, 
@@ -332,6 +334,9 @@ export const updateTransactionStatus = async (id: string, newStatus: string): Pr
 
 // HELPER: Hitung harga item berdasarkan durasi
 export const calculateItemPriceForDuration = (item: CartItem, duration: number): number => {
+    // FIX: Jika isSale, kembalikan harga jual, jangan dikali logika durasi
+    if (item.isSale) return item.salePrice || 0;
+
     const p2 = item.price2Days || 0;
     const p3 = item.price3Days || 0;
     const p4 = item.price4Days || 0;
@@ -372,6 +377,9 @@ export const calculateOverdueFine = (transaction: Transaction): { daysLate: numb
   const calculationDuration = daysLate + 1;
 
   const fineAmount = transaction.items.reduce((total, item) => {
+      // FIX: Barang Jual tidak kena denda
+      if (item.isSale) return total;
+      
       const price = calculateItemPriceForDuration(item, calculationDuration);
       return total + (price * item.quantity);
   }, 0);
@@ -379,6 +387,7 @@ export const calculateOverdueFine = (transaction: Transaction): { daysLate: numb
   return { daysLate, fineAmount };
 };
 
+// ... updateTransactionDetails ...
 // UPDATED: Update Customer Data, Duration & IDENTITY (Recalculate Price)
 export const updateTransactionDetails = async (
   id: string, 
@@ -404,6 +413,7 @@ export const updateTransactionDetails = async (
   // 2. Recalculate Base Rental Price
   let rentalPrice = 0;
   for (const item of items) {
+      // calculateItemPriceForDuration sudah menghandle logika isSale
       const unitPrice = calculateItemPriceForDuration(item, duration);
       rentalPrice += (unitPrice * item.quantity);
   }
@@ -497,6 +507,7 @@ export const updateTransactionItems = async (
   return true;
 };
 
+// ... deleteTransaction ...
 // Delete Transaction & Restore Stock if applicable
 export const deleteTransaction = async (id: string): Promise<boolean> => {
   if (!supabase) return false;
@@ -579,9 +590,13 @@ export const copyInvoiceToClipboard = async (
         const totalPrice = unitPrice * item.quantity;
         const variantInfo = item.selectedSize || item.selectedColor 
           ? `(${[item.selectedSize, item.selectedColor].filter(Boolean).join('/')})` : '';
+        
+        // Label logic
+        const label = item.isSale ? 'BELI' : `${trx.duration}H`;
+
         return `
         <div style="margin-bottom:8px;">
-          <div style="font-weight:700; font-size:12px; margin-bottom:2px;">${trx.duration}H ${item.name.toUpperCase()} ${variantInfo}</div>
+          <div style="font-weight:700; font-size:12px; margin-bottom:2px;">${label} ${item.name.toUpperCase()} ${variantInfo}</div>
           <div style="display:flex; justify-content:space-between; font-size:12px; color:#000;">
             <span>${item.quantity} x ${fmt(unitPrice)}</span>
             <span>${fmt(totalPrice)}</span>
@@ -760,10 +775,13 @@ export const printInvoice = (
         const variantInfo = item.selectedSize || item.selectedColor 
           ? `(${[item.selectedSize, item.selectedColor].filter(Boolean).join('/')})` 
           : '';
+        
+        // Label logic
+        const label = item.isSale ? 'BELI' : `${trx.duration}H`;
 
         return `
         <div class="item-row">
-          <div class="item-name">${trx.duration}H ${item.name.toUpperCase()} ${variantInfo}</div>
+          <div class="item-name">${label} ${item.name.toUpperCase()} ${variantInfo}</div>
           <div class="item-calc">
             <span>${item.quantity} x ${fmt(unitPrice)}</span>
             <span>${fmt(totalPrice)}</span>
@@ -913,6 +931,7 @@ export const printInvoice = (
   printWindow.document.close();
 };
 
+// ... mapDbToTransaction unchanged ...
 // Helper Mapper
 const mapDbToTransaction = (dbItem: any): Transaction => {
   return {
@@ -922,11 +941,11 @@ const mapDbToTransaction = (dbItem: any): Transaction => {
     customerWhatsapp: dbItem.customer_whatsapp,
     customerCampus: dbItem.customer_campus || '-', 
     customerLocation: dbItem.customer_location || undefined, 
-    customerIdentity: dbItem.customer_identity || undefined, // MAP NEW FIELD
+    customerIdentity: dbItem.customer_identity || undefined, 
     rentalDate: dbItem.rental_date,
     duration: dbItem.duration,
     totalPrice: dbItem.total_price,
-    fineAmount: dbItem.fine_amount || 0, // MAP FINE COLUMN
+    fineAmount: dbItem.fine_amount || 0, 
     amountPaid: dbItem.amount_paid || 0, 
     items: dbItem.items,
     status: dbItem.status,

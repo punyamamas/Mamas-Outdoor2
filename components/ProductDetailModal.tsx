@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
-import { X, ShoppingCart, Check, Layers, Clock, Sparkles, Tag, ShieldCheck, Zap, Box, Scissors, Footprints, Palette, Heart } from 'lucide-react';
+import { X, ShoppingCart, Check, Layers, Clock, Sparkles, Tag, ShieldCheck, Zap, Box, Scissors, Footprints, Palette, Heart, ShoppingBag } from 'lucide-react';
 import { Product } from '../types';
 import ImageLoader from './ImageLoader';
 
@@ -198,6 +199,11 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     <Layers size={12} /> Paket Hemat
                   </span>
                 )}
+                {product.isSale && (
+                  <span className="bg-blue-600 text-white px-4 py-1.5 rounded-full text-xs font-bold shadow-lg flex items-center gap-2">
+                    <ShoppingBag size={12} /> DIJUAL
+                  </span>
+                )}
              </div>
 
              <div className="absolute bottom-6 left-6 text-white">
@@ -344,45 +350,49 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 </div>
               )}
 
-              {/* Pricing Grid */}
-              <div className="mb-6">
-                <h3 className="flex items-center gap-2 text-sm font-black text-gray-900 uppercase tracking-widest mb-4">
-                  <Clock className="text-nature-600" size={16} /> Durasi & Mahar
-                </h3>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {prices.map((p) => (
-                    <div 
-                      key={p.day} 
-                      className={`
-                        relative flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all duration-300
-                        ${p.day === 2 
-                          ? 'bg-nature-600 border-nature-600 text-white shadow-lg shadow-nature-200 transform scale-105 z-10' 
-                          : 'bg-white border-gray-100 text-gray-600 hover:border-gray-300'
-                        }
-                      `}
-                    >
-                      {p.day === 2 && (
-                         <span className="absolute -top-3 bg-adventure-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wide">
-                           Paling Laris
-                         </span>
-                      )}
-                      <span className={`text-[10px] uppercase font-bold mb-1 ${p.day === 2 ? 'text-nature-100' : 'text-gray-400'}`}>
-                        {p.label}
-                      </span>
-                      <span className={`text-sm md:text-base font-black ${p.day === 2 ? 'text-white' : 'text-gray-800'}`}>
-                        {fmt(p.price || 0)}
-                      </span>
+              {/* Pricing Grid - ONLY FOR RENTAL */}
+              {!product.isSale && (
+                <div className="mb-6">
+                    <h3 className="flex items-center gap-2 text-sm font-black text-gray-900 uppercase tracking-widest mb-4">
+                    <Clock className="text-nature-600" size={16} /> Durasi & Mahar
+                    </h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {prices.map((p) => (
+                        <div 
+                        key={p.day} 
+                        className={`
+                            relative flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all duration-300
+                            ${p.day === 2 
+                            ? 'bg-nature-600 border-nature-600 text-white shadow-lg shadow-nature-200 transform scale-105 z-10' 
+                            : 'bg-white border-gray-100 text-gray-600 hover:border-gray-300'
+                            }
+                        `}
+                        >
+                        {p.day === 2 && (
+                            <span className="absolute -top-3 bg-adventure-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wide">
+                            Paling Laris
+                            </span>
+                        )}
+                        <span className={`text-[10px] uppercase font-bold mb-1 ${p.day === 2 ? 'text-nature-100' : 'text-gray-400'}`}>
+                            {p.label}
+                        </span>
+                        <span className={`text-sm md:text-base font-black ${p.day === 2 ? 'text-white' : 'text-gray-800'}`}>
+                            {fmt(p.price || 0)}
+                        </span>
+                        </div>
+                    ))}
                     </div>
-                  ))}
                 </div>
-              </div>
+              )}
             </div>
 
             <div className="p-6 md:p-8 border-t border-gray-100 bg-gray-50/50 md:rounded-br-[2rem] backdrop-blur-sm">
               <div className="flex items-center justify-between gap-6">
                 <div className="hidden sm:flex flex-col">
-                  <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Mulai Dari</span>
-                  <span className="text-3xl font-black text-gray-900 tracking-tight">{fmt(product.price2Days || 0)}</span>
+                  <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">{product.isSale ? 'Harga Jual' : 'Mulai Dari'}</span>
+                  <span className="text-3xl font-black text-gray-900 tracking-tight">
+                    {product.isSale ? fmt(product.salePrice || 0) : fmt(product.price2Days || 0)}
+                  </span>
                 </div>
                 <button 
                   disabled={!canAddToCart}
@@ -405,7 +415,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     </>
                   ) : (
                     <>
-                      <ShoppingCart size={24} strokeWidth={3} /> Bungkus Gan
+                      <ShoppingCart size={24} strokeWidth={3} /> {product.isSale ? 'Beli Sekarang' : 'Bungkus Gan'}
                     </>
                   )}
                 </button>

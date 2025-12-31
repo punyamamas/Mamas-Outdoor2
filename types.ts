@@ -24,12 +24,18 @@ export interface Product {
   id: string;
   name: string;
   category: string; 
+  // Rental Prices
   price2Days: number; 
   price3Days: number;
   price4Days: number;
   price5Days: number;
   price6Days: number;
   price7Days: number; 
+  
+  // RETAIL FIELDS
+  isSale?: boolean; // True jika barang dijual (bukan disewa)
+  salePrice?: number; // Harga jual lepas
+
   image: string;
   description: string;
   stock: number; 

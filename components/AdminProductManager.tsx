@@ -1,5 +1,6 @@
+
 import React, { useState } from 'react';
-import { Plus, Search, Edit, Trash2, X, Layers, Scissors, Palette, Image as ImageIcon, Save, Loader2 } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, X, Layers, Scissors, Palette, Image as ImageIcon, Save, Loader2, ShoppingBag } from 'lucide-react';
 import { Product, Category, ProductVariant, ColorImage, PackageItem } from '../types';
 
 interface AdminProductManagerProps {
@@ -32,7 +33,7 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
 
   // Form States
   const [formData, setFormData] = useState<Partial<Product>>({
-    name: '', category: '', price2Days: 0, stock: 0, description: '', image: '', packageItems: []
+    name: '', category: '', price2Days: 0, salePrice: 0, isSale: false, stock: 0, description: '', image: '', packageItems: []
   });
 
   // Variant States
@@ -77,6 +78,7 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
       setFormData({
         id: Date.now().toString(), name: '', category: categories[0]?.name || 'Tenda', 
         price2Days: 0, price3Days: 0, price4Days: 0, price5Days: 0, price6Days: 0, price7Days: 0,
+        isSale: false, salePrice: 0,
         stock: 0, description: '', image: 'https://picsum.photos/400/300', packageItems: []
       });
       setUseAdvancedVariants(false);
@@ -201,7 +203,7 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
             <tr>
               <th className="px-6 py-4">Produk</th>
               <th className="px-6 py-4">Kategori</th>
-              <th className="px-6 py-4">Harga 2 Hari</th>
+              <th className="px-6 py-4">Harga</th>
               <th className="px-6 py-4">Stok</th>
               <th className="px-6 py-4 text-center">Aksi</th>
             </tr>
@@ -213,14 +215,23 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
                   <div className="flex items-center gap-3">
                     <img src={product.image} alt="" className="w-10 h-10 rounded-lg object-cover bg-gray-200" />
                     <div>
-                      <div className="font-medium text-gray-900">{product.name}</div>
+                      <div className="font-medium text-gray-900 flex items-center gap-1">
+                        {product.name}
+                        {product.isSale && <span className="bg-blue-100 text-blue-700 text-[9px] px-1.5 rounded font-bold uppercase border border-blue-200">JUAL</span>}
+                      </div>
                       {product.packageItems?.length ? <span className="text-[10px] text-orange-600 font-bold flex gap-1"><Layers size={10}/> Paket</span> : null}
                       {product.variants?.length ? <span className="text-[10px] text-purple-600 font-bold flex gap-1"><Palette size={10}/> Varian</span> : null}
                     </div>
                   </div>
                 </td>
                 <td className="px-6 py-4"><span className="bg-gray-100 px-2 py-1 rounded text-xs font-bold">{product.category}</span></td>
-                <td className="px-6 py-4 font-bold text-nature-600">Rp{product.price2Days.toLocaleString('id-ID')}</td>
+                <td className="px-6 py-4 font-bold text-nature-600">
+                    {product.isSale ? (
+                        <span>Rp{(product.salePrice||0).toLocaleString('id-ID')}</span>
+                    ) : (
+                        <span>Rp{(product.price2Days).toLocaleString('id-ID')} <span className="text-[10px] text-gray-400 font-normal">/2hr</span></span>
+                    )}
+                </td>
                 <td className="px-6 py-4 font-bold">{product.stock}</td>
                 <td className="px-6 py-4 text-center">
                    <div className="flex justify-center gap-2">
@@ -260,14 +271,39 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
                     </select>
                  </div>
                </div>
+
+               {/* Sale vs Rent Toggle */}
+               <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                     <div className={`p-2 rounded-lg ${formData.isSale ? 'bg-blue-500 text-white' : 'bg-white text-blue-500'}`}>
+                        {formData.isSale ? <ShoppingBag size={20}/> : <Layers size={20}/>}
+                     </div>
+                     <div>
+                        <h4 className="font-bold text-blue-900 text-sm">Mode: {formData.isSale ? 'Barang Dijual (Retail)' : 'Barang Disewa (Rental)'}</h4>
+                        <p className="text-xs text-blue-600">{formData.isSale ? 'Stok berkurang permanen saat checkout' : 'Stok kembali saat transaksi selesai'}</p>
+                     </div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" className="sr-only peer" checked={formData.isSale || false} onChange={e => setFormData({...formData, isSale: e.target.checked})} />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                  </label>
+               </div>
                
                {/* Pricing */}
-               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div><label className="text-xs font-bold">Harga 2 Hari</label><input type="number" className="w-full border rounded p-2" value={formData.price2Days} onChange={e=>setFormData({...formData, price2Days: Number(e.target.value)})}/></div>
-                  <div><label className="text-xs font-bold">Harga 3 Hari</label><input type="number" className="w-full border rounded p-2" value={formData.price3Days} onChange={e=>setFormData({...formData, price3Days: Number(e.target.value)})}/></div>
-                  <div><label className="text-xs font-bold">Harga 4 Hari</label><input type="number" className="w-full border rounded p-2" value={formData.price4Days} onChange={e=>setFormData({...formData, price4Days: Number(e.target.value)})}/></div>
-                  <div><label className="text-xs font-bold">Harga 5 Hari</label><input type="number" className="w-full border rounded p-2" value={formData.price5Days} onChange={e=>setFormData({...formData, price5Days: Number(e.target.value)})}/></div>
-               </div>
+               {formData.isSale ? (
+                   <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                      <label className="block text-sm font-bold text-blue-800 mb-1">Harga Jual (Satuan)</label>
+                      <input type="number" required className="w-full border border-blue-300 rounded-lg p-2 text-lg font-bold" 
+                        value={formData.salePrice || ''} onChange={e=>setFormData({...formData, salePrice: Number(e.target.value)})}/>
+                   </div>
+               ) : (
+                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div><label className="text-xs font-bold">Harga 2 Hari</label><input type="number" className="w-full border rounded p-2" value={formData.price2Days} onChange={e=>setFormData({...formData, price2Days: Number(e.target.value)})}/></div>
+                      <div><label className="text-xs font-bold">Harga 3 Hari</label><input type="number" className="w-full border rounded p-2" value={formData.price3Days} onChange={e=>setFormData({...formData, price3Days: Number(e.target.value)})}/></div>
+                      <div><label className="text-xs font-bold">Harga 4 Hari</label><input type="number" className="w-full border rounded p-2" value={formData.price4Days} onChange={e=>setFormData({...formData, price4Days: Number(e.target.value)})}/></div>
+                      <div><label className="text-xs font-bold">Harga 5 Hari</label><input type="number" className="w-full border rounded p-2" value={formData.price5Days} onChange={e=>setFormData({...formData, price5Days: Number(e.target.value)})}/></div>
+                   </div>
+               )}
 
                {/* Advanced Variants Toggle */}
                <div className="flex items-center gap-4 bg-gray-50 p-4 rounded-lg">
