@@ -293,54 +293,62 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
     const totalBill = selectedTransaction.totalPrice;
     const previousPaid = selectedTransaction.amountPaid || 0;
     const remainingDebt = Math.max(0, totalBill - previousPaid); // Sisa utang sebelum pembayaran ini
+    const totalFine = selectedTransaction.fineAmount || 0;
+    const basePrice = totalBill - totalFine; // Harga Sewa Murni
     
     const inputTotal = cashInput + transferInput;
     
-    // 2. LOGIKA UANG MASUK RILL (Laporan Keuangan)
-    // Jika input 20.000 (Cash) tapi utang 13.000, maka:
-    // - Kembalian: 7.000
-    // - Uang Masuk Laporan: 13.000
-    // Kita kurangi kembalian dari input Cash (asumsi kembalian diberi cash)
-    
+    // 2. LOGIKA UANG MASUK RILL & SPLIT SEWA/DENDA
     let logCash = cashInput;
     let logTransfer = transferInput;
 
     if (inputTotal > remainingDebt) {
-        // Ada Kembalian
+        // Ada Kembalian (Kurangi dari log Cash)
         const changeAmount = inputTotal - remainingDebt;
-        
-        // Asumsi: Kembalian diambil dari uang Cash yang baru masuk terlebih dahulu
         if (logCash >= changeAmount) {
-            logCash = logCash - changeAmount; // Kurangi input cash dengan kembalian
+            logCash = logCash - changeAmount; 
         } else {
-            // Jika cash tidak cukup (misal transfer kelebihan), potong dari nominal transfer
-            // Ini jarang terjadi (refund transfer), tapi perlu dihandle
             const remainingChange = changeAmount - logCash;
             logCash = 0;
             logTransfer = Math.max(0, logTransfer - remainingChange);
         }
     }
 
-    // 3. LOGIKA INVOICE/STRUK (Transaksi Database)
-    // Di database transaksi tetap simpan TOTAL YANG DISERAHKAN (Misal 20.000)
-    // Supaya di struk nanti bisa hitung: Bayar 20.000, Kembali 7.000.
+    // 3. LOGIKA ALOKASI PEMBAYARAN (Rent First, Fine Last)
+    // Hitung berapa uang bersih yang masuk
+    const netInput = logCash + logTransfer;
+    let fineAllocation = 0;
+
+    // Sisa harga sewa (selain denda) yang belum dibayar
+    const remainingBase = Math.max(0, basePrice - previousPaid);
+
+    if (netInput > remainingBase) {
+        // Jika pembayaran melebihi sisa sewa, maka kelebihannya dialokasikan untuk bayar denda
+        // (Asumsi: Bayar sewa dulu sampai lunas, baru bayar denda)
+        fineAllocation = netInput - remainingBase;
+        // Cap fineAllocation agar tidak melebihi total denda yang ada (mencegah log denda berlebih jika overpaid)
+        const unpaidFine = totalFine - Math.max(0, previousPaid - basePrice);
+        fineAllocation = Math.min(fineAllocation, unpaidFine > 0 ? unpaidFine : fineAllocation);
+    }
+
+    // 4. LOGIKA INVOICE/STRUK (Transaksi Database)
     const finalPaidForRecord = previousPaid + inputTotal;
     
-    // Tentukan Deskripsi untuk Log Keuangan
+    // Tentukan Deskripsi
     const isDP = (previousPaid === 0 && remainingDebt > inputTotal);
     const descType = isDP ? "Pembayaran DP" : (inputTotal >= remainingDebt) ? "Pelunasan" : "Cicilan";
     const desc = `${descType} (${selectedTransaction.customerName})`;
 
-    // Update Transaction & Create Payment Log (Real Revenue)
+    // Update Transaction & Create Payment Log (With Fine Split)
     const result = await updateTransactionPayment(
       selectedTransaction.id, 
       finalPaidForRecord,
-      // Penting: Di sini kita kirim logCash/logTransfer yang SUDAH BERSIH (tanpa kembalian)
       {
         cashAmount: logCash,
         transferAmount: logTransfer,
         description: desc
-      }
+      },
+      fineAllocation // Pass alokasi denda ke service
     );
     
     if (result.success) {
@@ -349,7 +357,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
         await onRefreshData();
       }
 
-      // 2. Update State Lokal (Agar modal mencerminkan perubahan tanpa tutup)
+      // 2. Update State Lokal
       const updatedTrx = { 
         ...selectedTransaction, 
         amountPaid: finalPaidForRecord,
@@ -361,7 +369,11 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
       setTransferInput(0);
       
       // Alert Informatif
-      alert(`Pembayaran tersimpan!\n\nInfo Laporan Keuangan:\nUang Masuk Rill: Rp${(logCash + logTransfer).toLocaleString('id-ID')}\n(Kembalian tidak dicatat sebagai pemasukan)`);
+      let infoMsg = `Pembayaran tersimpan!\nUang Masuk Rill: Rp${netInput.toLocaleString('id-ID')}`;
+      if (fineAllocation > 0) {
+          infoMsg += `\n(Termasuk Bayar Denda: Rp${fineAllocation.toLocaleString('id-ID')})`;
+      }
+      alert(infoMsg);
       
     } else {
       alert(`Gagal update pembayaran: ${result.error || 'Terjadi kesalahan sistem'}`);

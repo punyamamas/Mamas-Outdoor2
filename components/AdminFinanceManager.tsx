@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
-import { DollarSign, Wallet, CreditCard, ArrowUpRight, ArrowDownLeft, Plus, Calendar, Loader2, Save, Database, AlertTriangle, Copy, Check, BarChart3, PieChart, TrendingUp } from 'lucide-react';
+import { DollarSign, Wallet, CreditCard, ArrowUpRight, ArrowDownLeft, Plus, Calendar, Loader2, Save, Database, AlertTriangle, Copy, Check, BarChart3, PieChart, TrendingUp, HandCoins } from 'lucide-react';
 import { PaymentLog } from '../types';
 import { getPaymentLogs, recordPaymentLog } from '../services/transactionService';
 
@@ -121,6 +122,10 @@ for all using (true) with check (true);`;
       const totalIn = logs.filter(l => l.type === 'IN').reduce((acc, curr) => acc + curr.amount, 0);
       const totalOut = logs.filter(l => l.type === 'OUT').reduce((acc, curr) => acc + curr.amount, 0);
       
+      // NEW: Breakdown by Category
+      const rentalIncome = logs.filter(l => l.type === 'IN' && l.category === 'Sewa').reduce((acc, curr) => acc + curr.amount, 0);
+      const fineIncome = logs.filter(l => l.type === 'IN' && l.category === 'Denda').reduce((acc, curr) => acc + curr.amount, 0);
+      
       // Breakdown Payment Method (Only for Daily usually, but good to have)
       const cashIn = logs.filter(l => l.payment_method === 'cash' && l.type === 'IN').reduce((acc, curr) => acc + curr.amount, 0);
       const cashOut = logs.filter(l => l.payment_method === 'cash' && l.type === 'OUT').reduce((acc, curr) => acc + curr.amount, 0);
@@ -128,7 +133,7 @@ for all using (true) with check (true);`;
       
       const transferIn = logs.filter(l => l.payment_method === 'transfer' && l.type === 'IN').reduce((acc, curr) => acc + curr.amount, 0);
 
-      return { totalIn, totalOut, netTotal: totalIn - totalOut, netCash, transferIn };
+      return { totalIn, totalOut, netTotal: totalIn - totalOut, netCash, transferIn, rentalIncome, fineIncome };
   }, [logs]);
 
   // 2. Daily Aggregates (For Monthly View Chart & Table)
@@ -251,68 +256,65 @@ for all using (true) with check (true);`}
 
       <div className="p-6 flex-1 overflow-y-auto">
         {/* SUMMARY CARDS */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          {viewMode === 'daily' ? (
-              // DAILY CARDS
-              <>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          
+          {/* CARD 1: PENDAPATAN SEWA (RENTAL) */}
+          <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
+             <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-2">
+                <TrendingUp size={16} className="text-blue-500"/> Pendapatan Sewa
+             </p>
+             <h4 className="text-2xl font-black text-gray-800">Rp{summary.rentalIncome.toLocaleString('id-ID')}</h4>
+             <p className="text-xs text-gray-400 mt-1">Uang masuk sewa alat murni</p>
+          </div>
+
+          {/* CARD 2: PENDAPATAN DENDA (FINE) */}
+          <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
+             <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-2">
+                <AlertTriangle size={16} className="text-red-500"/> Pendapatan Denda
+             </p>
+             <h4 className="text-2xl font-black text-gray-800">Rp{summary.fineIncome.toLocaleString('id-ID')}</h4>
+             <p className="text-xs text-gray-400 mt-1">Uang masuk dari keterlambatan</p>
+          </div>
+
+          {/* CARD 3: CASHFLOW NETTO */}
+          <div className="bg-gradient-to-br from-nature-800 to-nature-900 p-5 rounded-2xl border border-nature-700 text-white shadow-lg">
+             <p className="text-xs font-bold text-nature-200 uppercase tracking-wider mb-2 flex items-center gap-2">
+                <DollarSign size={16}/> Profit Bersih
+             </p>
+             <h4 className="text-2xl font-black">Rp{summary.netTotal.toLocaleString('id-ID')}</h4>
+             <p className="text-xs text-nature-200 mt-1">Total Masuk - Pengeluaran</p>
+          </div>
+
+          {/* CARD 4: PENGELUARAN */}
+          <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
+             <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-2">
+                <ArrowDownLeft size={16} className="text-red-500"/> Pengeluaran
+             </p>
+             <h4 className="text-2xl font-black text-gray-800">Rp{summary.totalOut.toLocaleString('id-ID')}</h4>
+             <p className="text-xs text-gray-400 mt-1">Operasional & Kas Kecil</p>
+          </div>
+        </div>
+
+        {/* DETAILS FOR DAILY VIEW */}
+        {viewMode === 'daily' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                 <div className="bg-green-50 p-5 rounded-2xl border border-green-100">
                     <p className="text-xs font-bold text-green-600 uppercase tracking-wider mb-2 flex items-center gap-2">
                     <Wallet size={16}/> Kasir (Cash Only)
                     </p>
-                    <h4 className="text-2xl font-black text-green-700">Rp{summary.netCash.toLocaleString('id-ID')}</h4>
-                    <p className="text-xs text-green-600 mt-1 opacity-80">Sisa uang di laci</p>
+                    <h4 className="text-xl font-black text-green-700">Rp{summary.netCash.toLocaleString('id-ID')}</h4>
+                    <p className="text-xs text-green-600 mt-1 opacity-80">Uang tunai di tangan saat ini</p>
                 </div>
                 
                 <div className="bg-blue-50 p-5 rounded-2xl border border-blue-100">
                     <p className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-2 flex items-center gap-2">
                     <CreditCard size={16}/> Transfer Masuk
                     </p>
-                    <h4 className="text-2xl font-black text-blue-700">Rp{summary.transferIn.toLocaleString('id-ID')}</h4>
-                    <p className="text-xs text-blue-600 mt-1 opacity-80">Cek mutasi bank</p>
+                    <h4 className="text-xl font-black text-blue-700">Rp{summary.transferIn.toLocaleString('id-ID')}</h4>
+                    <p className="text-xs text-blue-600 mt-1 opacity-80">Mutasi rekening bank</p>
                 </div>
-
-                <div className="bg-gray-800 p-5 rounded-2xl border border-gray-700 text-white">
-                    <div className="flex justify-between items-start">
-                        <div>
-                            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Omset Harian</p>
-                            <h4 className="text-2xl font-black">Rp{summary.netTotal.toLocaleString('id-ID')}</h4>
-                        </div>
-                        <div className="text-right text-xs space-y-1">
-                            <div className="text-green-400">Total Masuk: +{summary.totalIn.toLocaleString('id-ID')}</div>
-                            <div className="text-red-400">Keluar: -{summary.totalOut.toLocaleString('id-ID')}</div>
-                        </div>
-                    </div>
-                </div>
-              </>
-          ) : (
-              // MONTHLY CARDS
-              <>
-                <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
-                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-2">
-                        <TrendingUp size={16} className="text-green-500"/> Total Pemasukan
-                    </p>
-                    <h4 className="text-2xl font-black text-gray-800">Rp{summary.totalIn.toLocaleString('id-ID')}</h4>
-                    <p className="text-xs text-gray-400 mt-1">Akumulasi sewa & pendapatan lain</p>
-                </div>
-
-                <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
-                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-2">
-                        <ArrowDownLeft size={16} className="text-red-500"/> Total Pengeluaran
-                    </p>
-                    <h4 className="text-2xl font-black text-gray-800">Rp{summary.totalOut.toLocaleString('id-ID')}</h4>
-                    <p className="text-xs text-gray-400 mt-1">Operasional & Kas Kecil</p>
-                </div>
-
-                <div className="bg-gradient-to-br from-nature-800 to-nature-900 p-5 rounded-2xl border border-nature-700 text-white shadow-lg">
-                    <p className="text-xs font-bold text-nature-200 uppercase tracking-wider mb-2 flex items-center gap-2">
-                        <DollarSign size={16}/> Profit Bersih (Net)
-                    </p>
-                    <h4 className="text-3xl font-black">Rp{summary.netTotal.toLocaleString('id-ID')}</h4>
-                    <p className="text-xs text-nature-200 mt-1">Keuntungan bulan ini</p>
-                </div>
-              </>
-          )}
-        </div>
+            </div>
+        )}
 
         {/* MONTHLY CHART & TABLE */}
         {viewMode === 'monthly' && (
@@ -448,15 +450,16 @@ for all using (true) with check (true);`}
                             <tr>
                                 <th className="px-6 py-3">Jam</th>
                                 <th className="px-6 py-3">Keterangan</th>
+                                <th className="px-6 py-3">Kategori</th>
                                 <th className="px-6 py-3">Metode</th>
                                 <th className="px-6 py-3 text-right">Nominal</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                             {isLoading ? (
-                                <tr><td colSpan={4} className="p-8 text-center"><Loader2 className="animate-spin mx-auto text-gray-400"/></td></tr>
+                                <tr><td colSpan={5} className="p-8 text-center"><Loader2 className="animate-spin mx-auto text-gray-400"/></td></tr>
                             ) : logs.length === 0 ? (
-                                <tr><td colSpan={4} className="p-8 text-center text-gray-400 italic">Belum ada transaksi hari ini.</td></tr>
+                                <tr><td colSpan={5} className="p-8 text-center text-gray-400 italic">Belum ada transaksi hari ini.</td></tr>
                             ) : (
                                 logs.map(log => (
                                 <tr key={log.id} className="hover:bg-gray-50 transition">
@@ -466,6 +469,16 @@ for all using (true) with check (true);`}
                                     <td className="px-6 py-3">
                                         <span className="font-bold text-gray-800">{log.description}</span>
                                         {log.transaction_id && <span className="text-xs text-gray-400 block">Ref: #{log.transaction_id.slice(0,6)}</span>}
+                                    </td>
+                                    <td className="px-6 py-3">
+                                        {/* Kategori Badge */}
+                                        <span className={`text-[10px] font-bold px-2 py-1 rounded border uppercase ${
+                                            log.category === 'Denda' ? 'bg-red-50 text-red-600 border-red-100' :
+                                            log.category === 'Sewa' ? 'bg-blue-50 text-blue-600 border-blue-100' :
+                                            'bg-gray-100 text-gray-600 border-gray-200'
+                                        }`}>
+                                            {log.category || 'Umum'}
+                                        </span>
                                     </td>
                                     <td className="px-6 py-3">
                                         {log.payment_method === 'cash' ? (

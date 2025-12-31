@@ -147,11 +147,12 @@ export const getPaymentLogs = async (startDate: string, endDate: string): Promis
 };
 
 
-// Update Nominal Pembayaran (Manual) & Auto Status & RECORD LOG
+// Update Nominal Pembayaran (Manual) & Auto Status & RECORD LOG (SPLIT RENT vs FINE)
 export const updateTransactionPayment = async (
   id: string, 
   newTotalPaid: number,
-  logDetails?: { cashAmount: number; transferAmount: number; description: string }
+  logDetails?: { cashAmount: number; transferAmount: number; description: string },
+  fineAllocation: number = 0 // Parameter baru untuk memecah log denda
 ): Promise<{ success: boolean; error?: string; newStatus?: string }> => {
   if (!supabase) return { success: false, error: "Supabase client not initialized" };
 
@@ -165,32 +166,59 @@ export const updateTransactionPayment = async (
     return { success: false, error: "Transaksi tidak ditemukan" };
   }
 
+  // LOGIKA PENCATATAN LOG KEUANGAN (SPLIT SEWA & DENDA)
   if (logDetails) {
     const { cashAmount, transferAmount, description } = logDetails;
+    const totalInput = cashAmount + transferAmount;
     
-    if (cashAmount > 0) {
-      await recordPaymentLog({
-        transaction_id: id,
-        amount: cashAmount,
-        payment_method: 'cash',
-        type: 'IN',
-        description: `Cash: ${description}`,
-        category: 'Sewa'
-      });
-    }
+    // Hitung proporsi Cash vs Transfer
+    const cashRatio = totalInput > 0 ? cashAmount / totalInput : 0;
+    
+    // Hitung berapa untuk Denda, berapa untuk Sewa
+    // fineAllocation adalah jumlah dari totalInput yang dialokasikan untuk bayar denda
+    const amountForFine = Math.min(fineAllocation, totalInput);
+    const amountForRent = totalInput - amountForFine;
 
-    if (transferAmount > 0) {
-      await recordPaymentLog({
-        transaction_id: id,
-        amount: transferAmount,
-        payment_method: 'transfer',
-        type: 'IN',
-        description: `Transfer: ${description}`,
-        category: 'Sewa'
-      });
-    }
+    // Helper untuk record log
+    const createLog = async (amount: number, category: string, suffixDesc: string) => {
+        if (amount <= 0) return;
+        
+        // Split lagi berdasarkan metode bayar (proposional)
+        // Jika bayar 100rb (50k cash, 50k trf), dan 20rb untuk denda:
+        // Denda: 10rb Cash, 10rb Trf. Sewa: 40rb Cash, 40rb Trf.
+        const cAmount = Math.round(amount * cashRatio);
+        const tAmount = amount - cAmount; // Sisa masuk transfer agar genap
+
+        if (cAmount > 0) {
+            await recordPaymentLog({
+                transaction_id: id,
+                amount: cAmount,
+                payment_method: 'cash',
+                type: 'IN',
+                description: `Cash: ${description} ${suffixDesc}`,
+                category: category // 'Sewa' atau 'Denda'
+            });
+        }
+        if (tAmount > 0) {
+            await recordPaymentLog({
+                transaction_id: id,
+                amount: tAmount,
+                payment_method: 'transfer',
+                type: 'IN',
+                description: `Transfer: ${description} ${suffixDesc}`,
+                category: category
+            });
+        }
+    };
+
+    // 1. Catat Log Sewa
+    await createLog(amountForRent, 'Sewa', '');
+
+    // 2. Catat Log Denda
+    await createLog(amountForFine, 'Denda', '(Bayar Denda)');
   }
 
+  // UPDATE STATUS DATABASE
   let newStatus = currentTrx.status;
   const manualPhysicalStatuses = ['rented', 'completed', 'cancelled'];
   
