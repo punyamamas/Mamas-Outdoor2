@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { X, ShoppingCart, Check, Layers, Clock, Sparkles, Tag, ShieldCheck, Zap, Box, Scissors, Footprints, Palette, Heart, ShoppingBag } from 'lucide-react';
+import { X, ShoppingCart, Check, Layers, Clock, Sparkles, Tag, ShieldCheck, Zap, Scissors, Palette, Heart, ShoppingBag, PackageOpen } from 'lucide-react';
 import { Product } from '../types';
 import ImageLoader from './ImageLoader';
 
@@ -90,7 +90,29 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     { day: 7, price: product.price7Days, label: 'Seminggu (Hemat)' },
   ];
 
+  // LOGIC: PACKAGE HANDLING
   const isPackage = product.packageItems && product.packageItems.length > 0;
+  let packageContents: { name: string; qty: number; id: string; currentStock: number }[] = [];
+  let dynamicPackageStock = product.stock; // Default ke stok manual jika gagal hitung
+
+  if (isPackage && product.packageItems) {
+    // 1. Ambil detail item penyusun
+    packageContents = product.packageItems.map(pi => {
+        const child = allProducts.find(p => p.id === pi.productId);
+        return {
+            id: pi.productId,
+            name: child ? child.name : 'Unknown Item',
+            qty: pi.quantity,
+            currentStock: child ? child.stock : 0
+        };
+    });
+
+    // 2. Hitung stok paket berdasarkan ketersediaan item terkecil (Limiting Factor)
+    if (packageContents.length > 0) {
+        const possibleStocks = packageContents.map(item => Math.floor(item.currentStock / item.qty));
+        dynamicPackageStock = Math.min(...possibleStocks);
+    }
+  }
   
   // LOGIC FOR VARIANTS
   const hasAdvancedVariants = product.variants && product.variants.length > 0;
@@ -151,13 +173,20 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
   // Get stock count for display
   const getSpecificStock = () => {
+    // Priority 1: Package Dynamic Stock
+    if (isPackage) {
+        return dynamicPackageStock;
+    }
+    // Priority 2: Variant Stock
     if (hasAdvancedVariants && selectedColor && selectedSize) {
       const variant = product.variants!.find(v => v.color === selectedColor && v.size === selectedSize);
       return variant ? variant.stock : 0;
     }
+    // Priority 3: Legacy Size Stock
     if (!hasAdvancedVariants && selectedSize && product.sizes) {
       return product.sizes[selectedSize];
     }
+    // Priority 4: Base Stock
     return product.stock;
   };
 
@@ -211,7 +240,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 <div className="flex items-center gap-2">
                   <div className={`w-2.5 h-2.5 rounded-full ${specificStock > 0 ? 'bg-green-400 animate-pulse' : 'bg-red-500'}`}></div>
                   <span className="font-bold text-sm tracking-wide">
-                    {specificStock > 0 ? `Ready ${specificStock} Unit` : 'Yah, Habis Bro!'}
+                    {specificStock > 0 ? `Ready ${specificStock} Paket` : 'Yah, Stok Habis!'}
                   </span>
                 </div>
              </div>
@@ -244,12 +273,41 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                    <Sparkles size={80} strokeWidth={1} />
                 </div>
                 <h3 className="relative z-10 flex items-center gap-2 text-sm font-black text-gray-900 uppercase tracking-widest mb-3">
-                   <Sparkles className="text-adventure-500" size={16} /> Cerita Alat
+                   <Sparkles className="text-adventure-500" size={16} /> Deskripsi
                 </h3>
                 <p className="relative z-10 text-gray-600 leading-relaxed text-sm md:text-base font-medium whitespace-pre-line">
                   {product.description}
                 </p>
               </div>
+
+              {/* NEW: DISPLAY PACKAGE CONTENTS */}
+              {isPackage && packageContents.length > 0 && (
+                <div className="mb-8">
+                    <h3 className="flex items-center gap-2 text-sm font-black text-purple-800 uppercase tracking-widest mb-4 bg-purple-50 p-2 rounded-lg w-fit">
+                        <PackageOpen className="text-purple-600" size={16} /> Isi Paket Hemat Ini
+                    </h3>
+                    <div className="bg-white border border-purple-100 rounded-xl p-4 shadow-sm">
+                        <ul className="space-y-3">
+                            {packageContents.map((item, idx) => (
+                                <li key={idx} className="flex items-center justify-between text-sm">
+                                    <div className="flex items-center gap-3">
+                                        <span className="bg-purple-100 text-purple-700 font-bold px-2 py-1 rounded text-xs">
+                                            {item.qty}x
+                                        </span>
+                                        <span className="font-medium text-gray-700">{item.name}</span>
+                                    </div>
+                                    <div className="text-xs text-gray-400">
+                                        (Stok Gudang: {item.currentStock})
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
+                        <div className="mt-3 pt-3 border-t border-purple-50 text-xs text-purple-600 font-medium italic text-center">
+                            *Stok paket otomatis mengikuti ketersediaan item di atas.
+                        </div>
+                    </div>
+                </div>
+              )}
 
               {/* Color Selector */}
               {hasColors && (
@@ -395,7 +453,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   </span>
                 </div>
                 <button 
-                  disabled={!canAddToCart}
+                  disabled={!canAddToCart || specificStock <= 0}
                   onClick={() => {
                     onAddToCart(product, selectedSize || undefined, selectedColor || undefined);
                   }}
@@ -407,7 +465,9 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     }
                   `}
                 >
-                  {!canAddToCart ? (
+                  {specificStock <= 0 ? (
+                    <>Stok Habis, Gan!</>
+                  ) : !canAddToCart ? (
                     <>Pilih Varian Dulu Bro!</>
                   ) : isInCart && !hasSizes && !hasColors ? (
                     <>

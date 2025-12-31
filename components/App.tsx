@@ -99,18 +99,33 @@ function App() {
     setToast({ show: true, message });
   };
 
-  // Helper untuk mendapatkan stok yang tersedia berdasarkan konfigurasi (Varian/Size/Base)
+  // Helper untuk mendapatkan stok yang tersedia berdasarkan konfigurasi (Varian/Size/Base/PAKET)
   const getAvailableStock = (product: Product, size?: string, color?: string): number => {
-    // 1. Advanced Variants (Color + Size)
+    // 1. Logic PAKET Dinamis
+    if (product.packageItems && product.packageItems.length > 0) {
+        const possibleStocks = product.packageItems.map(pi => {
+            // Cari produk child di daftar global 'products'
+            const child = products.find(p => p.id === pi.productId);
+            // Jika child tidak ketemu atau stok 0, maka paket 0
+            if (!child || child.stock <= 0) return 0;
+            // Hitung berapa paket bisa dibuat dari stok child ini
+            return Math.floor(child.stock / pi.quantity);
+        });
+        
+        // Stok paket adalah nilai minimum dari ketersediaan komponennya
+        return possibleStocks.length > 0 ? Math.min(...possibleStocks) : 0;
+    }
+
+    // 2. Advanced Variants (Color + Size)
     if (product.variants && product.variants.length > 0 && size && color) {
       const variant = product.variants.find(v => v.size === size && v.color === color);
       return variant ? variant.stock : 0;
     }
-    // 2. Simple Sizes (Legacy)
+    // 3. Simple Sizes (Legacy)
     if (product.sizes && size && Object.keys(product.sizes).length > 0) {
        return product.sizes[size] || 0;
     }
-    // 3. Base Stock (Standard)
+    // 4. Base Stock (Standard)
     return product.stock || 0;
   };
 
@@ -175,10 +190,14 @@ function App() {
     if (delta > 0) {
       const itemInCart = cartItems.find(i => i.id === id && i.selectedSize === size && i.selectedColor === color);
       if (itemInCart) {
-        const maxStock = getAvailableStock(itemInCart, size, color);
-        if (itemInCart.quantity + delta > maxStock) {
-          showToast(`Maksimal stok tercapai (${maxStock} unit)`);
-          return;
+        // Cari produk asli untuk cek stok terbaru
+        const originalProduct = products.find(p => p.id === id);
+        if(originalProduct) {
+            const maxStock = getAvailableStock(originalProduct, size, color);
+            if (itemInCart.quantity + delta > maxStock) {
+              showToast(`Maksimal stok tercapai (${maxStock} unit)`);
+              return;
+            }
         }
       }
     }
@@ -507,6 +526,9 @@ function App() {
               const inCart = cartItems.find(i => i.id === product.id);
               const displayPrice = product.price2Days || 0;
               
+              // CALCULATE DISPLAY STOCK (Dynamic for Packages)
+              const displayStock = getAvailableStock(product);
+
               return (
                 <div 
                   key={product.id} 
@@ -524,15 +546,15 @@ function App() {
                     <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition duration-300"></div>
 
                     <div className="absolute top-4 right-4 flex flex-col gap-2 items-end z-20">
-                       {product.stock < 3 && product.stock > 0 && (
+                       {displayStock < 3 && displayStock > 0 && (
                          <span className="bg-adventure-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-full shadow-lg animate-pulse uppercase tracking-wider flex items-center gap-1">
                            <Zap size={10} fill="currentColor" /> Terbatas!
                          </span>
                        )}
                        <span className={`px-3 py-1.5 rounded-full text-[10px] font-bold shadow-sm backdrop-blur-md border border-white/20 ${
-                         product.stock > 0 ? 'bg-white/90 text-nature-700' : 'bg-red-600 text-white'
+                         displayStock > 0 ? 'bg-white/90 text-nature-700' : 'bg-red-600 text-white'
                        }`}>
-                         Stok: {product.stock}
+                         Stok: {displayStock}
                        </span>
                     </div>
 
@@ -580,8 +602,10 @@ function App() {
                             e.stopPropagation();
                             // Jika produk punya varian size/warna, buka modal (viewingProduct)
                             const hasVariant = (product.sizes && Object.keys(product.sizes).length > 0) || (product.colors && product.colors.length > 0) || (product.variants && product.variants.length > 0);
-                            
-                            if (hasVariant) {
+                            // Jika produk adalah paket, buka modal juga untuk lihat isi paket
+                            const isPackage = product.packageItems && product.packageItems.length > 0;
+
+                            if (hasVariant || isPackage) {
                               setViewingProduct(product);
                             } else {
                               addToCart(product);
