@@ -357,10 +357,11 @@ function App() {
         isOpen={isCartOpen} 
         onClose={() => setIsCartOpen(false)} 
         cartItems={cartItems}
+        products={products} // PASSING PRODUCTS HERE
         onUpdateQuantity={updateQuantity}
         onRemoveItem={removeItem}
         onClearCart={clearCart}
-        onRefreshData={fetchData} // Pass function to update UI after checkout
+        onRefreshData={fetchData} 
       />
 
       <HistoryDrawer 

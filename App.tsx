@@ -12,7 +12,7 @@ import { PRODUCTS, CATEGORIES as CONSTANT_CATEGORIES } from './constants';
 import { CartItem, Product, Category } from './types';
 import { getProducts, addProduct, updateProduct, deleteProduct } from './services/productService';
 import { getCategories, addCategory, updateCategory, deleteCategory } from './services/categoryService';
-import { MapPin, Star, Plus, Check, School, Github, Loader2, Flame, Lock, Calendar, Users, ArrowRight as ArrowIcon, ChevronDown, ShieldCheck, Zap, ShoppingCart, Info, Weight, Tent, Wind, ArrowUpDown, Search, XCircle } from 'lucide-react';
+import { MapPin, Star, Plus, Check, School, Github, Loader2, Flame, Lock, Calendar, Users, ArrowRight as ArrowIcon, ChevronDown, ShieldCheck, Zap, ShoppingCart, Info, Weight, Tent, Wind, ArrowUpDown, Search, XCircle, ShoppingBag } from 'lucide-react';
 
 function App() {
   const [currentPage, setCurrentPage] = useState<'home' | 'admin'>('home');
@@ -97,18 +97,33 @@ function App() {
     setToast({ show: true, message });
   };
 
-  // Helper untuk mendapatkan stok yang tersedia berdasarkan konfigurasi (Varian/Size/Base)
+  // Helper untuk mendapatkan stok yang tersedia berdasarkan konfigurasi (Varian/Size/Base/PAKET)
   const getAvailableStock = (product: Product, size?: string, color?: string): number => {
-    // 1. Advanced Variants (Color + Size)
+    // 1. Logic PAKET Dinamis
+    if (product.packageItems && product.packageItems.length > 0) {
+        const possibleStocks = product.packageItems.map(pi => {
+            // Cari produk child di daftar global 'products'
+            const child = products.find(p => p.id === pi.productId);
+            // Jika child tidak ketemu atau stok 0, maka paket 0
+            if (!child || child.stock <= 0) return 0;
+            // Hitung berapa paket bisa dibuat dari stok child ini
+            return Math.floor(child.stock / pi.quantity);
+        });
+        
+        // Stok paket adalah nilai minimum dari ketersediaan komponennya
+        return possibleStocks.length > 0 ? Math.min(...possibleStocks) : 0;
+    }
+
+    // 2. Advanced Variants (Color + Size)
     if (product.variants && product.variants.length > 0 && size && color) {
       const variant = product.variants.find(v => v.size === size && v.color === color);
       return variant ? variant.stock : 0;
     }
-    // 2. Simple Sizes (Legacy)
+    // 3. Simple Sizes (Legacy)
     if (product.sizes && size && Object.keys(product.sizes).length > 0) {
        return product.sizes[size] || 0;
     }
-    // 3. Base Stock (Standard)
+    // 4. Base Stock (Standard)
     return product.stock || 0;
   };
 
@@ -173,10 +188,14 @@ function App() {
     if (delta > 0) {
       const itemInCart = cartItems.find(i => i.id === id && i.selectedSize === size && i.selectedColor === color);
       if (itemInCart) {
-        const maxStock = getAvailableStock(itemInCart, size, color);
-        if (itemInCart.quantity + delta > maxStock) {
-          showToast(`Maksimal stok tercapai (${maxStock} unit)`);
-          return;
+        // Cari produk asli untuk cek stok terbaru
+        const originalProduct = products.find(p => p.id === id);
+        if(originalProduct) {
+            const maxStock = getAvailableStock(originalProduct, size, color);
+            if (itemInCart.quantity + delta > maxStock) {
+              showToast(`Maksimal stok tercapai (${maxStock} unit)`);
+              return;
+            }
         }
       }
     }
@@ -283,9 +302,9 @@ function App() {
   const sortedProducts = [...filteredProducts].sort((a, b) => {
     switch (sortBy) {
       case 'price_low':
-        return (a.price2Days || 0) - (b.price2Days || 0);
+        return (a.isSale ? (a.salePrice||0) : a.price2Days) - (b.isSale ? (b.salePrice||0) : b.price2Days);
       case 'price_high':
-        return (b.price2Days || 0) - (a.price2Days || 0);
+        return (b.isSale ? (b.salePrice||0) : b.price2Days) - (a.isSale ? (a.salePrice||0) : a.price2Days);
       case 'name':
         return a.name.localeCompare(b.name);
       case 'default':
@@ -296,13 +315,11 @@ function App() {
         
         // Jika kategori berbeda, urutkan berdasarkan prioritas kategori
         if (idxA !== idxB) {
-          // Jika kategori tidak ada di constants (misal baru dibuat), taruh di paling bawah (999)
           const validIdxA = idxA === -1 ? 999 : idxA;
           const validIdxB = idxB === -1 ? 999 : idxB;
           return validIdxA - validIdxB;
         }
         
-        // Jika kategori sama, urutkan berdasarkan nama
         return a.name.localeCompare(b.name);
     }
   });
@@ -338,6 +355,7 @@ function App() {
         isOpen={isCartOpen} 
         onClose={() => setIsCartOpen(false)} 
         cartItems={cartItems}
+        products={products} // Add this prop
         onUpdateQuantity={updateQuantity}
         onRemoveItem={removeItem}
         onClearCart={clearCart}
@@ -569,6 +587,9 @@ function App() {
               const inCart = cartItems.find(i => i.id === product.id);
               const displayPrice = product.price2Days || 0;
               
+              // CALCULATE DISPLAY STOCK (Dynamic for Packages)
+              const displayStock = getAvailableStock(product);
+
               return (
                 <div 
                   key={product.id} 
@@ -586,22 +607,27 @@ function App() {
                     <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition duration-300"></div>
 
                     <div className="absolute top-4 right-4 flex flex-col gap-2 items-end z-20">
-                       {product.stock < 3 && product.stock > 0 && (
+                       {displayStock < 3 && displayStock > 0 && (
                          <span className="bg-adventure-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-full shadow-lg animate-pulse uppercase tracking-wider flex items-center gap-1">
                            <Zap size={10} fill="currentColor" /> Terbatas!
                          </span>
                        )}
                        <span className={`px-3 py-1.5 rounded-full text-[10px] font-bold shadow-sm backdrop-blur-md border border-white/20 ${
-                         product.stock > 0 ? 'bg-white/90 text-nature-700' : 'bg-red-600 text-white'
+                         displayStock > 0 ? 'bg-white/90 text-nature-700' : 'bg-red-600 text-white'
                        }`}>
-                         Stok: {product.stock}
+                         Stok: {displayStock}
                        </span>
                     </div>
 
-                    <div className="absolute top-4 left-4 z-20">
+                    <div className="absolute top-4 left-4 z-20 flex flex-col items-start gap-1">
                       <span className="bg-white/20 backdrop-blur-md border border-white/30 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm">
                         {product.category}
                       </span>
+                      {product.isSale && (
+                        <span className="bg-blue-600 text-white text-[10px] font-bold px-2 py-1 rounded-lg shadow-sm flex items-center gap-1 border border-white/20">
+                           <ShoppingBag size={10} /> DIJUAL
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -624,9 +650,11 @@ function App() {
                     <div className="mt-4 pt-4 border-t border-gray-50">
                       <div className="flex items-end justify-between gap-3">
                         <div className="flex flex-col">
-                          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-0.5">Paket 2 Hari</span>
-                          <span className="text-xl font-black text-gray-900 tracking-tight">
-                            Rp{displayPrice.toLocaleString('id-ID')}
+                          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-0.5">
+                             {product.isSale ? 'Harga Beli' : 'Paket 2 Hari'}
+                          </span>
+                          <span className={`text-xl font-black tracking-tight ${product.isSale ? 'text-blue-600' : 'text-gray-900'}`}>
+                            {product.isSale ? `Rp${(product.salePrice||0).toLocaleString('id-ID')}` : `Rp${displayPrice.toLocaleString('id-ID')}`}
                           </span>
                         </div>
 
@@ -646,12 +674,14 @@ function App() {
                             h-12 w-12 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg z-10
                             ${inCart 
                               ? 'bg-green-100 text-green-600 hover:bg-green-200' 
-                              : 'bg-nature-600 text-white hover:bg-nature-700 hover:scale-110 active:scale-95 shadow-nature-200'
+                              : product.isSale 
+                                ? 'bg-blue-600 text-white hover:bg-blue-700 hover:scale-110 active:scale-95 shadow-blue-200'
+                                : 'bg-nature-600 text-white hover:bg-nature-700 hover:scale-110 active:scale-95 shadow-nature-200'
                             }
                           `}
                           title={inCart ? "Sudah di keranjang" : "Tambah ke keranjang"}
                         >
-                          {inCart ? <Check size={24} strokeWidth={3} /> : <Plus size={24} strokeWidth={3} />}
+                          {inCart ? <Check size={24} strokeWidth={3} /> : product.isSale ? <ShoppingBag size={20} strokeWidth={2.5}/> : <Plus size={24} strokeWidth={3} />}
                         </button>
                       </div>
                     </div>

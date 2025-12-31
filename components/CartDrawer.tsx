@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { X, Trash2, Calendar, Phone, User, ArrowRight, AlertCircle, Loader2, Clock, CreditCard, Banknote, MapPin, LocateFixed } from 'lucide-react';
-import { CartItem, UserDetails, Transaction } from '../types';
+import { X, Trash2, Calendar, Phone, User, ArrowRight, AlertCircle, Loader2, Clock, CreditCard, Banknote, MapPin, LocateFixed, Layers } from 'lucide-react';
+import { CartItem, UserDetails, Transaction, Product } from '../types';
 import { WA_NUMBER } from '../constants';
 import { processStockReduction } from '../services/productService';
 import { createTransaction } from '../services/transactionService';
@@ -11,6 +11,7 @@ interface CartDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   cartItems: CartItem[];
+  products: Product[]; // Received for stock calculation
   onUpdateQuantity: (id: string, delta: number, size?: string, color?: string) => void;
   onRemoveItem: (id: string, size?: string, color?: string) => void;
   onClearCart: () => void;
@@ -21,6 +22,7 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
   isOpen, 
   onClose, 
   cartItems, 
+  products = [], // Default empty array if not passed
   onUpdateQuantity, 
   onRemoveItem, 
   onClearCart,
@@ -120,14 +122,30 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
   };
 
   const getAvailableStock = (item: CartItem): number => {
+    // 1. Logic PAKET Dinamis
+    // Cari produk asli di database 'products' karena 'item' adalah copy di cart
+    const originalProduct = products.find(p => p.id === item.id) || item;
+
+    if (originalProduct.packageItems && originalProduct.packageItems.length > 0) {
+        const possibleStocks = originalProduct.packageItems.map(pi => {
+            const child = products.find(p => p.id === pi.productId);
+            if (!child || child.stock <= 0) return 0;
+            return Math.floor(child.stock / pi.quantity);
+        });
+        return possibleStocks.length > 0 ? Math.min(...possibleStocks) : 0;
+    }
+
+    // 2. Variants
     if (item.variants && item.variants.length > 0 && item.selectedSize && item.selectedColor) {
       const variant = item.variants.find(v => v.size === item.selectedSize && v.color === item.selectedColor);
       return variant ? variant.stock : 0;
     }
+    // 3. Sizes
     if (item.sizes && item.selectedSize && Object.keys(item.sizes).length > 0) {
        return item.sizes[item.selectedSize] || 0;
     }
-    return item.stock || 0;
+    // 4. Base Stock
+    return originalProduct.stock || 0;
   };
 
   const getReturnDate = (startDateStr: string, duration: number): Date => {
@@ -286,6 +304,17 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
                       
                       const maxStock = getAvailableStock(item);
                       const isMaxStock = item.quantity >= maxStock;
+                      
+                      // Check for Package Contents to display
+                      const isPackage = item.packageItems && item.packageItems.length > 0;
+                      let packageContentString = '';
+                      if (isPackage) {
+                          const contents = item.packageItems?.map(pi => {
+                              const child = products.find(p => p.id === pi.productId);
+                              return child ? `${child.name} (${pi.quantity})` : '';
+                          }).filter(Boolean);
+                          packageContentString = contents?.join(', ') || '';
+                      }
 
                       return (
                         <div key={itemKey} className="flex gap-4">
@@ -312,6 +341,15 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
                                 <span className="text-[10px] bg-nature-50 text-nature-700 px-1.5 py-0.5 rounded font-bold uppercase">SEWA</span>
                               )}
                             </div>
+                            
+                            {/* NEW: Show Package Contents */}
+                            {isPackage && packageContentString && (
+                                <div className="text-[10px] text-gray-500 mt-1 flex items-start gap-1">
+                                    <Layers size={10} className="mt-0.5 shrink-0"/>
+                                    <span className="italic leading-tight">{packageContentString}</span>
+                                </div>
+                            )}
+
                             <p className="text-adventure-600 font-bold text-sm mt-1">
                               Rp{displayPrice.toLocaleString('id-ID')}
                               {!item.isSale && <span className="text-gray-400 text-xs font-normal"> /2hari</span>}
