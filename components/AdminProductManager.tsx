@@ -112,7 +112,7 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
       finalSizes = {};
     } else {
       finalSizes = simpleSizes;
-      const sizeStock = Object.values(simpleSizes).reduce((a: number, b: unknown) => a + Number(b), 0);
+      const sizeStock = Object.values(simpleSizes).reduce((a: number, b: number) => a + b, 0);
       finalStock = sizeStock > 0 ? sizeStock : (formData.stock || 0);
     }
 

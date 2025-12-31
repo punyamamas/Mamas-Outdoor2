@@ -109,7 +109,7 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
           totalTrx++;
           // Get unique item names in this transaction (avoid self-pairing)
           // Simple cleaning: remove extra spaces
-          const uniqueItems = Array.from(new Set(t.items.map(i => i.name.trim())));
+          const uniqueItems = Array.from(new Set(t.items.map(i => i.name.trim()))) as string[];
 
           // Count Individual Items
           uniqueItems.forEach(item => {

@@ -1,3 +1,4 @@
+
 import { supabase } from './supabase';
 import { Transaction, CartItem, UserDetails, PaymentLog } from '../types';
 import { processStockReduction, processStockRestoration } from './productService';
@@ -216,6 +217,38 @@ export const updateTransactionPayment = async (
   }
 
   return { success: true, newStatus };
+};
+
+// NEW: Apply Fine (Menambah Total Tagihan)
+export const applyTransactionFine = async (
+  id: string, 
+  fineAmount: number
+): Promise<{ success: boolean; newTotal?: number }> => {
+  if (!supabase) return { success: false };
+
+  // 1. Get current total
+  const { data: trx, error: fetchError } = await supabase
+    .from('transactions')
+    .select('total_price')
+    .eq('id', id)
+    .single();
+
+  if (fetchError || !trx) return { success: false };
+
+  const newTotal = (trx.total_price || 0) + fineAmount;
+
+  // 2. Update database
+  const { error } = await supabase
+    .from('transactions')
+    .update({ total_price: newTotal })
+    .eq('id', id);
+
+  if (error) {
+    console.error("Error applying fine:", error);
+    return { success: false };
+  }
+
+  return { success: true, newTotal };
 };
 
 // Update transaction status & Handle Stock Logic
@@ -463,7 +496,7 @@ export const printInvoice = (trx: Transaction, mode: 'print' | 'view' = 'print')
     `;
   }).join('');
 
-  // Tombol Manual Print hanya muncul jika mode = view
+  // Tombol Manual Print hanya muncul jika mode = 'view'
   const manualPrintButton = mode === 'view' ? `
     <div class="no-print" style="margin-top: 30px; text-align: center; padding-bottom: 20px;">
        <button onclick="window.print()" style="background: #DC0000; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; cursor: pointer; font-family: sans-serif; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">

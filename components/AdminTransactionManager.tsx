@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { ClipboardList, Loader2, Calendar, Eye, Trash2, X, User, CreditCard, Banknote, ArrowRightLeft, Save, Calculator, CheckCircle, RotateCcw, Wallet, Edit, Plus, Minus, Search, ShoppingBag, Printer, Filter, DollarSign, Receipt, BarChart3, TrendingUp, Lightbulb, AlertTriangle, ArrowUpRight } from 'lucide-react';
 import { Transaction, Product, CartItem } from '../types';
-import { updateTransactionPayment, updateTransactionItems, updateTransactionDetails, printInvoice } from '../services/transactionService';
+import { updateTransactionPayment, updateTransactionItems, updateTransactionDetails, printInvoice, applyTransactionFine } from '../services/transactionService';
 
 interface AdminTransactionManagerProps {
   transactions: Transaction[];
@@ -60,8 +61,10 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
   // State: Nominal yang SEDANG diketik (Pembayaran Baru) - DIBAGI DUA
   const [cashInput, setCashInput] = useState<number>(0);
   const [transferInput, setTransferInput] = useState<number>(0);
+  const [fineInput, setFineInput] = useState<number>(0); // New state for Fine
   
   const [isSavingPayment, setIsSavingPayment] = useState(false);
+  const [isApplyingFine, setIsApplyingFine] = useState(false); // New state for processing fine
 
   // --- EDIT ITEMS STATES ---
   const [isEditingItems, setIsEditingItems] = useState(false);
@@ -81,6 +84,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
     if (selectedTransaction) {
       setCashInput(0); 
       setTransferInput(0);
+      setFineInput(0);
       setIsEditingItems(false);
       setIsEditingInfo(false);
       
@@ -248,6 +252,30 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
   };
 
   const { total, prevPaid, remaining, change, isLunas, isKembalian, currentInputTotal } = calculateFinancials();
+
+  const handleApplyFine = async () => {
+    if (!selectedTransaction || fineInput <= 0) return;
+    setIsApplyingFine(true);
+
+    const result = await applyTransactionFine(selectedTransaction.id, fineInput);
+    
+    if (result.success) {
+      if (onRefreshData) await onRefreshData();
+      
+      // Update local state immediately
+      setSelectedTransaction(prev => prev ? {
+        ...prev,
+        totalPrice: (prev.totalPrice || 0) + fineInput
+      } : null);
+      
+      setFineInput(0);
+      alert("Denda berhasil ditambahkan ke total tagihan.");
+    } else {
+      alert("Gagal menambahkan denda.");
+    }
+    
+    setIsApplyingFine(false);
+  };
 
   const handleSavePayment = async () => {
     if (!selectedTransaction) return;
@@ -956,6 +984,28 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                                     </>
                                  )}
                               </div>
+                           </div>
+
+                           {/* Fine Input Section */}
+                           <div className="bg-red-50 p-3 rounded-lg border border-red-100 mb-4">
+                              <label className="text-[10px] font-bold text-red-700 uppercase mb-1 block">Denda / Biaya Tambahan</label>
+                              <div className="flex gap-2">
+                                <input 
+                                  type="number" 
+                                  className="w-full px-3 py-1.5 text-sm border border-red-200 rounded outline-none focus:ring-1 focus:ring-red-500"
+                                  placeholder="Contoh: 50000"
+                                  value={fineInput === 0 ? '' : fineInput}
+                                  onChange={(e) => setFineInput(Number(e.target.value))}
+                                />
+                                <button 
+                                  onClick={handleApplyFine}
+                                  disabled={fineInput <= 0 || isApplyingFine}
+                                  className="bg-red-600 text-white px-3 py-1.5 rounded text-xs font-bold hover:bg-red-700 disabled:opacity-50"
+                                >
+                                  {isApplyingFine ? <Loader2 size={12} className="animate-spin"/> : '+ Add'}
+                                </button>
+                              </div>
+                              <p className="text-[9px] text-red-500 mt-1 italic leading-tight">*Menambah total tagihan. Uang masuk akan tercatat sebagai omset saat dibayar.</p>
                            </div>
 
                            {/* Payment Inputs */}
