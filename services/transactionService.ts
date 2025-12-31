@@ -2,6 +2,7 @@
 import { supabase } from './supabase';
 import { Transaction, CartItem, UserDetails, PaymentLog } from '../types';
 import { processStockReduction, processStockRestoration } from './productService';
+import html2canvas from 'html2canvas';
 
 // Create new transaction (Checkout)
 export const createTransaction = async (
@@ -518,8 +519,175 @@ export const deleteTransaction = async (id: string): Promise<boolean> => {
   return true;
 };
 
-// FUNCTION TO PRINT INVOICE
-// Updated to support multiple types: 'full' | 'rental' | 'fine'
+// FUNCTION: Generate Image & Copy to Clipboard + Open WhatsApp
+export const copyInvoiceToClipboard = async (
+  trx: Transaction, 
+  invoiceType: 'full' | 'rental' | 'fine' = 'full'
+) => {
+  // 1. Prepare Data & Content (Similar to printInvoice but no window.open)
+  const dateObj = new Date(trx.created_at || new Date());
+  const dateStr = dateObj.toLocaleDateString('id-ID'); 
+  const timeStr = dateObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }); 
+  const rentalDateObj = new Date(trx.rentalDate);
+  const rentalDateStr = rentalDateObj.toLocaleDateString('id-ID');
+  const returnDateObj = new Date(trx.rentalDate);
+  returnDateObj.setDate(returnDateObj.getDate() + (trx.duration - 1)); 
+  const returnDateStr = returnDateObj.toLocaleDateString('id-ID');
+  const fine = trx.fineAmount || 0;
+  const rentalTotal = trx.totalPrice - fine; 
+  const paidGlobal = trx.amountPaid || 0;
+  const totalGlobal = trx.totalPrice;
+  const isGlobalPaid = paidGlobal >= totalGlobal;
+  const statusLabel = isGlobalPaid ? 'LUNAS' : 'BELUM LUNAS';
+  const stampColor = isGlobalPaid ? '#000000' : '#DC0000'; 
+  const paymentMethodDisplay = trx.paymentMethod === 'transfer' ? 'Transfer' : 'Cash';
+  const fmt = (val: number) => val.toLocaleString('id-ID');
+  const logoUrl = "https://imgur.com/iC8ycHT.png";
+
+  let displayedItemsHtml = '';
+  let displayedTotal = 0;
+  let titleText = 'Struk Pembayaran';
+  let showFineRow = false;
+
+  if (invoiceType === 'fine') {
+      titleText = 'NOTA DENDA';
+      displayedTotal = fine;
+      displayedItemsHtml = `
+        <div style="margin-bottom:8px; border-bottom:1px dotted #ccc; padding-bottom:5px;">
+          <div style="font-weight:700; color:red;">DENDA / CHARGE KETERLAMBATAN</div>
+          <div style="display:flex; justify-content:space-between; font-size:12px;">
+            <span>Ref Trx: #${trx.id.slice(0,6)}</span>
+            <span>${fmt(fine)}</span>
+          </div>
+        </div>
+      `;
+  } else {
+      displayedItemsHtml = trx.items.map((item) => {
+        const unitPrice = calculateItemPriceForDuration(item, trx.duration);
+        const totalPrice = unitPrice * item.quantity;
+        const variantInfo = item.selectedSize || item.selectedColor 
+          ? `(${[item.selectedSize, item.selectedColor].filter(Boolean).join('/')})` : '';
+        return `
+        <div style="margin-bottom:8px;">
+          <div style="font-weight:700; font-size:12px; margin-bottom:2px;">${trx.duration}H ${item.name.toUpperCase()} ${variantInfo}</div>
+          <div style="display:flex; justify-content:space-between; font-size:12px; color:#000;">
+            <span>${item.quantity} x ${fmt(unitPrice)}</span>
+            <span>${fmt(totalPrice)}</span>
+          </div>
+        </div>`;
+      }).join('');
+
+      if (invoiceType === 'rental') {
+          titleText = 'NOTA SEWA';
+          displayedTotal = rentalTotal;
+      } else {
+          titleText = 'NOTA TAGIHAN';
+          displayedTotal = trx.totalPrice;
+          showFineRow = fine > 0;
+      }
+  }
+
+  const fineHtml = showFineRow ? `
+    <div style="margin-top:5px; border-top:1px dotted #ccc; padding-top:5px;">
+      <div style="font-weight:700; font-size:12px; margin-bottom:2px; color:red;">DENDA KETERLAMBATAN</div>
+      <div style="display:flex; justify-content:space-between; font-size:12px; color:#000;">
+        <span>Extra Charge</span>
+        <span>${fmt(fine)}</span>
+      </div>
+    </div>` : '';
+
+  // 2. Create Temporary DOM Element
+  const tempDiv = document.createElement('div');
+  tempDiv.style.position = 'absolute';
+  tempDiv.style.top = '-9999px';
+  tempDiv.style.left = '-9999px';
+  tempDiv.style.width = '350px'; // Mobile width
+  tempDiv.style.backgroundColor = '#fff';
+  tempDiv.style.padding = '15px';
+  tempDiv.style.fontFamily = "'Roboto Mono', monospace, sans-serif";
+  tempDiv.style.color = '#000';
+  tempDiv.style.boxSizing = 'border-box';
+  
+  // HTML Content
+  tempDiv.innerHTML = `
+    <div style="position:relative; overflow:hidden;">
+        <div style="position:absolute; top:40%; left:50%; transform:translate(-50%, -50%) rotate(-15deg); border:4px solid ${stampColor}; color:${stampColor}; padding:5px 15px; font-size:24px; font-weight:900; text-transform:uppercase; border-radius:8px; opacity:0.25; pointer-events:none;">
+            ${statusLabel}
+        </div>
+        <div style="text-align:center; margin-bottom:10px;">
+          <img src="${logoUrl}" style="width:60px; display:block; margin:0 auto 5px; filter:grayscale(100%);" crossorigin="anonymous" />
+          <div style="font-size:16px; font-weight:900; margin-bottom:2px; text-transform:uppercase;">MAMAS OUTDOOR</div>
+          <div style="font-size:10px;">Jl. Cenderawasih, Grendeng, Purwokerto</div>
+          <div style="font-size:10px; font-weight:bold;">WA: 085137411145</div>
+        </div>
+        <div style="border-bottom:1px dashed #000; margin:10px 0;"></div>
+        <table style="width:100%; font-size:11px;">
+          <tr><td style="width:35%;">Jenis</td><td style="text-align:right; font-weight:900;">${titleText}</td></tr>
+          <tr><td>No Nota</td><td style="text-align:right;">TRX/${trx.id.slice(0, 8).toUpperCase()}</td></tr>
+          <tr><td>Pelanggan</td><td style="text-align:right;">${trx.customerName.slice(0,15)}</td></tr>
+          <tr><td>Tanggal</td><td style="text-align:right;">${dateStr}</td></tr>
+        </table>
+        <div style="border-bottom:1px dashed #000; margin:10px 0;"></div>
+        <div>
+          ${displayedItemsHtml}
+          ${fineHtml}
+        </div>
+        <div style="border-bottom:1px dashed #000; margin:10px 0;"></div>
+        <table style="width:100%; font-size:12px; margin-top:5px;">
+          <tr><td>Status</td><td style="text-align:right; font-weight:bold;">${statusLabel}</td></tr>
+          <tr><td style="padding-top:5px;">Total Tagihan</td><td style="text-align:right; font-weight:bold; padding-top:5px;">${fmt(displayedTotal)}</td></tr>
+        </table>
+        <div style="border-bottom:1px dashed #000; margin:10px 0;"></div>
+        <div style="text-align:center; font-size:10px; font-style:italic; margin-top:10px;">
+           Terima kasih telah menyewa di Mamas Outdoor.<br/>#SalamLestari
+        </div>
+    </div>
+  `;
+
+  document.body.appendChild(tempDiv);
+
+  try {
+    // 3. Generate Canvas -> Blob
+    const canvas = await html2canvas(tempDiv, { 
+        useCORS: true, 
+        scale: 2, // High resolution
+        backgroundColor: '#ffffff'
+    });
+    
+    // 4. Copy to Clipboard
+    canvas.toBlob(async (blob) => {
+        if (blob) {
+            try {
+                // Requires HTTPS or localhost
+                await navigator.clipboard.write([
+                    new ClipboardItem({ 'image/png': blob })
+                ]);
+                
+                // 5. Open WhatsApp
+                let phone = trx.customerWhatsapp.replace(/\D/g, '');
+                if (phone.startsWith('0')) phone = '62' + phone.slice(1);
+                
+                const waUrl = `https://wa.me/${phone}`;
+                window.open(waUrl, '_blank');
+                
+                // Alert User
+                alert("✅ Nota berhasil disalin sebagai GAMBAR!\n\nSilakan tekan 'Paste' (Ctrl+V) di kolom chat WhatsApp yang baru terbuka.");
+            } catch (err) {
+                console.error("Clipboard write failed:", err);
+                alert("Gagal menyalin gambar otomatis (Browser Security). Silakan gunakan fitur Print PDF.");
+            }
+        }
+    }, 'image/png');
+
+  } catch (error) {
+      console.error("HTML2Canvas Error:", error);
+      alert("Gagal membuat gambar nota.");
+  } finally {
+      document.body.removeChild(tempDiv);
+  }
+};
+
+// FUNCTION TO PRINT INVOICE (Existing)
 export const printInvoice = (
   trx: Transaction, 
   mode: 'print' | 'view' = 'print',

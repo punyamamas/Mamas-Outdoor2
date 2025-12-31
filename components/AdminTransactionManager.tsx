@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { ClipboardList, Loader2, Calendar, Eye, Trash2, X, User, CreditCard, Banknote, ArrowRightLeft, Save, Calculator, CheckCircle, RotateCcw, Wallet, Edit, Plus, Minus, Search, ShoppingBag, Printer, Filter, DollarSign, Receipt, BarChart3, TrendingUp, Lightbulb, AlertTriangle, ArrowUpRight } from 'lucide-react';
+import { ClipboardList, Loader2, Calendar, Eye, Trash2, X, User, CreditCard, Banknote, ArrowRightLeft, Save, Calculator, CheckCircle, RotateCcw, Wallet, Edit, Plus, Minus, Search, ShoppingBag, Printer, Filter, DollarSign, Receipt, BarChart3, TrendingUp, Lightbulb, AlertTriangle, ArrowUpRight, Share2, Image as ImageIcon } from 'lucide-react';
 import { Transaction, Product, CartItem } from '../types';
-import { updateTransactionPayment, updateTransactionItems, updateTransactionDetails, printInvoice, applyTransactionFine, calculateOverdueFine } from '../services/transactionService';
+import { updateTransactionPayment, updateTransactionItems, updateTransactionDetails, printInvoice, applyTransactionFine, calculateOverdueFine, copyInvoiceToClipboard } from '../services/transactionService';
 
 interface AdminTransactionManagerProps {
   transactions: Transaction[];
@@ -964,6 +964,15 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                                 <div className="flex flex-col gap-1 items-end">
                                   {/* UPDATE TOMBOL PRINT UTAMA */}
                                   <div className="flex gap-1">
+                                    {/* TOMBOL COPY GAMBAR WA */}
+                                    <button 
+                                        onClick={() => copyInvoiceToClipboard(selectedTransaction, 'full')}
+                                        className="text-[10px] bg-green-50 text-green-700 px-2 py-1.5 rounded font-bold hover:bg-green-100 transition border border-green-200 flex items-center gap-1"
+                                        title="Salin Gambar Nota ke WhatsApp"
+                                    >
+                                        <ImageIcon size={14} /> Kirim WA
+                                    </button>
+
                                     <button 
                                         onClick={() => printInvoice(selectedTransaction, 'view', 'rental')}
                                         className="text-[10px] bg-nature-50 text-nature-700 px-2 py-1.5 rounded font-bold hover:bg-nature-100 transition border border-nature-200"
@@ -1032,13 +1041,22 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                                 <label className="text-[10px] font-bold text-red-700 uppercase">Denda / Biaya Tambahan</label>
                                 {/* TOMBOL CETAK NOTA DENDA */}
                                 {existingFine > 0 && (
-                                    <button 
-                                        onClick={() => printInvoice(selectedTransaction, 'view', 'fine')}
-                                        className="text-[9px] bg-red-600 text-white px-2 py-0.5 rounded font-bold hover:bg-red-700 transition flex items-center gap-1 shadow-sm"
-                                        title="Cetak Nota Denda Terpisah"
-                                    >
-                                        <Printer size={10} /> Cetak Nota Denda
-                                    </button>
+                                    <div className="flex gap-1">
+                                      <button 
+                                          onClick={() => copyInvoiceToClipboard(selectedTransaction, 'fine')}
+                                          className="text-[9px] bg-green-600 text-white px-2 py-0.5 rounded font-bold hover:bg-green-700 transition flex items-center gap-1 shadow-sm"
+                                          title="Kirim Gambar Nota Denda ke WA"
+                                      >
+                                          <ImageIcon size={10} /> Kirim WA
+                                      </button>
+                                      <button 
+                                          onClick={() => printInvoice(selectedTransaction, 'view', 'fine')}
+                                          className="text-[9px] bg-red-600 text-white px-2 py-0.5 rounded font-bold hover:bg-red-700 transition flex items-center gap-1 shadow-sm"
+                                          title="Cetak Nota Denda Terpisah"
+                                      >
+                                          <Printer size={10} /> Cetak
+                                      </button>
+                                    </div>
                                 )}
                               </div>
                               
