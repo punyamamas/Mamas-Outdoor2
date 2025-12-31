@@ -289,7 +289,7 @@ export const updateTransactionStatus = async (id: string, newStatus: string): Pr
 };
 
 // HELPER: Hitung harga item berdasarkan durasi
-const calculateItemPriceForDuration = (item: CartItem, duration: number): number => {
+export const calculateItemPriceForDuration = (item: CartItem, duration: number): number => {
     const p2 = item.price2Days || 0;
     const p3 = item.price3Days || 0;
     const p4 = item.price4Days || 0;
@@ -307,6 +307,35 @@ const calculateItemPriceForDuration = (item: CartItem, duration: number): number
 
     return unitPrice;
   };
+
+// NEW: Calculate Overdue Fine based on Report Logic
+export const calculateOverdueFine = (transaction: Transaction): { daysLate: number; fineAmount: number } => {
+  if (transaction.status !== 'rented') return { daysLate: 0, fineAmount: 0 };
+
+  const now = new Date();
+  const rentalDate = new Date(transaction.rentalDate);
+  const returnDate = new Date(rentalDate);
+  returnDate.setDate(rentalDate.getDate() + (transaction.duration - 1));
+
+  // Deadline Overdue: 23:59:59 on Return Date
+  const overdueDeadline = new Date(returnDate);
+  overdueDeadline.setHours(23, 59, 59, 999);
+
+  if (now <= overdueDeadline) return { daysLate: 0, fineAmount: 0 };
+
+  const diffTime = Math.abs(now.getTime() - overdueDeadline.getTime());
+  const daysLate = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+  // Logic: Fine duration = daysLate + 1
+  const calculationDuration = daysLate + 1;
+
+  const fineAmount = transaction.items.reduce((total, item) => {
+      const price = calculateItemPriceForDuration(item, calculationDuration);
+      return total + (price * item.quantity);
+  }, 0);
+
+  return { daysLate, fineAmount };
+};
 
 // NEW: Update Customer Data & Duration (Recalculate Price)
 export const updateTransactionDetails = async (

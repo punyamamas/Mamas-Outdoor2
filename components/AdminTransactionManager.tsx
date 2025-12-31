@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { ClipboardList, Loader2, Calendar, Eye, Trash2, X, User, CreditCard, Banknote, ArrowRightLeft, Save, Calculator, CheckCircle, RotateCcw, Wallet, Edit, Plus, Minus, Search, ShoppingBag, Printer, Filter, DollarSign, Receipt, BarChart3, TrendingUp, Lightbulb, AlertTriangle, ArrowUpRight } from 'lucide-react';
 import { Transaction, Product, CartItem } from '../types';
-import { updateTransactionPayment, updateTransactionItems, updateTransactionDetails, printInvoice, applyTransactionFine } from '../services/transactionService';
+import { updateTransactionPayment, updateTransactionItems, updateTransactionDetails, printInvoice, applyTransactionFine, calculateOverdueFine } from '../services/transactionService';
 
 interface AdminTransactionManagerProps {
   transactions: Transaction[];
@@ -252,6 +252,12 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
   };
 
   const { total, prevPaid, remaining, change, isLunas, isKembalian, currentInputTotal } = calculateFinancials();
+
+  // CALCULATE AUTOMATIC FINE (SYSTEM)
+  const { daysLate, fineAmount: systemFine } = useMemo(() => {
+    if (!selectedTransaction) return { daysLate: 0, fineAmount: 0 };
+    return calculateOverdueFine(selectedTransaction);
+  }, [selectedTransaction]);
 
   const handleApplyFine = async () => {
     if (!selectedTransaction || fineInput <= 0) return;
@@ -989,6 +995,23 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                            {/* Fine Input Section */}
                            <div className="bg-red-50 p-3 rounded-lg border border-red-100 mb-4">
                               <label className="text-[10px] font-bold text-red-700 uppercase mb-1 block">Denda / Biaya Tambahan</label>
+                              
+                              {/* AUTO CALCULATED FINE ALERT */}
+                              {systemFine > 0 && (
+                                <div className="mb-2 p-2 bg-white rounded border border-red-200 flex justify-between items-center animate-pulse">
+                                    <div className="text-[10px] text-red-600 leading-tight">
+                                        <span className="font-bold flex items-center gap-1"><AlertTriangle size={10}/> Terlambat {daysLate} Hari</span>
+                                        Hitungan Sistem: Rp{systemFine.toLocaleString('id-ID')}
+                                    </div>
+                                    <button 
+                                        onClick={() => setFineInput(systemFine)}
+                                        className="text-[10px] bg-red-600 text-white px-2 py-1 rounded font-bold hover:bg-red-700 transition shadow-sm"
+                                    >
+                                        Pakai
+                                    </button>
+                                </div>
+                              )}
+
                               <div className="flex gap-2">
                                 <input 
                                   type="number" 
