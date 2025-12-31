@@ -519,8 +519,13 @@ export const deleteTransaction = async (id: string): Promise<boolean> => {
 };
 
 // FUNCTION TO PRINT INVOICE
-export const printInvoice = (trx: Transaction, mode: 'print' | 'view' = 'print') => {
-  // Buka window baru, ukuran disesuaikan tapi browser akan handle print preview
+// Updated to support multiple types: 'full' | 'rental' | 'fine'
+export const printInvoice = (
+  trx: Transaction, 
+  mode: 'print' | 'view' = 'print',
+  invoiceType: 'full' | 'rental' | 'fine' = 'full'
+) => {
+  // Buka window baru
   const printWindow = window.open('', '', 'width=800,height=800');
   if (!printWindow) return alert('Izinkan pop-up untuk mencetak nota');
 
@@ -529,53 +534,77 @@ export const printInvoice = (trx: Transaction, mode: 'print' | 'view' = 'print')
   const dateStr = dateObj.toLocaleDateString('id-ID'); 
   const timeStr = dateObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }); 
 
-  // Hitung Tanggal Pinjam (Rental Date) & Kembali
+  // Data
   const rentalDateObj = new Date(trx.rentalDate);
   const rentalDateStr = rentalDateObj.toLocaleDateString('id-ID');
-
   const returnDateObj = new Date(trx.rentalDate);
   returnDateObj.setDate(returnDateObj.getDate() + (trx.duration - 1)); 
   const returnDateStr = returnDateObj.toLocaleDateString('id-ID');
 
-  const paid = trx.amountPaid || 0;
-  const remaining = Math.max(0, trx.totalPrice - paid);
-  const change = Math.max(0, paid - trx.totalPrice);
-  const fine = trx.fineAmount || 0; // Tampilkan denda di struk jika ada
-  
-  // Status Logic & Cap Text
-  const isLunas = remaining <= 0;
-  const statusLabel = isLunas ? 'LUNAS' : 'BELUM LUNAS';
-  const stampColor = isLunas ? '#000000' : '#000000'; 
-  const paymentMethodDisplay = trx.paymentMethod === 'transfer' ? 'Transfer' : 'Cash';
-  
+  const fine = trx.fineAmount || 0;
+  // Kalkulasi Harga Rental Murni
+  const rentalTotal = trx.totalPrice - fine; 
+
+  // Tentukan apa yang ditampilkan berdasarkan invoiceType
+  let displayedItemsHtml = '';
+  let displayedTotal = 0;
+  let titleText = 'Struk Pembayaran';
+  let showFineRow = false;
+
   // Format Mata Uang Helper
   const fmt = (val: number) => val.toLocaleString('id-ID');
 
-  // URL Logo yang Anda berikan (Imgur)
-  const logoUrl = "https://imgur.com/iC8ycHT.png";
+  if (invoiceType === 'fine') {
+      // NOTE: Invoice Denda
+      titleText = 'NOTA DENDA';
+      displayedTotal = fine;
+      // Item buatan untuk denda
+      displayedItemsHtml = `
+        <div class="item-row" style="margin-top:5px; border-bottom:1px dotted #ccc; padding-bottom:5px;">
+          <div class="item-name" style="color:red;">DENDA / CHARGE KETERLAMBATAN</div>
+          <div class="item-calc">
+            <span>Ref Trx: #${trx.id.slice(0,6)}</span>
+            <span>${fmt(fine)}</span>
+          </div>
+        </div>
+      `;
+      showFineRow = false; // Sudah tercover di item utama
+  } 
+  else {
+      // NOTE: Invoice Sewa atau Full
+      // Generate HTML untuk item sewa
+      displayedItemsHtml = trx.items.map((item) => {
+        const unitPrice = calculateItemPriceForDuration(item, trx.duration);
+        const totalPrice = unitPrice * item.quantity;
+        const variantInfo = item.selectedSize || item.selectedColor 
+          ? `(${[item.selectedSize, item.selectedColor].filter(Boolean).join('/')})` 
+          : '';
 
-  const itemsHtml = trx.items.map((item) => {
-    const unitPrice = calculateItemPriceForDuration(item, trx.duration);
-    const totalPrice = unitPrice * item.quantity;
-    
-    // Check if variant info exists
-    const variantInfo = item.selectedSize || item.selectedColor 
-      ? `(${[item.selectedSize, item.selectedColor].filter(Boolean).join('/')})` 
-      : '';
+        return `
+        <div class="item-row">
+          <div class="item-name">${trx.duration}H ${item.name.toUpperCase()} ${variantInfo}</div>
+          <div class="item-calc">
+            <span>${item.quantity} x ${fmt(unitPrice)}</span>
+            <span>${fmt(totalPrice)}</span>
+          </div>
+        </div>
+        `;
+      }).join('');
 
-    return `
-    <div class="item-row">
-      <div class="item-name">${trx.duration}H ${item.name.toUpperCase()} ${variantInfo}</div>
-      <div class="item-calc">
-        <span>${item.quantity} x ${fmt(unitPrice)}</span>
-        <span>${fmt(totalPrice)}</span>
-      </div>
-    </div>
-    `;
-  }).join('');
+      if (invoiceType === 'rental') {
+          titleText = 'NOTA SEWA';
+          displayedTotal = rentalTotal;
+          showFineRow = false; // Sembunyikan denda di nota sewa
+      } else {
+          // 'full'
+          titleText = 'NOTA TAGIHAN';
+          displayedTotal = trx.totalPrice;
+          showFineRow = fine > 0;
+      }
+  }
 
-  // Row Denda jika ada
-  const fineHtml = fine > 0 ? `
+  // Row Denda jika mode 'full' dan ada denda
+  const fineHtml = showFineRow ? `
     <div class="item-row" style="margin-top:5px; border-top:1px dotted #ccc; padding-top:5px;">
       <div class="item-name" style="color:red;">DENDA KETERLAMBATAN</div>
       <div class="item-calc">
@@ -585,7 +614,23 @@ export const printInvoice = (trx: Transaction, mode: 'print' | 'view' = 'print')
     </div>
   ` : '';
 
-  // Tombol Manual Print hanya muncul jika mode = 'view'
+  // Payment Info Logic (Slightly adjusted for Fine Invoice context)
+  // Di nota denda, kita anggap total tagihan adalah denda itu sendiri.
+  // Pembayaran/Kembalian di DB itu global, jadi di nota denda kita sembunyikan detail "Dibayar/Kembalian" agar tidak bingung, 
+  // atau kita tampilkan status LUNAS saja jika total global sudah lunas.
+  
+  const paidGlobal = trx.amountPaid || 0;
+  const totalGlobal = trx.totalPrice;
+  const isGlobalPaid = paidGlobal >= totalGlobal;
+  
+  const statusLabel = isGlobalPaid ? 'LUNAS' : 'BELUM LUNAS';
+  const stampColor = isGlobalPaid ? '#000000' : '#000000'; 
+  const paymentMethodDisplay = trx.paymentMethod === 'transfer' ? 'Transfer' : 'Cash';
+  
+  // URL Logo
+  const logoUrl = "https://imgur.com/iC8ycHT.png";
+
+  // Manual Print Button
   const manualPrintButton = mode === 'view' ? `
     <div class="no-print" style="margin-top: 30px; text-align: center; padding-bottom: 20px;">
        <button onclick="window.print()" style="background: #DC0000; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; cursor: pointer; font-family: sans-serif; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
@@ -598,7 +643,7 @@ export const printInvoice = (trx: Transaction, mode: 'print' | 'view' = 'print')
     <!DOCTYPE html>
     <html>
       <head>
-        <title>Struk Pembayaran #${trx.id.slice(0,6)}</title>
+        <title>${titleText} #${trx.id.slice(0,6)}</title>
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <style>
           @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700;900&display=swap');
@@ -644,36 +689,29 @@ export const printInvoice = (trx: Transaction, mode: 'print' | 'view' = 'print')
         </div>
         <div class="dashed-line"></div>
         <table class="meta-table">
+          <tr><td class="meta-label">Jenis</td><td class="meta-val" style="font-weight:900">${titleText}</td></tr>
           <tr><td class="meta-label">No Nota</td><td class="meta-val">TRX/${trx.id.slice(0, 8).toUpperCase()}</td></tr>
-          <tr><td class="meta-label">Antrian</td><td class="meta-val">5</td></tr>
           <tr><td class="meta-label">Pelanggan</td><td class="meta-val">MO-${trx.id.slice(0,4)} ${trx.customerName}</td></tr>
-          <tr><td class="meta-label">Lokasi</td><td class="meta-val">${trx.customerLocation || '-'}</td></tr>
           <tr><td class="meta-label">Tanggal</td><td class="meta-val">${dateStr} - ${timeStr}</td></tr>
           <tr><td class="meta-label">Kasir</td><td class="meta-val">Admin Mamas Outdoor</td></tr>
         </table>
         <div class="dashed-line"></div>
         <div class="items-container">
-          ${itemsHtml}
+          ${displayedItemsHtml}
           ${fineHtml}
         </div>
         <div class="dashed-line"></div>
         <table class="summary-table">
-          <tr><td class="sum-label">Status</td><td class="sum-val">${statusLabel}</td></tr>
-          <tr><td class="sum-label">Metode Bayar</td><td class="sum-val">${paymentMethodDisplay}</td></tr>
-          <tr><td class="sum-label" style="padding-top:10px;">Total Tagihan</td><td class="sum-val" style="padding-top:10px;">${fmt(trx.totalPrice)}</td></tr>
-          <tr><td class="sum-label">DiBayar</td><td class="sum-val">${fmt(paid)}</td></tr>
-          <tr><td class="sum-label">Kembalian</td><td class="sum-val">${fmt(change)}</td></tr>
+          <tr><td class="sum-label">Status Global</td><td class="sum-val">${statusLabel}</td></tr>
+          <tr><td class="sum-label" style="padding-top:10px;">Total Tagihan Ini</td><td class="sum-val" style="padding-top:10px;">${fmt(displayedTotal)}</td></tr>
         </table>
         <div class="dashed-line"></div>
         <div class="footer-info">
            <div class="footer-row"><span class="footer-label">Tanggal Pinjam :</span><span class="footer-val">${rentalDateStr}</span></div>
            <div class="footer-row"><span class="footer-label">Tanggal Kembali :</span><span class="footer-val">${returnDateStr}</span></div>
-           <div class="footer-row" style="margin-top: 8px;"><span class="footer-label">Identitas Jaminan :</span></div>
-           <div style="border-bottom: 1px dotted #000; height: 24px; width: 100%; margin-bottom: 4px;"></div>
         </div>
         <div class="footer-text">
            Terima kasih atas kepercayaan Anda telah memilih kami sebagai mitra petualangan outdoor Anda. 
-           Kami harap perlengkapan yang Anda sewa dapat menunjang kegiatan Anda dengan optimal.
         </div>
         ${manualPrintButton}
         <script>

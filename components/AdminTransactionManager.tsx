@@ -961,15 +961,26 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                                   <p className="text-sm text-gray-500">{selectedTransaction.customerWhatsapp}</p>
                                   <p className="text-xs font-bold text-nature-600 mt-1 bg-nature-50 inline-block px-2 py-0.5 rounded">Sewa {selectedTransaction.duration} Hari</p>
                                 </div>
-                                <div className="flex gap-2">
-                                  <button 
-                                      onClick={() => printInvoice(selectedTransaction)}
-                                      className="text-nature-600 bg-nature-50 p-2 rounded-lg hover:bg-nature-100 transition border border-nature-200"
-                                      title="Cetak Nota"
-                                  >
-                                      <Printer size={16} />
-                                  </button>
-                                  <a href={`https://wa.me/${formatWaNumber(selectedTransaction.customerWhatsapp)}`} target="_blank" rel="noreferrer" className="text-blue-600 bg-blue-50 p-2 rounded-lg hover:bg-blue-100 transition border border-blue-200">
+                                <div className="flex flex-col gap-1 items-end">
+                                  {/* UPDATE TOMBOL PRINT UTAMA */}
+                                  <div className="flex gap-1">
+                                    <button 
+                                        onClick={() => printInvoice(selectedTransaction, 'view', 'rental')}
+                                        className="text-[10px] bg-nature-50 text-nature-700 px-2 py-1.5 rounded font-bold hover:bg-nature-100 transition border border-nature-200"
+                                        title="Cetak Nota Sewa (Tanpa Denda)"
+                                    >
+                                        <Printer size={14} /> Sewa
+                                    </button>
+                                    <button 
+                                        onClick={() => printInvoice(selectedTransaction, 'view', 'full')}
+                                        className="text-[10px] bg-gray-100 text-gray-600 px-2 py-1.5 rounded font-bold hover:bg-gray-200 transition border border-gray-200"
+                                        title="Cetak Nota Gabungan (Full)"
+                                    >
+                                        <Printer size={14} /> Full
+                                    </button>
+                                  </div>
+                                  
+                                  <a href={`https://wa.me/${formatWaNumber(selectedTransaction.customerWhatsapp)}`} target="_blank" rel="noreferrer" className="text-blue-600 bg-blue-50 p-2 rounded-lg hover:bg-blue-100 transition border border-blue-200 w-fit">
                                         <ArrowRightLeft size={16} />
                                   </a>
                                 </div>
@@ -1017,7 +1028,19 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
 
                            {/* Fine Input Section */}
                            <div className="bg-red-50 p-3 rounded-lg border border-red-100 mb-4">
-                              <label className="text-[10px] font-bold text-red-700 uppercase mb-1 block">Denda / Biaya Tambahan</label>
+                              <div className="flex justify-between items-center mb-1">
+                                <label className="text-[10px] font-bold text-red-700 uppercase">Denda / Biaya Tambahan</label>
+                                {/* TOMBOL CETAK NOTA DENDA */}
+                                {existingFine > 0 && (
+                                    <button 
+                                        onClick={() => printInvoice(selectedTransaction, 'view', 'fine')}
+                                        className="text-[9px] bg-red-600 text-white px-2 py-0.5 rounded font-bold hover:bg-red-700 transition flex items-center gap-1 shadow-sm"
+                                        title="Cetak Nota Denda Terpisah"
+                                    >
+                                        <Printer size={10} /> Cetak Nota Denda
+                                    </button>
+                                )}
+                              </div>
                               
                               {/* AUTO CALCULATED FINE ALERT */}
                               {systemFine > 0 && (
