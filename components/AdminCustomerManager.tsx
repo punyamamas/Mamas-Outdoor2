@@ -129,13 +129,19 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
 
       // Process Results
       const topPairs = Object.entries(pairCounts)
-          .map(([key, count]) => {
-              const [itemA, itemB] = key.split('|');
+          .map(([key, val]) => {
+              const count = Number(val);
+              const parts = key.split('|');
+              const itemA = String(parts[0]);
+              const itemB = String(parts[1]);
               
               // Confidence Calculation: P(B|A)
               // Likelihood of buying B if A is bought
-              const confAtoB = itemCounts[itemA] ? (count / itemCounts[itemA]) * 100 : 0;
-              const confBtoA = itemCounts[itemB] ? (count / itemCounts[itemB]) * 100 : 0;
+              const countA = itemCounts[itemA] || 0;
+              const countB = itemCounts[itemB] || 0;
+
+              const confAtoB = countA ? (count / countA) * 100 : 0;
+              const confBtoA = countB ? (count / countB) * 100 : 0;
 
               // Determine Driver (Trigger) vs Follower
               // The Item with HIGHER individual count is usually the "Anchor", 

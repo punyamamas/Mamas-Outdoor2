@@ -1,14 +1,23 @@
-import React, { useState, useEffect } from 'react';
-import { DollarSign, Wallet, CreditCard, ArrowUpRight, ArrowDownLeft, Plus, Calendar, Loader2, Save, Database, AlertTriangle, Copy, Check } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { DollarSign, Wallet, CreditCard, ArrowUpRight, ArrowDownLeft, Plus, Calendar, Loader2, Save, Database, AlertTriangle, Copy, Check, BarChart3, PieChart, TrendingUp } from 'lucide-react';
 import { PaymentLog } from '../types';
 import { getPaymentLogs, recordPaymentLog } from '../services/transactionService';
 
 const AdminFinanceManager: React.FC = () => {
-  // FIX: Initialize date with Local Time, not UTC
+  // --- STATE MANAGEMENT ---
+  const [viewMode, setViewMode] = useState<'daily' | 'monthly'>('daily');
+  
+  // Daily Date State
   const [selectedDate, setSelectedDate] = useState<string>(() => {
     const d = new Date();
     d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
     return d.toISOString().split('T')[0];
+  });
+
+  // Monthly Date State (YYYY-MM)
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   });
 
   const [logs, setLogs] = useState<PaymentLog[]>([]);
@@ -22,19 +31,36 @@ const AdminFinanceManager: React.FC = () => {
   const [isManualEntryOpen, setIsManualEntryOpen] = useState(false);
   const [manualAmount, setManualAmount] = useState<number>(0);
   const [manualDesc, setManualDesc] = useState('');
-  const [manualType, setManualType] = useState<'IN' | 'OUT'>('OUT'); // Default Pengeluaran (Kas Kecil)
+  const [manualType, setManualType] = useState<'IN' | 'OUT'>('OUT');
 
+  // --- EFFECT: FETCH DATA ---
   useEffect(() => {
-    fetchLogs();
-  }, [selectedDate]);
+    fetchData();
+  }, [selectedDate, selectedMonth, viewMode]);
 
-  const fetchLogs = async () => {
+  const fetchData = async () => {
     setIsLoading(true);
     setDbError(null);
-    const { data, error } = await getPaymentLogs(selectedDate, selectedDate);
+    
+    let startDate, endDate;
+
+    if (viewMode === 'daily') {
+        startDate = selectedDate;
+        endDate = selectedDate;
+    } else {
+        // Calculate First and Last day of selected Month
+        const [year, month] = selectedMonth.split('-').map(Number);
+        const start = new Date(year, month - 1, 1);
+        const end = new Date(year, month, 0); // Last day of month
+        
+        // Format to YYYY-MM-DD ignoring timezone issues for simplicity (using local components)
+        startDate = `${start.getFullYear()}-${String(start.getMonth()+1).padStart(2,'0')}-${String(start.getDate()).padStart(2,'0')}`;
+        endDate = `${end.getFullYear()}-${String(end.getMonth()+1).padStart(2,'0')}-${String(end.getDate()).padStart(2,'0')}`;
+    }
+
+    const { data, error } = await getPaymentLogs(startDate, endDate);
     
     if (error) {
-      // Check for specific Postgres error "relation does not exist" (code 42P01)
       if (error.code === '42P01') {
         setDbError('missing_table');
       } else {
@@ -48,13 +74,14 @@ const AdminFinanceManager: React.FC = () => {
     setIsLoading(false);
   };
 
+  // --- HANDLERS ---
   const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (manualAmount <= 0 || !manualDesc) return;
 
     await recordPaymentLog({
       amount: manualAmount,
-      payment_method: 'cash', // Manual entry biasanya cash
+      payment_method: 'cash',
       type: manualType,
       description: manualDesc,
       category: manualType === 'OUT' ? 'Operasional' : 'Lain-lain'
@@ -63,7 +90,7 @@ const AdminFinanceManager: React.FC = () => {
     setManualAmount(0);
     setManualDesc('');
     setIsManualEntryOpen(false);
-    fetchLogs();
+    fetchData();
   };
 
   const copySQL = () => {
@@ -87,29 +114,64 @@ for all using (true) with check (true);`;
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // Calculations
-  const totalIn = logs.filter(l => l.type === 'IN').reduce((acc, curr) => acc + curr.amount, 0);
-  const totalOut = logs.filter(l => l.type === 'OUT').reduce((acc, curr) => acc + curr.amount, 0);
-  const netTotal = totalIn - totalOut;
-
-  const totalCash = logs.filter(l => l.payment_method === 'cash' && l.type === 'IN').reduce((acc, curr) => acc + curr.amount, 0)
-                  - logs.filter(l => l.payment_method === 'cash' && l.type === 'OUT').reduce((acc, curr) => acc + curr.amount, 0);
+  // --- CALCULATIONS (MEMOIZED) ---
   
-  const totalTransfer = logs.filter(l => l.payment_method === 'transfer' && l.type === 'IN').reduce((acc, curr) => acc + curr.amount, 0);
+  // 1. Total Summaries
+  const summary = useMemo(() => {
+      const totalIn = logs.filter(l => l.type === 'IN').reduce((acc, curr) => acc + curr.amount, 0);
+      const totalOut = logs.filter(l => l.type === 'OUT').reduce((acc, curr) => acc + curr.amount, 0);
+      
+      // Breakdown Payment Method (Only for Daily usually, but good to have)
+      const cashIn = logs.filter(l => l.payment_method === 'cash' && l.type === 'IN').reduce((acc, curr) => acc + curr.amount, 0);
+      const cashOut = logs.filter(l => l.payment_method === 'cash' && l.type === 'OUT').reduce((acc, curr) => acc + curr.amount, 0);
+      const netCash = cashIn - cashOut;
+      
+      const transferIn = logs.filter(l => l.payment_method === 'transfer' && l.type === 'IN').reduce((acc, curr) => acc + curr.amount, 0);
 
-  // Jika error karena tabel belum ada, tampilkan panduan
+      return { totalIn, totalOut, netTotal: totalIn - totalOut, netCash, transferIn };
+  }, [logs]);
+
+  // 2. Daily Aggregates (For Monthly View Chart & Table)
+  const dailyAggregates = useMemo(() => {
+      if (viewMode === 'daily') return [];
+
+      const map: Record<string, { date: string, in: number, out: number }> = {};
+      
+      // Initialize all days in month
+      const [year, month] = selectedMonth.split('-').map(Number);
+      const daysInMonth = new Date(year, month, 0).getDate();
+      
+      for(let i=1; i<=daysInMonth; i++) {
+          const dayStr = `${year}-${String(month).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
+          map[dayStr] = { date: dayStr, in: 0, out: 0 };
+      }
+
+      // Fill Data
+      logs.forEach(log => {
+          const dayStr = log.created_at.split('T')[0];
+          if (map[dayStr]) {
+              if (log.type === 'IN') map[dayStr].in += log.amount;
+              else map[dayStr].out += log.amount;
+          }
+      });
+
+      return Object.values(map).sort((a,b) => a.date.localeCompare(b.date));
+  }, [logs, viewMode, selectedMonth]);
+
+  const maxChartValue = Math.max(...dailyAggregates.map(d => d.in), 100000);
+
+  // --- RENDER HELPERS ---
+  
   if (dbError === 'missing_table') {
     return (
       <div className="bg-white rounded-2xl shadow-sm border border-orange-200 p-8 flex flex-col items-center text-center max-w-2xl mx-auto mt-10">
          <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 mb-4 animate-bounce">
            <Database size={32} />
          </div>
-         <h2 className="text-xl font-bold text-gray-900 mb-2">Waduh, Databasenya Belum Kenalan Nih!</h2>
+         <h2 className="text-xl font-bold text-gray-900 mb-2">Setup Database Diperlukan</h2>
          <p className="text-gray-600 mb-6 text-sm leading-relaxed">
-           Sistem keuangan butuh tempat penyimpanan baru bro. <br/>
-           Jangan panik, cukup <strong>Copy kode di bawah</strong> terus jalankan di menu <strong>SQL Editor</strong> Supabase lu.
+           Fitur keuangan memerlukan tabel baru. Silakan jalankan script berikut di Supabase SQL Editor.
          </p>
-         
          <div className="bg-gray-900 rounded-xl p-4 w-full text-left relative group border border-gray-700">
            <pre className="text-gray-300 text-[10px] font-mono overflow-x-auto whitespace-pre-wrap">
 {`create table public.payment_logs (
@@ -122,36 +184,17 @@ for all using (true) with check (true);`;
   description text,
   category text
 );
-
 alter table public.payment_logs enable row level security;
-
 create policy "Enable all access for anon" on public.payment_logs
 for all using (true) with check (true);`}
            </pre>
-           <button 
-             onClick={copySQL}
-             className="absolute top-2 right-2 p-2 bg-white/10 hover:bg-white/20 rounded-lg text-white transition flex items-center gap-2 text-xs font-bold"
-           >
-             {copied ? <Check size={14}/> : <Copy size={14}/>} {copied ? 'Udah Dicopy!' : 'Copy SQL'}
+           <button onClick={copySQL} className="absolute top-2 right-2 p-2 bg-white/10 hover:bg-white/20 rounded-lg text-white transition flex items-center gap-2 text-xs font-bold">
+             {copied ? <Check size={14}/> : <Copy size={14}/>} {copied ? 'Copied' : 'Copy'}
            </button>
          </div>
-
-         <div className="mt-6 flex flex-col gap-2 w-full">
-            <a 
-              href="https://supabase.com/dashboard/project/_/sql" 
-              target="_blank"
-              rel="noreferrer"
-              className="bg-gray-800 hover:bg-gray-900 text-white px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition"
-            >
-              Buka Supabase SQL Editor 
-              <ArrowUpRight size={16} />
-            </a>
-            <button 
-              onClick={fetchLogs}
-              className="bg-nature-600 hover:bg-nature-700 text-white px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition"
-            >
-              <Loader2 size={16} className={isLoading ? 'animate-spin' : 'hidden'} />
-              Udah Dijalankan? Refresh Disini
+         <div className="mt-6">
+            <button onClick={fetchData} className="bg-nature-600 hover:bg-nature-700 text-white px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition">
+              <Loader2 size={16} className={isLoading ? 'animate-spin' : 'hidden'} /> Refresh Data
             </button>
          </div>
       </div>
@@ -160,161 +203,288 @@ for all using (true) with check (true);`}
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden min-h-[600px] flex flex-col">
-      {/* Header */}
+      {/* Header & Controls */}
       <div className="p-6 border-b border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4 bg-nature-50">
         <div>
           <h3 className="font-bold text-lg text-nature-800 flex items-center gap-2">
-            <DollarSign size={20} /> Laporan Keuangan Harian
+            <DollarSign size={20} /> Manajemen Keuangan
           </h3>
-          <p className="text-xs text-nature-600 mt-1">Rekap kas masuk & keluar per hari</p>
+          <p className="text-xs text-nature-600 mt-1">
+             {viewMode === 'daily' ? 'Laporan detail arus kas harian' : 'Rekapitulasi omset & profit bulanan'}
+          </p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="relative">
+        
+        <div className="flex bg-white p-1 rounded-xl border border-gray-200 shadow-sm">
+            <button 
+                onClick={() => setViewMode('daily')}
+                className={`px-4 py-2 rounded-lg text-xs font-bold transition ${viewMode === 'daily' ? 'bg-nature-100 text-nature-700' : 'text-gray-500 hover:bg-gray-50'}`}
+            >
+                Harian
+            </button>
+            <button 
+                onClick={() => setViewMode('monthly')}
+                className={`px-4 py-2 rounded-lg text-xs font-bold transition ${viewMode === 'monthly' ? 'bg-nature-100 text-nature-700' : 'text-gray-500 hover:bg-gray-50'}`}
+            >
+                Bulanan
+            </button>
+        </div>
+
+        <div className="relative">
             <Calendar className="absolute left-3 top-2.5 text-gray-400" size={16} />
-            <input 
-              type="date" 
-              className="pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-nature-500 outline-none text-sm font-bold text-gray-700"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-            />
-          </div>
+            {viewMode === 'daily' ? (
+                <input 
+                  type="date" 
+                  className="pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-nature-500 outline-none text-sm font-bold text-gray-700"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                />
+            ) : (
+                <input 
+                  type="month" 
+                  className="pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-nature-500 outline-none text-sm font-bold text-gray-700"
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                />
+            )}
         </div>
       </div>
 
       <div className="p-6 flex-1 overflow-y-auto">
-        {/* Summary Cards */}
+        {/* SUMMARY CARDS */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-green-50 p-5 rounded-2xl border border-green-100">
-            <p className="text-xs font-bold text-green-600 uppercase tracking-wider mb-2 flex items-center gap-2">
-               <Wallet size={16}/> Total Uang Cash (Net)
-            </p>
-            <h4 className="text-2xl font-black text-green-700">Rp{totalCash.toLocaleString('id-ID')}</h4>
-            <p className="text-xs text-green-600 mt-1 opacity-80">Ada di laci kasir</p>
-          </div>
-          
-          <div className="bg-blue-50 p-5 rounded-2xl border border-blue-100">
-            <p className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-2 flex items-center gap-2">
-               <CreditCard size={16}/> Total Transfer Masuk
-            </p>
-            <h4 className="text-2xl font-black text-blue-700">Rp{totalTransfer.toLocaleString('id-ID')}</h4>
-            <p className="text-xs text-blue-600 mt-1 opacity-80">Cek mutasi bank</p>
-          </div>
-
-          <div className="bg-gray-800 p-5 rounded-2xl border border-gray-700 text-white">
-             <div className="flex justify-between items-start">
-               <div>
-                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
-                     Omset Harian (Net)
-                  </p>
-                  <h4 className="text-2xl font-black">Rp{netTotal.toLocaleString('id-ID')}</h4>
-               </div>
-               <div className="text-right text-xs space-y-1">
-                 <div className="text-green-400">Masuk: +{totalIn.toLocaleString('id-ID')}</div>
-                 <div className="text-red-400">Keluar: -{totalOut.toLocaleString('id-ID')}</div>
-               </div>
-             </div>
-          </div>
-        </div>
-
-        {/* Action Button: Manual Entry */}
-        <div className="mb-6">
-           {!isManualEntryOpen ? (
-             <button 
-               onClick={() => setIsManualEntryOpen(true)}
-               className="flex items-center gap-2 text-sm font-bold text-nature-700 bg-nature-50 px-4 py-2 rounded-lg hover:bg-nature-100 transition border border-nature-200"
-             >
-               <Plus size={16}/> Catat Kas Manual (Bensin/Makan/Lainnya)
-             </button>
-           ) : (
-             <form onSubmit={handleManualSubmit} className="bg-gray-50 p-4 rounded-xl border border-gray-200 animate-slide-in-right">
-                <h4 className="text-sm font-bold text-gray-800 mb-3">Input Transaksi Manual</h4>
-                <div className="flex flex-col md:flex-row gap-3 items-end">
-                   <div className="flex-1 w-full">
-                      <label className="text-xs font-bold text-gray-500 mb-1 block">Keterangan</label>
-                      <input 
-                        type="text" 
-                        placeholder="Contoh: Beli Token Listrik" 
-                        className="w-full px-3 py-2 border rounded-lg text-sm"
-                        value={manualDesc}
-                        onChange={e => setManualDesc(e.target.value)}
-                        autoFocus
-                      />
-                   </div>
-                   <div className="w-full md:w-40">
-                      <label className="text-xs font-bold text-gray-500 mb-1 block">Nominal</label>
-                      <input 
-                        type="number" 
-                        className="w-full px-3 py-2 border rounded-lg text-sm"
-                        value={manualAmount === 0 ? '' : manualAmount}
-                        onChange={e => setManualAmount(Number(e.target.value))}
-                      />
-                   </div>
-                   <div className="w-full md:w-32">
-                      <label className="text-xs font-bold text-gray-500 mb-1 block">Jenis</label>
-                      <select 
-                        className="w-full px-3 py-2 border rounded-lg text-sm font-bold"
-                        value={manualType}
-                        onChange={e => setManualType(e.target.value as 'IN' | 'OUT')}
-                      >
-                         <option value="OUT">Pengeluaran</option>
-                         <option value="IN">Pemasukan</option>
-                      </select>
-                   </div>
-                   <div className="flex gap-2">
-                      <button type="submit" className="bg-nature-600 text-white p-2 rounded-lg hover:bg-nature-700">
-                         <Save size={18} />
-                      </button>
-                      <button type="button" onClick={() => setIsManualEntryOpen(false)} className="bg-gray-200 text-gray-600 p-2 rounded-lg hover:bg-gray-300">
-                         <Plus size={18} className="rotate-45" />
-                      </button>
-                   </div>
+          {viewMode === 'daily' ? (
+              // DAILY CARDS
+              <>
+                <div className="bg-green-50 p-5 rounded-2xl border border-green-100">
+                    <p className="text-xs font-bold text-green-600 uppercase tracking-wider mb-2 flex items-center gap-2">
+                    <Wallet size={16}/> Kasir (Cash Only)
+                    </p>
+                    <h4 className="text-2xl font-black text-green-700">Rp{summary.netCash.toLocaleString('id-ID')}</h4>
+                    <p className="text-xs text-green-600 mt-1 opacity-80">Sisa uang di laci</p>
                 </div>
-             </form>
-           )}
+                
+                <div className="bg-blue-50 p-5 rounded-2xl border border-blue-100">
+                    <p className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-2 flex items-center gap-2">
+                    <CreditCard size={16}/> Transfer Masuk
+                    </p>
+                    <h4 className="text-2xl font-black text-blue-700">Rp{summary.transferIn.toLocaleString('id-ID')}</h4>
+                    <p className="text-xs text-blue-600 mt-1 opacity-80">Cek mutasi bank</p>
+                </div>
+
+                <div className="bg-gray-800 p-5 rounded-2xl border border-gray-700 text-white">
+                    <div className="flex justify-between items-start">
+                        <div>
+                            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Omset Harian</p>
+                            <h4 className="text-2xl font-black">Rp{summary.netTotal.toLocaleString('id-ID')}</h4>
+                        </div>
+                        <div className="text-right text-xs space-y-1">
+                            <div className="text-green-400">Total Masuk: +{summary.totalIn.toLocaleString('id-ID')}</div>
+                            <div className="text-red-400">Keluar: -{summary.totalOut.toLocaleString('id-ID')}</div>
+                        </div>
+                    </div>
+                </div>
+              </>
+          ) : (
+              // MONTHLY CARDS
+              <>
+                <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-2">
+                        <TrendingUp size={16} className="text-green-500"/> Total Pemasukan
+                    </p>
+                    <h4 className="text-2xl font-black text-gray-800">Rp{summary.totalIn.toLocaleString('id-ID')}</h4>
+                    <p className="text-xs text-gray-400 mt-1">Akumulasi sewa & pendapatan lain</p>
+                </div>
+
+                <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-2">
+                        <ArrowDownLeft size={16} className="text-red-500"/> Total Pengeluaran
+                    </p>
+                    <h4 className="text-2xl font-black text-gray-800">Rp{summary.totalOut.toLocaleString('id-ID')}</h4>
+                    <p className="text-xs text-gray-400 mt-1">Operasional & Kas Kecil</p>
+                </div>
+
+                <div className="bg-gradient-to-br from-nature-800 to-nature-900 p-5 rounded-2xl border border-nature-700 text-white shadow-lg">
+                    <p className="text-xs font-bold text-nature-200 uppercase tracking-wider mb-2 flex items-center gap-2">
+                        <DollarSign size={16}/> Profit Bersih (Net)
+                    </p>
+                    <h4 className="text-3xl font-black">Rp{summary.netTotal.toLocaleString('id-ID')}</h4>
+                    <p className="text-xs text-nature-200 mt-1">Keuntungan bulan ini</p>
+                </div>
+              </>
+          )}
         </div>
 
-        {/* Transaction Table */}
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-           <table className="w-full text-sm text-left">
-              <thead className="bg-gray-50 text-gray-600 font-bold border-b border-gray-200">
-                 <tr>
-                    <th className="px-6 py-3">Jam</th>
-                    <th className="px-6 py-3">Keterangan</th>
-                    <th className="px-6 py-3">Metode</th>
-                    <th className="px-6 py-3 text-right">Nominal</th>
-                 </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                 {isLoading ? (
-                    <tr><td colSpan={4} className="p-8 text-center"><Loader2 className="animate-spin mx-auto text-gray-400"/></td></tr>
-                 ) : logs.length === 0 ? (
-                    <tr><td colSpan={4} className="p-8 text-center text-gray-400 italic">Belum ada transaksi hari ini.</td></tr>
-                 ) : (
-                    logs.map(log => (
-                       <tr key={log.id} className="hover:bg-gray-50 transition">
-                          <td className="px-6 py-3 text-gray-500 font-mono text-xs">
-                             {new Date(log.created_at).toLocaleTimeString('id-ID', {hour: '2-digit', minute:'2-digit'})}
-                          </td>
-                          <td className="px-6 py-3">
-                             <span className="font-bold text-gray-800">{log.description}</span>
-                             {log.transaction_id && <span className="text-xs text-gray-400 block">Ref: #{log.transaction_id.slice(0,6)}</span>}
-                          </td>
-                          <td className="px-6 py-3">
-                             {log.payment_method === 'cash' ? (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-green-50 text-green-700 text-xs font-bold uppercase border border-green-100"><Wallet size={10}/> Cash</span>
-                             ) : (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-50 text-blue-700 text-xs font-bold uppercase border border-blue-100"><CreditCard size={10}/> Transfer</span>
-                             )}
-                          </td>
-                          <td className={`px-6 py-3 text-right font-bold ${log.type === 'IN' ? 'text-green-600' : 'text-red-500'}`}>
-                             {log.type === 'IN' ? '+' : '-'} Rp{log.amount.toLocaleString('id-ID')}
-                          </td>
-                       </tr>
-                    ))
-                 )}
-              </tbody>
-           </table>
-        </div>
+        {/* MONTHLY CHART & TABLE */}
+        {viewMode === 'monthly' && (
+            <div className="mb-8 space-y-6">
+                {/* CHART */}
+                <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+                    <h4 className="font-bold text-gray-800 mb-6 flex items-center gap-2">
+                        <BarChart3 size={20} className="text-nature-600"/> Tren Pendapatan Harian ({new Date(selectedMonth).toLocaleDateString('id-ID', {month:'long', year:'numeric'})})
+                    </h4>
+                    <div className="h-48 flex items-end gap-2 overflow-x-auto pb-2 custom-scrollbar px-2">
+                        {dailyAggregates.map((d, i) => {
+                            const heightPercent = Math.round((d.in / maxChartValue) * 100);
+                            const barHeight = d.in > 0 ? `${Math.max(heightPercent, 5)}%` : '2px';
+                            return (
+                                <div key={i} className="flex flex-col justify-end items-center flex-1 min-w-[20px] group relative h-full">
+                                    {/* Tooltip */}
+                                    <div className="opacity-0 group-hover:opacity-100 absolute bottom-full mb-2 bg-gray-900 text-white text-[10px] p-2 rounded z-10 w-28 text-center pointer-events-none transition-opacity">
+                                        <div className="font-bold mb-1">{new Date(d.date).toLocaleDateString('id-ID', {day:'numeric', month:'short'})}</div>
+                                        <div className="text-green-300">In: {d.in.toLocaleString('id-ID')}</div>
+                                        <div className="text-red-300">Out: {d.out.toLocaleString('id-ID')}</div>
+                                    </div>
+                                    <div className={`w-full rounded-t transition-all ${d.in > 0 ? 'bg-nature-500 group-hover:bg-nature-600' : 'bg-gray-100'}`} style={{ height: barHeight }}></div>
+                                    <span className="text-[9px] text-gray-400 mt-1">{new Date(d.date).getDate()}</span>
+                                </div>
+                            )
+                        })}
+                    </div>
+                </div>
+
+                {/* AGGREGATE TABLE */}
+                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                    <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+                        <h4 className="font-bold text-gray-700 text-sm">Rincian Per Tanggal</h4>
+                    </div>
+                    <div className="max-h-80 overflow-y-auto">
+                        <table className="w-full text-sm text-left">
+                            <thead className="bg-white text-gray-500 font-bold sticky top-0 shadow-sm">
+                                <tr>
+                                    <th className="px-6 py-3">Tanggal</th>
+                                    <th className="px-6 py-3 text-right text-green-600">Pemasukan</th>
+                                    <th className="px-6 py-3 text-right text-red-500">Pengeluaran</th>
+                                    <th className="px-6 py-3 text-right">Bersih</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {dailyAggregates.slice().reverse().map((d, idx) => (
+                                    <tr key={idx} className="hover:bg-gray-50">
+                                        <td className="px-6 py-3 font-medium text-gray-700">
+                                            {new Date(d.date).toLocaleDateString('id-ID', {weekday:'long', day:'numeric', month:'long'})}
+                                        </td>
+                                        <td className="px-6 py-3 text-right font-bold text-green-700">
+                                            {d.in > 0 ? `+${d.in.toLocaleString('id-ID')}` : '-'}
+                                        </td>
+                                        <td className="px-6 py-3 text-right font-bold text-red-500">
+                                            {d.out > 0 ? `-${d.out.toLocaleString('id-ID')}` : '-'}
+                                        </td>
+                                        <td className="px-6 py-3 text-right font-bold text-gray-900">
+                                            Rp{(d.in - d.out).toLocaleString('id-ID')}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {/* DAILY VIEW: ACTION & TABLE */}
+        {viewMode === 'daily' && (
+            <>
+                {/* Manual Entry Button */}
+                <div className="mb-6">
+                    {!isManualEntryOpen ? (
+                        <button 
+                        onClick={() => setIsManualEntryOpen(true)}
+                        className="flex items-center gap-2 text-sm font-bold text-nature-700 bg-nature-50 px-4 py-2 rounded-lg hover:bg-nature-100 transition border border-nature-200"
+                        >
+                        <Plus size={16}/> Catat Kas Manual (Bensin/Makan/Lainnya)
+                        </button>
+                    ) : (
+                        <form onSubmit={handleManualSubmit} className="bg-gray-50 p-4 rounded-xl border border-gray-200 animate-slide-in-right">
+                            <h4 className="text-sm font-bold text-gray-800 mb-3">Input Transaksi Manual ({new Date(selectedDate).toLocaleDateString('id-ID')})</h4>
+                            <div className="flex flex-col md:flex-row gap-3 items-end">
+                                <div className="flex-1 w-full">
+                                    <label className="text-xs font-bold text-gray-500 mb-1 block">Keterangan</label>
+                                    <input 
+                                        type="text" 
+                                        placeholder="Contoh: Beli Token Listrik" 
+                                        className="w-full px-3 py-2 border rounded-lg text-sm"
+                                        value={manualDesc}
+                                        onChange={e => setManualDesc(e.target.value)}
+                                        autoFocus
+                                    />
+                                </div>
+                                <div className="w-full md:w-40">
+                                    <label className="text-xs font-bold text-gray-500 mb-1 block">Nominal</label>
+                                    <input 
+                                        type="number" 
+                                        className="w-full px-3 py-2 border rounded-lg text-sm"
+                                        value={manualAmount === 0 ? '' : manualAmount}
+                                        onChange={e => setManualAmount(Number(e.target.value))}
+                                    />
+                                </div>
+                                <div className="w-full md:w-32">
+                                    <label className="text-xs font-bold text-gray-500 mb-1 block">Jenis</label>
+                                    <select 
+                                        className="w-full px-3 py-2 border rounded-lg text-sm font-bold"
+                                        value={manualType}
+                                        onChange={e => setManualType(e.target.value as 'IN' | 'OUT')}
+                                    >
+                                        <option value="OUT">Pengeluaran</option>
+                                        <option value="IN">Pemasukan</option>
+                                    </select>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button type="submit" className="bg-nature-600 text-white p-2 rounded-lg hover:bg-nature-700">
+                                        <Save size={18} />
+                                    </button>
+                                    <button type="button" onClick={() => setIsManualEntryOpen(false)} className="bg-gray-200 text-gray-600 p-2 rounded-lg hover:bg-gray-300">
+                                        <Plus size={18} className="rotate-45" />
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    )}
+                </div>
+
+                {/* Daily Transaction Table */}
+                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                    <table className="w-full text-sm text-left">
+                        <thead className="bg-gray-50 text-gray-600 font-bold border-b border-gray-200">
+                            <tr>
+                                <th className="px-6 py-3">Jam</th>
+                                <th className="px-6 py-3">Keterangan</th>
+                                <th className="px-6 py-3">Metode</th>
+                                <th className="px-6 py-3 text-right">Nominal</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                            {isLoading ? (
+                                <tr><td colSpan={4} className="p-8 text-center"><Loader2 className="animate-spin mx-auto text-gray-400"/></td></tr>
+                            ) : logs.length === 0 ? (
+                                <tr><td colSpan={4} className="p-8 text-center text-gray-400 italic">Belum ada transaksi hari ini.</td></tr>
+                            ) : (
+                                logs.map(log => (
+                                <tr key={log.id} className="hover:bg-gray-50 transition">
+                                    <td className="px-6 py-3 text-gray-500 font-mono text-xs">
+                                        {new Date(log.created_at).toLocaleTimeString('id-ID', {hour: '2-digit', minute:'2-digit'})}
+                                    </td>
+                                    <td className="px-6 py-3">
+                                        <span className="font-bold text-gray-800">{log.description}</span>
+                                        {log.transaction_id && <span className="text-xs text-gray-400 block">Ref: #{log.transaction_id.slice(0,6)}</span>}
+                                    </td>
+                                    <td className="px-6 py-3">
+                                        {log.payment_method === 'cash' ? (
+                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-green-50 text-green-700 text-xs font-bold uppercase border border-green-100"><Wallet size={10}/> Cash</span>
+                                        ) : (
+                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-50 text-blue-700 text-xs font-bold uppercase border border-blue-100"><CreditCard size={10}/> Transfer</span>
+                                        )}
+                                    </td>
+                                    <td className={`px-6 py-3 text-right font-bold ${log.type === 'IN' ? 'text-green-600' : 'text-red-500'}`}>
+                                        {log.type === 'IN' ? '+' : '-'} Rp{log.amount.toLocaleString('id-ID')}
+                                    </td>
+                                </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </>
+        )}
       </div>
     </div>
   );

@@ -102,16 +102,17 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
         if (group.imageUrl) finalColorImages.push({ color: group.colorName, url: group.imageUrl });
         finalColors.push(group.colorName);
         Object.entries(group.sizes).forEach(([size, stock]) => {
-          if (stock > 0) {
-            finalVariants.push({ color: group.colorName, size, stock });
-            finalStock += stock;
+          const qty = Number(stock);
+          if (qty > 0) {
+            finalVariants.push({ color: group.colorName, size, stock: qty });
+            finalStock += qty;
           }
         });
       });
       finalSizes = {};
     } else {
       finalSizes = simpleSizes;
-      const sizeStock = Object.values(simpleSizes).reduce((a, b) => a + b, 0);
+      const sizeStock = Object.values(simpleSizes).reduce((a: number, b: unknown) => a + Number(b), 0);
       finalStock = sizeStock > 0 ? sizeStock : (formData.stock || 0);
     }
 
