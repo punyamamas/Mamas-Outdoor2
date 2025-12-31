@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { ClipboardList, Loader2, Calendar, Eye, Trash2, X, User, CreditCard, Banknote, ArrowRightLeft, Save, Calculator, CheckCircle, RotateCcw, Wallet, Edit, Plus, Minus, Search, ShoppingBag, Printer, Filter, DollarSign, Receipt, BarChart3, TrendingUp, Lightbulb, AlertTriangle, ArrowUpRight, Share2, Image as ImageIcon } from 'lucide-react';
+import { ClipboardList, Loader2, Calendar, Eye, Trash2, X, User, CreditCard, Banknote, ArrowRightLeft, Save, Calculator, CheckCircle, RotateCcw, Wallet, Edit, Plus, Minus, Search, ShoppingBag, Printer, Filter, DollarSign, Receipt, BarChart3, TrendingUp, Lightbulb, AlertTriangle, ArrowUpRight, Share2, Image as ImageIcon, CreditCard as CardIcon } from 'lucide-react';
 import { Transaction, Product, CartItem } from '../types';
 import { updateTransactionPayment, updateTransactionItems, updateTransactionDetails, printInvoice, applyTransactionFine, calculateOverdueFine, copyInvoiceToClipboard } from '../services/transactionService';
 
@@ -77,6 +77,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
   const [editName, setEditName] = useState('');
   const [editWa, setEditWa] = useState('');
   const [editDuration, setEditDuration] = useState(2);
+  const [editIdentity, setEditIdentity] = useState(''); // NEW STATE
   const [isSavingInfo, setIsSavingInfo] = useState(false);
 
   // Reset input ke 0 setiap kali modal dibuka
@@ -92,6 +93,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
       setEditName(selectedTransaction.customerName);
       setEditWa(selectedTransaction.customerWhatsapp);
       setEditDuration(selectedTransaction.duration);
+      setEditIdentity(selectedTransaction.customerIdentity || ''); // INIT IDENTITY
     }
   }, [selectedTransaction]);
 
@@ -458,7 +460,8 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
     if (editDuration < 2) return alert("Durasi minimal 2 hari");
     
     setIsSavingInfo(true);
-    const success = await updateTransactionDetails(selectedTransaction.id, editName, editWa, editDuration);
+    // Updated to include editIdentity
+    const success = await updateTransactionDetails(selectedTransaction.id, editName, editWa, editDuration, editIdentity);
     
     if (success) {
         if (onRefreshData) await onRefreshData();
@@ -729,6 +732,11 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                       <td className="px-6 py-4 align-middle">
                         <div className="font-bold text-gray-900">{trx.customerName}</div>
                         <div className="text-xs text-gray-500">{trx.customerWhatsapp}</div>
+                        {trx.customerIdentity && (
+                           <div className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded mt-1 w-fit font-mono">
+                              ID: {trx.customerIdentity}
+                           </div>
+                        )}
                       </td>
                       <td className="px-6 py-4 align-middle">
                         <div className="font-bold text-nature-700">Rp{totalTrx.toLocaleString('id-ID')}</div>
@@ -949,6 +957,15 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                                   <input className="w-full border rounded px-2 py-1 text-sm" value={editWa} onChange={e => setEditWa(e.target.value)} />
                                 </div>
                                 <div>
+                                  <label className="text-[10px] font-bold text-gray-500">Identitas (KTP/KTM)</label>
+                                  <input 
+                                    className="w-full border rounded px-2 py-1 text-sm" 
+                                    placeholder="No Identitas..."
+                                    value={editIdentity} 
+                                    onChange={e => setEditIdentity(e.target.value)} 
+                                  />
+                                </div>
+                                <div>
                                   <label className="text-[10px] font-bold text-gray-500">Durasi (Hari)</label>
                                   <input type="number" min="2" className="w-full border rounded px-2 py-1 text-sm" value={editDuration} onChange={e => setEditDuration(parseInt(e.target.value)||2)} />
                                   <p className="text-[10px] text-orange-500 italic mt-0.5">*Total harga akan dihitung ulang otomatis.</p>
@@ -959,6 +976,9 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                                 <div>
                                   <p className="font-bold text-gray-800">{selectedTransaction.customerName}</p>
                                   <p className="text-sm text-gray-500">{selectedTransaction.customerWhatsapp}</p>
+                                  {selectedTransaction.customerIdentity && (
+                                     <p className="text-xs text-gray-500 mt-1 flex items-center gap-1"><CardIcon size={10}/> ID: {selectedTransaction.customerIdentity}</p>
+                                  )}
                                   <p className="text-xs font-bold text-nature-600 mt-1 bg-nature-50 inline-block px-2 py-0.5 rounded">Sewa {selectedTransaction.duration} Hari</p>
                                 </div>
                                 <div className="flex flex-col gap-1 items-end">

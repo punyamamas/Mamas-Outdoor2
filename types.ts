@@ -66,6 +66,7 @@ export interface Transaction {
   customerWhatsapp: string; // Mapped from customer_whatsapp
   customerCampus: string; // Mapped from customer_campus
   customerLocation?: string; // New Field: Lokasi dari IP Geolocation
+  customerIdentity?: string; // NEW: No KTP/KTM/SIM
   rentalDate: string; // Mapped from rental_date
   duration: number;
   totalPrice: number; // Mapped from total_price (Rental + Fine)

@@ -379,12 +379,13 @@ export const calculateOverdueFine = (transaction: Transaction): { daysLate: numb
   return { daysLate, fineAmount };
 };
 
-// NEW: Update Customer Data & Duration (Recalculate Price)
+// UPDATED: Update Customer Data, Duration & IDENTITY (Recalculate Price)
 export const updateTransactionDetails = async (
   id: string, 
   name: string, 
   whatsapp: string, 
-  duration: number
+  duration: number,
+  identity: string // NEW PARAMETER
 ): Promise<boolean> => {
   if (!supabase) return false;
 
@@ -417,12 +418,23 @@ export const updateTransactionDetails = async (
       customer_name: name,
       customer_whatsapp: whatsapp,
       duration: duration,
+      customer_identity: identity, // NEW FIELD
       total_price: newTotalPrice
     })
     .eq('id', id);
 
   if (error) {
     console.error("Error updating transaction details:", error);
+    // Jika error karena kolom belum ada, coba update tanpa identity
+    if(error.message.includes('customer_identity')) {
+       await supabase.from('transactions').update({
+          customer_name: name,
+          customer_whatsapp: whatsapp,
+          duration: duration,
+          total_price: newTotalPrice
+        }).eq('id', id);
+       return true;
+    }
     return false;
   }
 
@@ -625,6 +637,7 @@ export const copyInvoiceToClipboard = async (
           <tr><td style="width:35%;">Jenis</td><td style="text-align:right; font-weight:900;">${titleText}</td></tr>
           <tr><td>No Nota</td><td style="text-align:right;">TRX/${trx.id.slice(0, 8).toUpperCase()}</td></tr>
           <tr><td>Pelanggan</td><td style="text-align:right;">${trx.customerName.slice(0,15)}</td></tr>
+          <tr><td>Identitas</td><td style="text-align:right;">${trx.customerIdentity || '-'}</td></tr>
           <tr><td>Tanggal</td><td style="text-align:right;">${dateStr}</td></tr>
         </table>
         <div style="border-bottom:1px dashed #000; margin:10px 0;"></div>
@@ -860,6 +873,7 @@ export const printInvoice = (
           <tr><td class="meta-label">Jenis</td><td class="meta-val" style="font-weight:900">${titleText}</td></tr>
           <tr><td class="meta-label">No Nota</td><td class="meta-val">TRX/${trx.id.slice(0, 8).toUpperCase()}</td></tr>
           <tr><td class="meta-label">Pelanggan</td><td class="meta-val">MO-${trx.id.slice(0,4)} ${trx.customerName}</td></tr>
+          <tr><td class="meta-label">Identitas</td><td class="meta-val">${trx.customerIdentity || '-'}</td></tr>
           <tr><td class="meta-label">Tanggal</td><td class="meta-val">${dateStr} - ${timeStr}</td></tr>
           <tr><td class="meta-label">Kasir</td><td class="meta-val">Admin Mamas Outdoor</td></tr>
         </table>
@@ -908,6 +922,7 @@ const mapDbToTransaction = (dbItem: any): Transaction => {
     customerWhatsapp: dbItem.customer_whatsapp,
     customerCampus: dbItem.customer_campus || '-', 
     customerLocation: dbItem.customer_location || undefined, 
+    customerIdentity: dbItem.customer_identity || undefined, // MAP NEW FIELD
     rentalDate: dbItem.rental_date,
     duration: dbItem.duration,
     totalPrice: dbItem.total_price,
