@@ -1,3 +1,4 @@
+
 import { supabase } from './supabase';
 import { Review } from '../types';
 
@@ -34,10 +35,6 @@ export const submitReview = async (
         return false;
     }
 
-    // 2. Update flag is_reviewed di transaksi (Opsional, tapi bagus untuk UI)
-    // Kita asumsikan ada kolom 'is_reviewed' atau kita cek manual nanti.
-    // Untuk simplifikasi, kita simpan di LocalStorage juga di frontend.
-    
     return true;
   } catch (err) {
     console.error("Error submitting review:", err);
@@ -57,4 +54,46 @@ export const getReviews = async (): Promise<Review[]> => {
 
   if (error) return [];
   return data as Review[];
+};
+
+// NEW FUNCTION: Ambil review khusus untuk Produk tertentu
+export const getReviewsForProduct = async (productId: string): Promise<Review[]> => {
+  if (!supabase) return [];
+
+  try {
+    // 1. Ambil semua review publik (Optimasi: Limit 50 terakhir agar tidak berat)
+    const { data: reviews, error } = await supabase
+      .from('reviews')
+      .select('*')
+      .eq('is_public', true)
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (error || !reviews || reviews.length === 0) return [];
+
+    // 2. Ambil detail transaksi terkait review tersebut
+    const transactionIds = reviews.map(r => r.transaction_id);
+    const { data: transactions } = await supabase
+      .from('transactions')
+      .select('id, items')
+      .in('id', transactionIds);
+
+    if (!transactions) return [];
+
+    // 3. Filter: Cari transaksi yang mengandung productId yang sedang dilihat
+    const validTransactionIds = transactions
+      .filter((t: any) => {
+         // Cek apakah items (JSON array) mengandung produk id ini
+         const items = t.items || [];
+         return items.some((item: any) => item.id === productId);
+      })
+      .map((t: any) => t.id);
+
+    // 4. Return review yang transaksinya valid
+    return reviews.filter(r => validTransactionIds.includes(r.transaction_id));
+
+  } catch (err) {
+    console.error("Error fetching product reviews:", err);
+    return [];
+  }
 };

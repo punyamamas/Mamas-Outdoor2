@@ -1,8 +1,9 @@
 
-import React, { useState, useEffect } from 'react';
-import { X, ShoppingCart, Check, Layers, Clock, Sparkles, Tag, ShieldCheck, Zap, Scissors, Palette, Heart, ShoppingBag, PackageOpen, Star, User } from 'lucide-react';
-import { Product } from '../types';
+import React, { useState, useEffect, useMemo } from 'react';
+import { X, ShoppingCart, Check, Layers, Clock, Sparkles, Tag, ShieldCheck, Zap, Scissors, Palette, Heart, ShoppingBag, PackageOpen, Star, User, MessageSquare } from 'lucide-react';
+import { Product, Review } from '../types';
 import ImageLoader from './ImageLoader';
+import { getReviewsForProduct } from '../services/reviewService';
 
 interface ProductDetailModalProps {
   isOpen: boolean;
@@ -12,13 +13,6 @@ interface ProductDetailModalProps {
   onAddToCart: (product: Product, size?: string, color?: string) => void;
   isInCart: boolean;
 }
-
-// Helper Mock Reviews (Agar tampilan tidak kosong)
-const MOCK_REVIEWS = [
-  { id: 1, name: 'Budi Santoso', rating: 5, comment: 'Barang mantap, tenda aman gak bocor pas badai di Slamet!', date: '2 hari lalu' },
-  { id: 2, name: 'Siti Aminah', rating: 5, comment: 'Pelayanan ramah, alat bersih wangi. Recommended buat maba!', date: '1 minggu lalu' },
-  { id: 3, name: 'Rizky', rating: 4, comment: 'Carrier nyaman dipake, cuma agak berdebu dikit bagian bawah.', date: '2 minggu lalu' },
-];
 
 const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ 
   isOpen, 
@@ -35,6 +29,10 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   
   // Tab State
   const [activeTab, setActiveTab] = useState<'details' | 'reviews'>('details');
+  
+  // Review State
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [isLoadingReviews, setIsLoadingReviews] = useState(false);
 
   // Reset selections when modal opens/product changes
   useEffect(() => {
@@ -43,7 +41,11 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       setSelectedColor(null);
       setDisplayImage(product.image);
       setActiveTab('details');
+      setReviews([]); // Reset reviews
       
+      // Load Reviews Realtime
+      loadReviews(product.id);
+
       // Check Wishlist Status from LocalStorage
       const savedWishlist = localStorage.getItem('mamasWishlist');
       if (savedWishlist) {
@@ -54,6 +56,20 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       }
     }
   }, [product]);
+
+  const loadReviews = async (id: string) => {
+    setIsLoadingReviews(true);
+    const data = await getReviewsForProduct(id);
+    setReviews(data);
+    setIsLoadingReviews(false);
+  };
+
+  // Kalkulasi Rata-rata Rating
+  const averageRating = useMemo(() => {
+    if (reviews.length === 0) return 0;
+    const sum = reviews.reduce((acc, r) => acc + r.rating, 0);
+    return (sum / reviews.length).toFixed(1);
+  }, [reviews]);
 
   // Effect: Update image when color changes
   useEffect(() => {
@@ -279,7 +295,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                  </span>
                  {/* Rating Badge */}
                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-yellow-50 text-yellow-700 text-xs font-bold border border-yellow-100">
-                    <Star size={14} className="fill-current" /> 4.9 (24 Review)
+                    <Star size={14} className="fill-current" /> {reviews.length > 0 ? `${averageRating} (${reviews.length} Ulasan)` : 'Baru'}
                  </span>
               </div>
 
@@ -295,7 +311,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                    onClick={() => setActiveTab('reviews')}
                    className={`pb-3 px-4 text-sm font-bold transition border-b-2 ${activeTab === 'reviews' ? 'border-nature-600 text-nature-700' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
                  >
-                   Ulasan (3)
+                   Ulasan ({reviews.length})
                  </button>
               </div>
 
@@ -478,30 +494,50 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 </>
               ) : (
                 <div className="space-y-4 animate-slide-in-right">
-                   {MOCK_REVIEWS.map((review) => (
-                      <div key={review.id} className="p-4 bg-gray-50 rounded-xl border border-gray-100">
-                         <div className="flex justify-between items-start mb-2">
-                            <div className="flex items-center gap-2">
-                               <div className="w-8 h-8 rounded-full bg-nature-100 text-nature-700 flex items-center justify-center font-bold text-xs">
-                                  {review.name.charAt(0)}
-                               </div>
-                               <div>
-                                  <p className="text-sm font-bold text-gray-900">{review.name}</p>
-                                  <div className="flex text-yellow-400">
-                                     {[...Array(5)].map((_, i) => (
-                                        <Star key={i} size={12} fill={i < review.rating ? "currentColor" : "none"} className={i >= review.rating ? "text-gray-300" : ""} />
-                                     ))}
-                                  </div>
-                               </div>
-                            </div>
-                            <span className="text-[10px] text-gray-400">{review.date}</span>
-                         </div>
-                         <p className="text-sm text-gray-600 leading-relaxed italic">"{review.comment}"</p>
+                   {isLoadingReviews ? (
+                      <div className="flex justify-center py-8">
+                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-nature-600"></div>
                       </div>
-                   ))}
-                   <div className="text-center p-4">
-                      <p className="text-xs text-gray-400">Ulasan diambil dari pelanggan terverifikasi.</p>
-                   </div>
+                   ) : reviews.length === 0 ? (
+                      <div className="text-center py-10 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                         <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                            <MessageSquare className="text-gray-400" size={24} />
+                         </div>
+                         <p className="text-sm font-bold text-gray-600">Belum ada ulasan untuk alat ini.</p>
+                         <p className="text-xs text-gray-400 mt-1">Jadilah yang pertama menyewa dan mereview!</p>
+                      </div>
+                   ) : (
+                      <>
+                        {reviews.map((review) => (
+                            <div key={review.id} className="p-4 bg-gray-50 rounded-xl border border-gray-100">
+                              <div className="flex justify-between items-start mb-2">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-8 h-8 rounded-full bg-nature-100 text-nature-700 flex items-center justify-center font-bold text-xs">
+                                        {review.customer_name ? review.customer_name.charAt(0).toUpperCase() : 'U'}
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-bold text-gray-900">{review.customer_name}</p>
+                                        <div className="flex text-yellow-400">
+                                          {[...Array(5)].map((_, i) => (
+                                              <Star key={i} size={12} fill={i < review.rating ? "currentColor" : "none"} className={i >= review.rating ? "text-gray-300" : ""} />
+                                          ))}
+                                        </div>
+                                    </div>
+                                  </div>
+                                  <span className="text-[10px] text-gray-400">
+                                    {new Date(review.created_at).toLocaleDateString('id-ID', {day:'numeric', month:'short', year:'numeric'})}
+                                  </span>
+                              </div>
+                              <p className="text-sm text-gray-600 leading-relaxed italic">"{review.comment}"</p>
+                            </div>
+                        ))}
+                        <div className="text-center p-4">
+                            <p className="text-[10px] text-gray-400">
+                              Menampilkan ulasan dari pelanggan yang menyewa produk ini (via history transaksi).
+                            </p>
+                        </div>
+                      </>
+                   )}
                 </div>
               )}
             </div>
