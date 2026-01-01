@@ -6,11 +6,9 @@ import { processStockReduction, processStockRestoration } from './productService
 import html2canvas from 'html2canvas';
 import QRCode from 'qrcode'; // Import QRCode Library
 
-// ... (Existing functions: createTransaction, getTransactions, getTransactionsByDateRange, refreshTransactions, getTransactionsByPhone, recordPaymentLog, getPaymentLogs, updateTransactionPayment, applyTransactionFine, updateTransactionStatus, calculateItemPriceForDuration, calculateOverdueFine, updateTransactionDetails, updateTransactionItems, deleteTransaction) ...
+// ... (Keep existing functions: createTransaction, getTransactions, getTransactionsByDateRange, refreshTransactions, getTransactionsByPhone, recordPaymentLog, getPaymentLogs, updateTransactionPayment, uploadPaymentProof, applyTransactionFine, updateTransactionStatus, calculateItemPriceForDuration, calculateOverdueFine, updateTransactionDetails, updateTransactionItems, deleteTransaction) ...
 
-// ... createTransaction, getTransactions, etc are preserved ...
-
-// ... (Keep all functions exactly as they were until copyInvoiceToClipboard) ...
+// ... createTransaction, getTransactions, refreshTransactions, recordPaymentLog, getPaymentLogs, updateTransactionPayment, uploadPaymentProof, applyTransactionFine, updateTransactionStatus, calculateItemPriceForDuration, calculateOverdueFine, updateTransactionDetails, updateTransactionItems, deleteTransaction MUST BE PRESERVED AS IS ...
 
 export const createTransaction = async (
   userDetails: UserDetails, 
@@ -546,7 +544,7 @@ export const deleteTransaction = async (id: string): Promise<boolean> => {
   return true;
 };
 
-// UPDATED: COPY INVOICE WITH QR CODE
+// UPDATED: COPY INVOICE WITH QR CODE + PERIOD + IDENTITY
 export const copyInvoiceToClipboard = async (
   trx: Transaction, 
   invoiceType: 'full' | 'rental' | 'fine' = 'full'
@@ -554,6 +552,13 @@ export const copyInvoiceToClipboard = async (
   const dateObj = new Date(trx.created_at || new Date());
   const dateStr = dateObj.toLocaleDateString('id-ID'); 
   const timeStr = dateObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }); 
+  
+  // Hitung Tanggal Kembali (Start + Duration - 1)
+  const startDate = new Date(trx.rentalDate);
+  const returnDate = new Date(startDate);
+  returnDate.setDate(startDate.getDate() + (trx.duration - 1));
+  const rentalPeriodStr = `${startDate.toLocaleDateString('id-ID', {day:'numeric', month:'short'})} s/d ${returnDate.toLocaleDateString('id-ID', {day:'numeric', month:'short', year:'numeric'})} (${trx.duration} Hari)`;
+
   const fine = trx.fineAmount || 0;
   const rentalTotal = trx.totalPrice - fine; 
   const paidGlobal = trx.amountPaid || 0;
@@ -653,7 +658,9 @@ export const copyInvoiceToClipboard = async (
           <tr><td style="width:35%;">Jenis</td><td style="text-align:right; font-weight:900;">${titleText}</td></tr>
           <tr><td>No Nota</td><td style="text-align:right;">TRX/${trx.id.slice(0, 8).toUpperCase()}</td></tr>
           <tr><td>Pelanggan</td><td style="text-align:right;">${trx.customerName.slice(0,15)}</td></tr>
+          <tr><td>Identitas</td><td style="text-align:right;">${trx.customerIdentity || '-'}</td></tr>
           <tr><td>Tanggal</td><td style="text-align:right;">${dateStr}</td></tr>
+          <tr><td colspan="2" style="padding-top:4px; font-style:italic;">Periode: ${rentalPeriodStr}</td></tr>
         </table>
         <div style="border-bottom:1px dashed #000; margin:10px 0;"></div>
         <div>
@@ -716,7 +723,7 @@ export const copyInvoiceToClipboard = async (
   }
 };
 
-// UPDATED: PRINT INVOICE WITH QR CODE
+// UPDATED: PRINT INVOICE WITH QR CODE + PERIOD + IDENTITY
 export const printInvoice = async (
   trx: Transaction, 
   mode: 'print' | 'view' = 'print',
@@ -728,6 +735,13 @@ export const printInvoice = async (
   const dateObj = new Date(trx.created_at || new Date());
   const dateStr = dateObj.toLocaleDateString('id-ID'); 
   const timeStr = dateObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }); 
+  
+  // Hitung Tanggal Kembali (Start + Duration - 1)
+  const startDate = new Date(trx.rentalDate);
+  const returnDate = new Date(startDate);
+  returnDate.setDate(startDate.getDate() + (trx.duration - 1));
+  const rentalPeriodStr = `${startDate.toLocaleDateString('id-ID', {day:'numeric', month:'short'})} s/d ${returnDate.toLocaleDateString('id-ID', {day:'numeric', month:'short', year:'2-digit'})} (${trx.duration} Hari)`;
+
   const fine = trx.fineAmount || 0;
   const rentalTotal = trx.totalPrice - fine; 
 
@@ -868,7 +882,9 @@ export const printInvoice = async (
           <tr><td class="meta-label">Jenis</td><td class="meta-val" style="font-weight:900">${titleText}</td></tr>
           <tr><td class="meta-label">No Nota</td><td class="meta-val">TRX/${trx.id.slice(0, 8).toUpperCase()}</td></tr>
           <tr><td class="meta-label">Pelanggan</td><td class="meta-val">MO-${trx.id.slice(0,4)} ${trx.customerName}</td></tr>
+          <tr><td class="meta-label">Jaminan</td><td class="meta-val">${trx.customerIdentity || '-'}</td></tr>
           <tr><td class="meta-label">Tanggal</td><td class="meta-val">${dateStr} - ${timeStr}</td></tr>
+          <tr><td colspan="2" style="padding-top:4px; font-style:italic;">Periode: ${rentalPeriodStr}</td></tr>
           <tr><td class="meta-label">Kasir</td><td class="meta-val">Admin Mamas Outdoor</td></tr>
         </table>
         <div class="dashed-line"></div>
