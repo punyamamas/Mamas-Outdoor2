@@ -22,13 +22,12 @@ export const submitReview = async (
         customer_name: customerName,
         rating: rating,
         comment: comment,
-        is_public: true // Default tampil, bisa diubah jadi false jika butuh moderasi
+        is_public: true // Default tampil
       }]);
 
     if (reviewError) {
-        // Handle jika tabel belum ada
         if (reviewError.code === '42P01') {
-            alert("Error: Tabel 'reviews' belum dibuat di Database.");
+            alert("Error: Tabel 'reviews' belum dibuat. Silakan ke Admin > System Setup dan jalankan SQL.");
             return false;
         }
         console.error("Gagal submit review:", reviewError);
@@ -50,7 +49,7 @@ export const getReviews = async (): Promise<Review[]> => {
     .select('*')
     .eq('is_public', true)
     .order('created_at', { ascending: false })
-    .limit(10); // Ambil 10 review terbaru
+    .limit(20);
 
   if (error) return [];
   return data as Review[];
@@ -61,13 +60,13 @@ export const getReviewsForProduct = async (productId: string): Promise<Review[]>
   if (!supabase) return [];
 
   try {
-    // 1. Ambil semua review publik (Optimasi: Limit 50 terakhir agar tidak berat)
+    // 1. Ambil 100 review terbaru (ditingkatkan dari 50)
     const { data: reviews, error } = await supabase
       .from('reviews')
       .select('*')
       .eq('is_public', true)
       .order('created_at', { ascending: false })
-      .limit(50);
+      .limit(100);
 
     if (error || !reviews || reviews.length === 0) return [];
 
@@ -81,11 +80,11 @@ export const getReviewsForProduct = async (productId: string): Promise<Review[]>
     if (!transactions) return [];
 
     // 3. Filter: Cari transaksi yang mengandung productId yang sedang dilihat
+    // FIX: Menggunakan String() untuk memastikan pencocokan "1" == 1 berhasil
     const validTransactionIds = transactions
       .filter((t: any) => {
-         // Cek apakah items (JSON array) mengandung produk id ini
          const items = t.items || [];
-         return items.some((item: any) => item.id === productId);
+         return items.some((item: any) => String(item.id) === String(productId));
       })
       .map((t: any) => t.id);
 
