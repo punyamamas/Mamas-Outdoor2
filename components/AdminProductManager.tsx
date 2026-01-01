@@ -1,7 +1,8 @@
 
-import React, { useState } from 'react';
-import { Plus, Search, Edit, Trash2, X, Layers, Scissors, Palette, Image as ImageIcon, Save, Loader2, ShoppingBag } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Plus, Search, Edit, Trash2, X, Layers, Scissors, Palette, Image as ImageIcon, Save, Loader2, ShoppingBag, Upload } from 'lucide-react';
 import { Product, Category, ProductVariant, ColorImage, PackageItem } from '../types';
+import { uploadProductImage } from '../services/productService';
 
 interface AdminProductManagerProps {
   products: Product[];
@@ -29,7 +30,11 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  
+  // File Input Ref
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Form States
   const [formData, setFormData] = useState<Partial<Product>>({
@@ -134,6 +139,32 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
       setIsModalOpen(false);
     } catch (e) { console.error(e); alert('Error saving product'); }
     finally { setIsSubmitting(false); }
+  };
+
+  // Image Upload Logic
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    const file = e.target.files[0];
+    
+    // Max 2MB
+    if (file.size > 2 * 1024 * 1024) {
+      return alert("Ukuran gambar maksimal 2MB agar loading cepat.");
+    }
+
+    setIsUploading(true);
+    try {
+      const url = await uploadProductImage(file);
+      if (url) {
+        setFormData({ ...formData, image: url });
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Gagal upload gambar.");
+    } finally {
+      setIsUploading(false);
+      // Reset input agar bisa upload file yang sama jika perlu
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   };
 
   // Package Logic
@@ -362,8 +393,27 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
                <div>
                   <label className="block text-sm font-bold mb-1">URL Gambar Utama</label>
                   <div className="flex gap-2">
-                    <input className="flex-1 border rounded p-2" value={formData.image} onChange={e => setFormData({...formData, image: e.target.value})} />
-                    <button type="button" className="p-2 border rounded hover:bg-gray-50"><ImageIcon size={20}/></button>
+                    <input className="flex-1 border rounded p-2" value={formData.image} onChange={e => setFormData({...formData, image: e.target.value})} placeholder="https://..." />
+                    
+                    {/* Hidden File Input */}
+                    <input 
+                      type="file" 
+                      ref={fileInputRef} 
+                      className="hidden" 
+                      accept="image/*" 
+                      onChange={handleImageUpload} 
+                    />
+                    
+                    {/* Active Upload Button */}
+                    <button 
+                      type="button" 
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploading}
+                      className="p-2 border rounded hover:bg-gray-50 flex items-center justify-center text-gray-600 w-12"
+                      title="Upload Gambar dari Device"
+                    >
+                      {isUploading ? <Loader2 size={20} className="animate-spin" /> : <Upload size={20}/>}
+                    </button>
                   </div>
                </div>
                <div>

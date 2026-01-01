@@ -62,6 +62,37 @@ export const getProducts = async (): Promise<Product[]> => {
   }
 };
 
+// NEW: FUNCTION TO UPLOAD PRODUCT IMAGE
+export const uploadProductImage = async (file: File): Promise<string | null> => {
+  if (!supabase) return null;
+
+  try {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `prod_${Date.now()}_${Math.floor(Math.random() * 1000)}.${fileExt}`;
+    const filePath = fileName;
+
+    // Upload ke bucket 'product_images'
+    const { error: uploadError } = await supabase.storage
+      .from('product_images')
+      .upload(filePath, file);
+
+    if (uploadError) {
+      console.error('Upload product image error:', uploadError);
+      alert("Gagal upload gambar. Pastikan bucket 'product_images' sudah dibuat di menu System Setup.");
+      return null;
+    }
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('product_images')
+      .getPublicUrl(filePath);
+
+    return publicUrl;
+  } catch (err) {
+    console.error("Upload handler error:", err);
+    return null;
+  }
+};
+
 export const addProduct = async (product: Product): Promise<Product | null> => {
   if (!supabase) return product; 
 
@@ -292,33 +323,6 @@ export const processStockRestoration = async (cartItems: CartItem[]): Promise<bo
       const dbProduct = productMap.get(item.id);
       if (!dbProduct) continue;
 
-      // JIKA BARANG JUAL (RETAIL), STOK TIDAK KEMBALI SAAT STATUS COMPLETED
-      // KECUALI STATUS CANCELLED (Pembatalan pembelian)
-      // Logic ini dipanggil oleh updateTransactionStatus. 
-      // Idealnya kita perlu tahu konteks apakah ini 'cancel' atau 'complete'.
-      // Namun function ini generic.
-      
-      // Asumsi aman: Function ini dipanggil saat 'Completed' (Kembali dari sewa) atau 'Cancelled' (Batal transaksi).
-      // Jika barang Jual sudah Completed -> Artinya sudah laku -> Stok TIDAK kembali.
-      // Tapi kita tidak punya parameter status di sini.
-      // SOLUSI: Kita cek is_sale. Jika is_sale = true, kita asumsikan stok TIDAK kembali (karena 'rented' juga tidak bertambah saat beli).
-      // KECUALI jika logic Rented nya konsisten.
-      // Mari lihat processStockReduction:
-      // Jual: Stock Turun, Rented Tetap.
-      // Sewa: Stock Turun, Rented Naik.
-      
-      // Maka saat Restoration (Pengembalian):
-      // Jika Rented > 0, kita kurangi Rented dan tambah Stock (Ini logika SEWA).
-      // Jika Rented == 0 (kasus Jual), maka tidak ada yang perlu dikembalikan dari Rented.
-      
-      // TAPI: Bagaimana jika transaksi DIBATALKAN (Cancelled)? Barang Jual harus kembali ke stok.
-      // Function ini perlu penyempurnaan di masa depan.
-      // SAAT INI: Kita gunakan logika basis 'Rented'. 
-      // Jika Rented ada isinya, kita kembalikan. Jika item Jual (Rented 0), tidak ada efek samping (kecuali Cancel).
-      // Untuk Cancelled barang Jual, admin harus manual tambah stok di Warehouse Manager sementara ini agar aman.
-      
-      // UPDATE: Agar aman untuk SEWA, kita restore berdasarkan Rented yang ada.
-      
       const currentStock = Number(dbProduct.stock) || 0;
       const currentRented = Number(dbProduct.rented) || 0;
       const quantityToRestore = item.quantity;
@@ -353,12 +357,6 @@ export const processStockRestoration = async (cartItems: CartItem[]): Promise<bo
           }
         }
       }
-      
-      // Restore Varian (Untuk sewa varian)
-      // Logic varian di Supabase agak tricky karena nested JSON. 
-      // Kita skip restorasi detail varian otomatis untuk menyederhanakan, 
-      // karena 'rented' varian tidak di-track terpisah di kolom DB (hanya di JSON).
-      // Admin disarankan cek fisik saat pengembalian.
     }
 
     return true;

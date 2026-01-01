@@ -126,18 +126,29 @@ drop policy if exists "Enable all access logs" on public.payment_logs;
 create policy "Enable all access logs" on public.payment_logs for all using (true) with check (true);`;
 
   // BAGIAN 3: STORAGE
-  const storageSQL = `-- BAGIAN 3: Storage Buckets
+  const storageSQL = `-- BAGIAN 3: Storage Buckets (Payment Proofs & Product Images)
+-- Bucket: payment_proofs
 insert into storage.buckets (id, name, public) 
 values ('payment_proofs', 'payment_proofs', true)
 on conflict (id) do nothing;
 
+-- Bucket: product_images (NEW)
+insert into storage.buckets (id, name, public) 
+values ('product_images', 'product_images', true)
+on conflict (id) do nothing;
+
+-- Policies
+drop policy if exists "Public Access" on storage.objects;
 drop policy if exists "Public Select" on storage.objects;
 drop policy if exists "Public Insert" on storage.objects;
-drop policy if exists "Public Upload" on storage.objects;
-drop policy if exists "Public Access" on storage.objects;
 
-create policy "Public Select" on storage.objects for select using ( bucket_id = 'payment_proofs' );
-create policy "Public Insert" on storage.objects for insert with check ( bucket_id = 'payment_proofs' );`;
+-- Allow Public Read for All
+create policy "Public Select" on storage.objects for select using ( true );
+
+-- Allow Public Insert (Upload) for specified buckets
+create policy "Public Insert" on storage.objects for insert with check ( 
+  bucket_id in ('payment_proofs', 'product_images')
+);`;
 
   return (
     <div className="space-y-8 animate-slide-in-right pb-10">
@@ -232,7 +243,7 @@ create policy "Public Insert" on storage.objects for insert with check ( bucket_
          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
             <div className="px-6 py-4 bg-gray-50 border-b border-gray-100">
                <h4 className="font-bold text-gray-800 flex items-center gap-2">
-                  <HardDrive size={18} className="text-orange-600"/> Bagian 3: Storage (Bukti Transfer)
+                  <HardDrive size={18} className="text-orange-600"/> Bagian 3: Storage (Produk & Bukti)
                </h4>
             </div>
             <div className="p-6">
