@@ -14,7 +14,6 @@ export const submitReview = async (
   }
 
   try {
-    // 1. Simpan Review
     const { error: reviewError } = await supabase
       .from('reviews')
       .insert([{
@@ -55,51 +54,59 @@ export const getReviews = async (): Promise<Review[]> => {
   return data as Review[];
 };
 
-// NEW FUNCTION: Ambil review khusus untuk Produk tertentu
+// FUNGSI UTAMA: Ambil review untuk detail produk
 export const getReviewsForProduct = async (productId: string): Promise<Review[]> => {
   if (!supabase) return [];
 
   try {
-    // 1. Ambil 300 review terbaru (ditingkatkan untuk scalability)
+    // 1. Ambil Review (Batas ditingkatkan agar review lama terambil)
     const { data: reviews, error } = await supabase
       .from('reviews')
       .select('*')
       .eq('is_public', true)
       .order('created_at', { ascending: false })
-      .limit(300);
+      .limit(500);
 
     if (error) {
-        console.error("Error fetching reviews table:", error);
+        console.error("Gagal mengambil tabel reviews:", error.message);
         return [];
     }
     
     if (!reviews || reviews.length === 0) return [];
 
-    // 2. Ambil detail transaksi terkait review tersebut
+    // 2. Ambil Transaksi terkait Review tersebut
+    // Kita butuh melihat isi 'items' di transaksi untuk memastikan produk ini ada di sana
     const transactionIds = reviews.map(r => r.transaction_id);
+    
     const { data: transactions, error: trxError } = await supabase
       .from('transactions')
       .select('id, items')
       .in('id', transactionIds);
 
     if (trxError) {
-        console.error("Error fetching transactions for reviews (RLS Blocking?):", trxError);
+        console.error("Gagal mengambil transaksi untuk verifikasi review (Cek RLS Policy):", trxError.message);
         return [];
     }
 
-    if (!transactions) return [];
+    if (!transactions || transactions.length === 0) return [];
 
-    // 3. Filter: Cari transaksi yang mengandung productId yang sedang dilihat
-    // FIX: Menggunakan String() untuk memastikan pencocokan "1" == 1 berhasil
+    // 3. FILTER LOGIC (Diperkuat)
+    // Mencari review yang transaksinya MEMILIKI produk yang sedang dilihat
     const validTransactionIds = transactions
       .filter((t: any) => {
          const items = t.items || [];
+         if (!Array.isArray(items)) return false;
+
+         // Cek apakah ada item dengan ID yang sama.
+         // Menggunakan String() di kedua sisi untuk memastikan "1" == 1
          return items.some((item: any) => String(item.id) === String(productId));
       })
       .map((t: any) => t.id);
 
-    // 4. Return review yang transaksinya valid
-    return reviews.filter(r => validTransactionIds.includes(r.transaction_id));
+    // 4. Return review yang ID transaksinya valid (mengandung produk ini)
+    const matchedReviews = reviews.filter(r => validTransactionIds.includes(r.transaction_id));
+    
+    return matchedReviews;
 
   } catch (err) {
     console.error("Error in getReviewsForProduct:", err);
