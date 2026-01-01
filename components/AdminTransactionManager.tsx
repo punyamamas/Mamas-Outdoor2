@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { ClipboardList, Loader2, Calendar, Eye, Trash2, X, User, CreditCard, Banknote, ArrowRightLeft, Save, Calculator, CheckCircle, RotateCcw, Wallet, Edit, Plus, Minus, Search, ShoppingBag, Printer, Filter, DollarSign, Receipt, BarChart3, TrendingUp, Lightbulb, AlertTriangle, ArrowUpRight, Share2, Image as ImageIcon, CreditCard as CardIcon, ExternalLink, QrCode, FileText } from 'lucide-react';
+import { ClipboardList, Loader2, Calendar, Eye, Trash2, X, User, CreditCard, Banknote, ArrowRightLeft, Save, Calculator, CheckCircle, RotateCcw, Wallet, Edit, Plus, Minus, Search, ShoppingBag, Printer, Filter, DollarSign, Receipt, BarChart3, TrendingUp, Lightbulb, AlertTriangle, ArrowUpRight, Share2, Image as ImageIcon, CreditCard as CardIcon, ExternalLink, QrCode, FileText, Clock, ShieldCheck } from 'lucide-react';
 import { Transaction, Product, CartItem } from '../types';
 import { updateTransactionPayment, updateTransactionItems, updateTransactionDetails, printInvoice, applyTransactionFine, calculateOverdueFine, copyInvoiceToClipboard } from '../services/transactionService';
 import QRScannerModal from './QRScannerModal'; 
@@ -627,6 +627,11 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                               <ImageIcon size={10} /> Bukti TF
                            </div>
                         )}
+                        {trx.customerIdentity && (
+                           <div className="mt-1 flex items-center gap-1 text-[10px] font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded w-fit">
+                              <ShieldCheck size={10} /> {trx.customerIdentity}
+                           </div>
+                        )}
                       </td>
                       <td className="px-6 py-4 align-middle">
                         <div className="font-bold text-nature-700">Rp{totalTrx.toLocaleString('id-ID')}</div>
@@ -788,14 +793,38 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                              <div className="space-y-2">
                                 <input className="w-full border rounded px-2 py-1 text-sm" value={editName} onChange={e => setEditName(e.target.value)} placeholder="Nama"/>
                                 <input className="w-full border rounded px-2 py-1 text-sm" value={editWa} onChange={e => setEditWa(e.target.value)} placeholder="WA"/>
-                                <input className="w-full border rounded px-2 py-1 text-sm" value={editIdentity} onChange={e => setEditIdentity(e.target.value)} placeholder="ID"/>
+                                <input className="w-full border rounded px-2 py-1 text-sm" value={editIdentity} onChange={e => setEditIdentity(e.target.value)} placeholder="Identitas (KTP/SIM/KTM)"/>
                                 <input type="number" className="w-full border rounded px-2 py-1 text-sm" value={editDuration} onChange={e => setEditDuration(parseInt(e.target.value))} placeholder="Durasi"/>
                              </div>
                            ) : (
                              <div>
-                                <p className="font-bold">{selectedTransaction.customerName}</p>
-                                <p className="text-xs text-gray-500">{selectedTransaction.customerWhatsapp}</p>
-                                <p className="text-xs font-bold text-nature-600 mt-1">Sewa {selectedTransaction.duration} Hari</p>
+                                <p className="font-bold text-gray-900">{selectedTransaction.customerName}</p>
+                                <p className="text-xs text-gray-500 font-mono mb-2">{selectedTransaction.customerWhatsapp}</p>
+                                
+                                <div className="grid grid-cols-2 gap-2 mt-2">
+                                   <div className="bg-nature-50 p-2 rounded-lg border border-nature-100">
+                                      <p className="text-[10px] text-nature-600 font-bold uppercase">Masa Sewa</p>
+                                      <p className="text-xs font-bold text-gray-800">{selectedTransaction.duration} Hari</p>
+                                   </div>
+                                   <div className="bg-purple-50 p-2 rounded-lg border border-purple-100">
+                                      <p className="text-[10px] text-purple-600 font-bold uppercase">Wajib Kembali</p>
+                                      <p className="text-xs font-bold text-gray-800">
+                                         {(() => {
+                                            const d = new Date(selectedTransaction.rentalDate);
+                                            d.setDate(d.getDate() + selectedTransaction.duration - 1);
+                                            return d.toLocaleDateString('id-ID', {day:'numeric', month:'short', year:'numeric'});
+                                         })()}
+                                      </p>
+                                   </div>
+                                </div>
+
+                                <div className="mt-2 bg-gray-50 p-2 rounded-lg border border-gray-200">
+                                   <p className="text-[10px] text-gray-500 font-bold uppercase mb-1">Jaminan (Identitas)</p>
+                                   <p className="text-sm font-bold text-gray-800 flex items-center gap-1">
+                                      <ShieldCheck size={14} className="text-blue-500" />
+                                      {selectedTransaction.customerIdentity || '-'}
+                                   </p>
+                                </div>
                              </div>
                            )}
                         </div>
