@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { RotateCcw, Lock, LogOut } from 'lucide-react';
 import { Product, Category, Transaction } from '../types';
@@ -13,6 +14,7 @@ import AdminTransactionManager from './AdminTransactionManager';
 import AdminFinanceManager from './AdminFinanceManager';
 import AdminReportManager from './AdminReportManager';
 import AdminCustomerManager from './AdminCustomerManager';
+import AdminSystemSetup from './AdminSystemSetup';
 
 interface AdminDashboardProps {
   products: Product[];
@@ -41,7 +43,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'warehouse' | 'categories' | 'transactions' | 'finance' | 'reports' | 'customers'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'warehouse' | 'categories' | 'transactions' | 'finance' | 'reports' | 'customers' | 'system'>('dashboard');
   const [isRefreshing, setIsRefreshing] = useState(false);
   
   // Transaction State
@@ -150,6 +152,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
              activeTab === 'finance' ? 'Keuangan & Kas' : 
              activeTab === 'reports' ? 'Analisis Bisnis' : 
              activeTab === 'customers' ? 'Database Pelanggan' :
+             activeTab === 'system' ? 'System Configuration' :
              `${activeTab} Overview`}
           </h1>
           <div className="flex items-center gap-4">
@@ -212,6 +215,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
           {activeTab === 'reports' && (
              <AdminReportManager />
+          )}
+
+          {activeTab === 'system' && (
+             <AdminSystemSetup />
           )}
         </div>
       </main>
