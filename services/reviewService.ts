@@ -60,13 +60,13 @@ export const getReviewsForProduct = async (productId: string): Promise<Review[]>
   if (!supabase) return [];
 
   try {
-    // 1. Ambil 100 review terbaru (ditingkatkan dari 50)
+    // 1. Ambil 300 review terbaru (ditingkatkan untuk scalability)
     const { data: reviews, error } = await supabase
       .from('reviews')
       .select('*')
       .eq('is_public', true)
       .order('created_at', { ascending: false })
-      .limit(100);
+      .limit(300);
 
     if (error || !reviews || reviews.length === 0) return [];
 

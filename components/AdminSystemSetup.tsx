@@ -20,11 +20,13 @@ on conflict (id) do nothing;
 -- Hapus policy lama jika ada untuk menghindari duplikat error
 drop policy if exists "Public Access" on storage.objects;
 drop policy if exists "Public Upload" on storage.objects;
+drop policy if exists "Public Select" on storage.objects;
+drop policy if exists "Public Insert" on storage.objects;
 
-create policy "Public Access" on storage.objects 
+create policy "Public Select" on storage.objects 
 for select using ( bucket_id = 'payment_proofs' );
 
-create policy "Public Upload" on storage.objects 
+create policy "Public Insert" on storage.objects 
 for insert with check ( bucket_id = 'payment_proofs' );`;
 
   const logsSQL = `-- Tabel untuk mencatat arus kas (Pemasukan/Pengeluaran)
@@ -42,7 +44,11 @@ create table if not exists public.payment_logs (
 -- Policy Keamanan (Buka akses untuk Anonim/Public agar app jalan tanpa login Auth Supabase)
 alter table public.payment_logs enable row level security;
 
-create policy "Enable all access for anon" on public.payment_logs
+-- Hapus policy lama untuk mencegah error 'policy already exists'
+drop policy if exists "Enable all access for anon" on public.payment_logs;
+drop policy if exists "Enable all access logs" on public.payment_logs;
+
+create policy "Enable all access logs" on public.payment_logs
 for all using (true) with check (true);`;
 
   const reviewsSQL = `-- Tabel untuk Ulasan Pelanggan
@@ -58,7 +64,11 @@ create table if not exists public.reviews (
 
 alter table public.reviews enable row level security;
 
-create policy "Enable all access for anon" on public.reviews
+-- Hapus policy lama untuk mencegah error 'policy already exists'
+drop policy if exists "Enable all access for anon" on public.reviews;
+drop policy if exists "Enable all access reviews" on public.reviews;
+
+create policy "Enable all access reviews" on public.reviews
 for all using (true) with check (true);`;
 
   return (

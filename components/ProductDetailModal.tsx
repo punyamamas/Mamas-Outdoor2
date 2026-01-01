@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, ShoppingCart, Check, Layers, Clock, Sparkles, Tag, ShieldCheck, Zap, Scissors, Palette, Heart, ShoppingBag, PackageOpen, Star, User, MessageSquare } from 'lucide-react';
+import { X, ShoppingCart, Check, Layers, Clock, Sparkles, Tag, ShieldCheck, Zap, Scissors, Palette, Heart, ShoppingBag, PackageOpen, Star, User, MessageSquare, BadgeCheck, ArrowRight } from 'lucide-react';
 import { Product, Review } from '../types';
 import ImageLoader from './ImageLoader';
 import { getReviewsForProduct } from '../services/reviewService';
@@ -293,10 +293,13 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-blue-50 text-blue-700 text-xs font-bold border border-blue-100">
                     <Zap size={14} /> Best Seller
                  </span>
-                 {/* Rating Badge */}
-                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-yellow-50 text-yellow-700 text-xs font-bold border border-yellow-100">
-                    <Star size={14} className="fill-current" /> {reviews.length > 0 ? `${averageRating} (${reviews.length} Ulasan)` : 'Baru'}
-                 </span>
+                 {/* Rating Badge Clickable */}
+                 <button 
+                    onClick={() => setActiveTab('reviews')}
+                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-yellow-50 text-yellow-700 text-xs font-bold border border-yellow-100 hover:bg-yellow-100 transition cursor-pointer"
+                 >
+                    <Star size={14} className="fill-current" /> {reviews.length > 0 ? `${averageRating} (${reviews.length} Ulasan)` : 'Belum ada ulasan'}
+                 </button>
               </div>
 
               {/* TABS NAVIGATION */}
@@ -516,7 +519,10 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                                         {review.customer_name ? review.customer_name.charAt(0).toUpperCase() : 'U'}
                                     </div>
                                     <div>
-                                        <p className="text-sm font-bold text-gray-900">{review.customer_name}</p>
+                                        <p className="text-sm font-bold text-gray-900 flex items-center gap-1">
+                                            {review.customer_name}
+                                            <BadgeCheck size={14} className="text-blue-500 fill-current text-white" />
+                                        </p>
                                         <div className="flex text-yellow-400">
                                           {[...Array(5)].map((_, i) => (
                                               <Star key={i} size={12} fill={i < review.rating ? "currentColor" : "none"} className={i >= review.rating ? "text-gray-300" : ""} />
@@ -531,9 +537,12 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                               <p className="text-sm text-gray-600 leading-relaxed italic">"{review.comment}"</p>
                             </div>
                         ))}
-                        <div className="text-center p-4">
-                            <p className="text-[10px] text-gray-400">
-                              Menampilkan ulasan dari pelanggan yang menyewa produk ini (via history transaksi).
+                        <div className="text-center p-4 bg-blue-50 rounded-xl border border-blue-100 mt-4">
+                            <p className="text-xs font-bold text-blue-800 flex items-center justify-center gap-2">
+                              <ShoppingBag size={14}/> Pernah sewa alat ini?
+                            </p>
+                            <p className="text-[10px] text-blue-600 mt-1">
+                              Buka menu <strong>Riwayat Sewa</strong> di pojok kanan atas untuk memberikan ulasanmu!
                             </p>
                         </div>
                       </>
