@@ -1,9 +1,10 @@
 
 import React, { useEffect, useState } from 'react';
-import { X, Calendar, Package, Clock, History, CheckCircle, AlertCircle, Loader, Printer, Trash2, RotateCcw, Wallet, Star, Search, Smartphone, Upload, Image as ImageIcon } from 'lucide-react';
+import { X, Calendar, Package, Clock, History, CheckCircle, AlertCircle, Loader, Printer, Trash2, RotateCcw, Wallet, Star, Search, Smartphone, Upload, Image as ImageIcon, QrCode } from 'lucide-react';
 import { Transaction } from '../types';
 import { printInvoice, refreshTransactions, getTransactionsByPhone, uploadPaymentProof } from '../services/transactionService';
 import ReviewModal from './ReviewModal';
+import QRCodeModal from './QRCodeModal';
 import Toast from './Toast';
 
 interface HistoryDrawerProps {
@@ -24,6 +25,9 @@ const HistoryDrawer: React.FC<HistoryDrawerProps> = ({ isOpen, onClose }) => {
   const [reviewTrx, setReviewTrx] = useState<Transaction | null>(null);
   const [reviewedIds, setReviewedIds] = useState<string[]>([]);
   const [showToast, setShowToast] = useState(false);
+
+  // QR Logic
+  const [qrTrx, setQrTrx] = useState<Transaction | null>(null);
 
   // Upload Logic
   const [isUploading, setIsUploading] = useState<string | null>(null); // Transaction ID yang sedang diupload
@@ -216,6 +220,15 @@ const HistoryDrawer: React.FC<HistoryDrawerProps> = ({ isOpen, onClose }) => {
             />
           )}
 
+          {/* QR Modal */}
+          {qrTrx && (
+            <QRCodeModal 
+              isOpen={!!qrTrx} 
+              onClose={() => setQrTrx(null)}
+              transaction={qrTrx}
+            />
+          )}
+
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-nature-50">
             <div className="flex items-center gap-2">
@@ -396,6 +409,14 @@ const HistoryDrawer: React.FC<HistoryDrawerProps> = ({ isOpen, onClose }) => {
                         </div>
 
                         <div className="flex gap-2">
+                          {/* TOMBOL QR CODE (BARU) */}
+                          <button 
+                            onClick={() => setQrTrx(trx)}
+                            className="flex-1 py-2.5 rounded-lg bg-gray-900 text-white font-bold text-xs hover:bg-black transition flex items-center justify-center gap-2"
+                          >
+                            <QrCode size={14} /> QR Code
+                          </button>
+
                           <button 
                             onClick={() => printInvoice(trx, 'view')}
                             className="flex-1 py-2.5 rounded-lg border border-gray-200 text-gray-700 font-bold text-xs hover:bg-gray-50 hover:text-nature-600 transition flex items-center justify-center gap-2"
@@ -409,13 +430,13 @@ const HistoryDrawer: React.FC<HistoryDrawerProps> = ({ isOpen, onClose }) => {
                               onClick={() => handleOpenReview(trx)}
                               className="flex-1 py-2.5 rounded-lg bg-nature-600 text-white font-bold text-xs hover:bg-nature-700 transition flex items-center justify-center gap-2 shadow-sm animate-pulse"
                             >
-                              <Star size={14} className="fill-current" /> Beri Ulasan
+                              <Star size={14} className="fill-current" /> Review
                             </button>
                           )}
                           
                           {isReviewed && (
                              <div className="flex-1 py-2.5 rounded-lg bg-green-50 text-green-700 font-bold text-xs border border-green-200 flex items-center justify-center gap-1 opacity-75 cursor-default">
-                                <CheckCircle size={14} /> Sudah Diulas
+                                <CheckCircle size={14} /> Reviewed
                              </div>
                           )}
                         </div>
