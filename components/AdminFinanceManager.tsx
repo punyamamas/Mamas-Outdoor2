@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { DollarSign, Wallet, CreditCard, ArrowUpRight, ArrowDownLeft, Plus, Calendar, Loader2, Save, Database, AlertTriangle, Copy, Check, BarChart3, PieChart, TrendingUp, HandCoins } from 'lucide-react';
+import { DollarSign, Wallet, CreditCard, ArrowUpRight, ArrowDownLeft, Plus, Calendar, Loader2, Save, Database, AlertTriangle, Copy, Check, BarChart3, PieChart, TrendingUp, HandCoins, Trash2, Download } from 'lucide-react';
 import { PaymentLog } from '../types';
-import { getPaymentLogs, recordPaymentLog } from '../services/transactionService';
+import { getPaymentLogs, recordPaymentLog, deletePaymentLog } from '../services/transactionService';
 
 const AdminFinanceManager: React.FC = () => {
   // --- STATE MANAGEMENT ---
@@ -92,6 +92,45 @@ const AdminFinanceManager: React.FC = () => {
     setManualDesc('');
     setIsManualEntryOpen(false);
     fetchData();
+  };
+
+  const handleDeleteLog = async (id: string) => {
+    if (window.confirm("Yakin hapus catatan ini? Saldo akan dikalkulasi ulang.")) {
+        const success = await deletePaymentLog(id);
+        if (success) {
+            setLogs(prev => prev.filter(l => l.id !== id));
+        } else {
+            alert("Gagal menghapus log.");
+        }
+    }
+  };
+
+  const handleExportCSV = () => {
+    const headers = ["ID", "Tanggal", "Jam", "Deskripsi", "Kategori", "Tipe", "Metode", "Nominal", "Ref TRX"];
+    const rows = logs.map(l => {
+      const dt = new Date(l.created_at);
+      return [
+        l.id,
+        dt.toLocaleDateString('id-ID'),
+        dt.toLocaleTimeString('id-ID'),
+        `"${l.description}"`,
+        l.category || '-',
+        l.type,
+        l.payment_method,
+        l.amount,
+        l.transaction_id || '-'
+      ];
+    });
+
+    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `FinanceLog_${viewMode}_${selectedDate || selectedMonth}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const copySQL = () => {
@@ -234,23 +273,34 @@ for all using (true) with check (true);`}
             </button>
         </div>
 
-        <div className="relative">
-            <Calendar className="absolute left-3 top-2.5 text-gray-400" size={16} />
-            {viewMode === 'daily' ? (
-                <input 
-                  type="date" 
-                  className="pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-nature-500 outline-none text-sm font-bold text-gray-700"
-                  value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
-                />
-            ) : (
-                <input 
-                  type="month" 
-                  className="pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-nature-500 outline-none text-sm font-bold text-gray-700"
-                  value={selectedMonth}
-                  onChange={(e) => setSelectedMonth(e.target.value)}
-                />
-            )}
+        <div className="flex items-center gap-2">
+            <div className="relative">
+                <Calendar className="absolute left-3 top-2.5 text-gray-400" size={16} />
+                {viewMode === 'daily' ? (
+                    <input 
+                    type="date" 
+                    className="pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-nature-500 outline-none text-sm font-bold text-gray-700"
+                    value={selectedDate}
+                    onChange={(e) => setSelectedDate(e.target.value)}
+                    />
+                ) : (
+                    <input 
+                    type="month" 
+                    className="pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-nature-500 outline-none text-sm font-bold text-gray-700"
+                    value={selectedMonth}
+                    onChange={(e) => setSelectedMonth(e.target.value)}
+                    />
+                )}
+            </div>
+            
+            <button 
+              onClick={handleExportCSV} 
+              disabled={logs.length === 0}
+              className="p-2 bg-green-600 text-white rounded-xl hover:bg-green-700 shadow-sm transition disabled:opacity-50"
+              title="Download Excel/CSV"
+            >
+               <Download size={20}/>
+            </button>
         </div>
       </div>
 
@@ -453,16 +503,17 @@ for all using (true) with check (true);`}
                                 <th className="px-6 py-3">Kategori</th>
                                 <th className="px-6 py-3">Metode</th>
                                 <th className="px-6 py-3 text-right">Nominal</th>
+                                <th className="px-6 py-3 text-center">Aksi</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                             {isLoading ? (
-                                <tr><td colSpan={5} className="p-8 text-center"><Loader2 className="animate-spin mx-auto text-gray-400"/></td></tr>
+                                <tr><td colSpan={6} className="p-8 text-center"><Loader2 className="animate-spin mx-auto text-gray-400"/></td></tr>
                             ) : logs.length === 0 ? (
-                                <tr><td colSpan={5} className="p-8 text-center text-gray-400 italic">Belum ada transaksi hari ini.</td></tr>
+                                <tr><td colSpan={6} className="p-8 text-center text-gray-400 italic">Belum ada transaksi hari ini.</td></tr>
                             ) : (
                                 logs.map(log => (
-                                <tr key={log.id} className="hover:bg-gray-50 transition">
+                                <tr key={log.id} className="hover:bg-gray-50 transition group">
                                     <td className="px-6 py-3 text-gray-500 font-mono text-xs">
                                         {new Date(log.created_at).toLocaleTimeString('id-ID', {hour: '2-digit', minute:'2-digit'})}
                                     </td>
@@ -489,6 +540,15 @@ for all using (true) with check (true);`}
                                     </td>
                                     <td className={`px-6 py-3 text-right font-bold ${log.type === 'IN' ? 'text-green-600' : 'text-red-500'}`}>
                                         {log.type === 'IN' ? '+' : '-'} Rp{log.amount.toLocaleString('id-ID')}
+                                    </td>
+                                    <td className="px-6 py-3 text-center">
+                                        <button 
+                                            onClick={() => handleDeleteLog(log.id)}
+                                            className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition"
+                                            title="Hapus Catatan"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
                                     </td>
                                 </tr>
                                 ))

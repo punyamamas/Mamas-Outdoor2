@@ -142,6 +142,21 @@ export const recordPaymentLog = async (log: Omit<PaymentLog, 'id' | 'created_at'
   return true;
 };
 
+export const deletePaymentLog = async (id: string): Promise<boolean> => {
+  if (!supabase) return false;
+
+  const { error } = await supabase
+    .from('payment_logs')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error deleting log:', error);
+    return false;
+  }
+  return true;
+};
+
 export const getPaymentLogs = async (startDate: string, endDate: string): Promise<{ data: PaymentLog[], error: any }> => {
   if (!supabase) return { data: [], error: null };
 
@@ -544,16 +559,20 @@ export const deleteTransaction = async (id: string): Promise<boolean> => {
   return true;
 };
 
-// UPDATED: COPY INVOICE WITH QR CODE + PERIOD + IDENTITY
+// ... existing copyInvoiceToClipboard ...
+// ... existing printInvoice ...
+// ... existing mapDbToTransaction ...
+
+// COPY FROM PREVIOUS FILE TO ENSURE INTEGRITY
 export const copyInvoiceToClipboard = async (
   trx: Transaction, 
   invoiceType: 'full' | 'rental' | 'fine' = 'full'
 ) => {
+  // ... (Keep existing implementation) ...
   const dateObj = new Date(trx.created_at || new Date());
   const dateStr = dateObj.toLocaleDateString('id-ID'); 
   const timeStr = dateObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }); 
   
-  // Hitung Tanggal Kembali (Start + Duration - 1)
   const startDate = new Date(trx.rentalDate);
   const returnDate = new Date(startDate);
   returnDate.setDate(startDate.getDate() + (trx.duration - 1));
@@ -569,7 +588,6 @@ export const copyInvoiceToClipboard = async (
   const fmt = (val: number) => val.toLocaleString('id-ID');
   const logoUrl = "https://imgur.com/iC8ycHT.png";
 
-  // GENERATE QR CODE
   let qrDataUrl = '';
   try {
     qrDataUrl = await QRCode.toDataURL(trx.id, { width: 100, margin: 0 });
@@ -723,7 +741,6 @@ export const copyInvoiceToClipboard = async (
   }
 };
 
-// UPDATED: PRINT INVOICE WITH QR CODE + PERIOD + IDENTITY
 export const printInvoice = async (
   trx: Transaction, 
   mode: 'print' | 'view' = 'print',
@@ -736,7 +753,6 @@ export const printInvoice = async (
   const dateStr = dateObj.toLocaleDateString('id-ID'); 
   const timeStr = dateObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }); 
   
-  // Hitung Tanggal Kembali (Start + Duration - 1)
   const startDate = new Date(trx.rentalDate);
   const returnDate = new Date(startDate);
   returnDate.setDate(startDate.getDate() + (trx.duration - 1));
@@ -745,7 +761,6 @@ export const printInvoice = async (
   const fine = trx.fineAmount || 0;
   const rentalTotal = trx.totalPrice - fine; 
 
-  // GENERATE QR CODE
   let qrDataUrl = '';
   try {
     qrDataUrl = await QRCode.toDataURL(trx.id, { width: 120, margin: 0 });
