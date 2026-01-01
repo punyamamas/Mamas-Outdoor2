@@ -1,5 +1,6 @@
+
 import React, { useState } from 'react';
-import { Search, PlusCircle, MinusCircle, HeartCrack, Hammer, ArrowRightLeft, Layers, Save, X, FileText } from 'lucide-react';
+import { Search, PlusCircle, MinusCircle, HeartCrack, Hammer, ArrowRightLeft, FileText, X, Save, AlertCircle, Package, Loader2 } from 'lucide-react';
 import { Product, Category } from '../types';
 
 interface AdminWarehouseManagerProps {
@@ -8,16 +9,20 @@ interface AdminWarehouseManagerProps {
   onUpdateProduct: (product: Product) => Promise<void>;
 }
 
+type ActionType = 'restock' | 'manual_rent' | 'return' | 'damage' | 'repair';
+
 const AdminWarehouseManager: React.FC<AdminWarehouseManagerProps> = ({ products, categories, onUpdateProduct }) => {
   const [filter, setFilter] = useState<'all' | 'low_stock' | 'rented' | 'damaged'>('all');
   const [catFilter, setCatFilter] = useState('Semua');
   const [searchTerm, setSearchTerm] = useState('');
   
-  // Return Modal State
-  const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
-  const [returnProduct, setReturnProduct] = useState<Product | null>(null);
-  const [returnVariantKey, setReturnVariantKey] = useState('');
-  const [returnQty, setReturnQty] = useState(1);
+  // UNIFIED ACTION MODAL STATE
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [actionType, setActionType] = useState<ActionType>('restock');
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [variantKey, setVariantKey] = useState('');
+  const [qty, setQty] = useState(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const filteredProducts = products.filter(p => {
     const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -29,120 +34,176 @@ const AdminWarehouseManager: React.FC<AdminWarehouseManagerProps> = ({ products,
     return matchesSearch && matchesStatus && matchesCat;
   });
 
-  const handleRestock = async (product: Product) => {
-    const qty = prompt(`Tambah stok baru untuk "${product.name}"?`, "1");
-    if (!qty) return;
-    const val = parseInt(qty);
-    if (!isNaN(val) && val > 0) await onUpdateProduct({ ...product, stock: product.stock + val });
+  const openActionModal = (product: Product, type: ActionType) => {
+    setSelectedProduct(product);
+    setActionType(type);
+    setQty(1);
+    setVariantKey(''); // Reset variant choice
+    setIsModalOpen(true);
   };
 
-  const handleManualRent = async (product: Product) => {
-    if (product.stock <= 0) return;
-    const qty = prompt(`Keluarkan manual "${product.name}"?`, "1");
-    if (!qty) return;
-    const val = parseInt(qty);
-    if (!isNaN(val) && val > 0 && val <= product.stock) {
-      await onUpdateProduct({ ...product, stock: product.stock - val, rented: (product.rented || 0) + val });
+  const getModalTitle = () => {
+    switch(actionType) {
+      case 'restock': return 'Tambah Stok Baru (Restock)';
+      case 'manual_rent': return 'Keluarkan Barang Manual';
+      case 'return': return 'Terima Barang Kembali';
+      case 'damage': return 'Lapor Barang Rusak';
+      case 'repair': return 'Selesai Perbaikan';
+      default: return 'Update Stok';
     }
   };
 
-  const handleReportDamage = async (product: Product) => {
-    if (product.stock <= 0) return;
-    if (confirm(`Lapor 1 unit "${product.name}" RUSAK?`)) {
-      await onUpdateProduct({ ...product, stock: product.stock - 1, damaged: (product.damaged || 0) + 1 });
+  const getModalColor = () => {
+    switch(actionType) {
+      case 'restock': 
+      case 'repair': return 'bg-green-600';
+      case 'damage': return 'bg-red-600';
+      case 'manual_rent': 
+      case 'return': return 'bg-blue-600';
+      default: return 'bg-gray-600';
     }
   };
 
-  const handleRepairFinish = async (product: Product) => {
-    if (!product.damaged || product.damaged <= 0) return;
-    if (confirm(`1 unit "${product.name}" sudah DIPERBAIKI?`)) {
-      await onUpdateProduct({ ...product, stock: product.stock + 1, damaged: product.damaged - 1 });
-    }
-  };
-
-  const handleReturnFromRent = async (product: Product) => {
-    if (!product.rented || product.rented <= 0) return;
-    const isComplex = (product.variants && product.variants.length > 0) || (product.sizes && Object.keys(product.sizes).length > 0);
+  // Logic Validasi Stok Maksimal berdasarkan Action
+  const getMaxQty = () => {
+    if (!selectedProduct) return 9999;
     
-    if (isComplex) {
-      setReturnProduct(product);
-      setReturnQty(1);
-      setReturnVariantKey('');
-      setIsReturnModalOpen(true);
-    } else {
-      const qty = prompt(`Berapa unit "${product.name}" kembali?`, "1");
-      if (!qty) return;
-      const val = parseInt(qty);
-      if (!isNaN(val) && val > 0 && val <= product.rented) {
-        await onUpdateProduct({ ...product, stock: product.stock + val, rented: product.rented - val });
-      }
+    let currentStock = 0;
+    
+    // Helper untuk ambil stok varian spesifik atau global
+    const getVariantStock = (key: 'stock' | 'rented' | 'damaged') => {
+        if (variantKey) {
+            if (selectedProduct.variants && selectedProduct.variants.length > 0) {
+                const [color, size] = variantKey.split('|');
+                const v = selectedProduct.variants.find(item => item.color === color && item.size === size);
+                // Note: Schema Varian saat ini hanya menyimpan 'stock' (available). 
+                // Tracking rented/damaged per varian belum didukung penuh oleh schema lama, 
+                // jadi kita fallback ke stok global untuk limit validasi rented/damaged, 
+                // atau gunakan stok varian untuk limit pengambilan.
+                if (key === 'stock') return v ? v.stock : 0;
+            } else if (selectedProduct.sizes) {
+                if (key === 'stock') return selectedProduct.sizes[variantKey] || 0;
+            }
+        }
+        return selectedProduct[key] || 0;
+    };
+
+    switch(actionType) {
+        case 'manual_rent': // Mengurangi Stock
+        case 'damage':      // Mengurangi Stock
+            return getVariantStock('stock');
+        
+        case 'return':      // Mengurangi Rented
+            return selectedProduct.rented || 0; // Global limit karena varian rented tidak ditrack detail
+            
+        case 'repair':      // Mengurangi Damaged
+            return selectedProduct.damaged || 0; // Global limit
+            
+        case 'restock': 
+        default: 
+            return 9999;
     }
   };
 
-  const handleComplexReturnSubmit = async (e: React.FormEvent) => {
+  const handleExecuteAction = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!returnProduct || !returnVariantKey) return;
-    const updated = { ...returnProduct };
-    const rentedCount = updated.rented || 0;
+    if (!selectedProduct) return;
     
-    if (returnQty > rentedCount) return alert('Jumlah melebihi barang sewa');
-    
-    updated.stock = (updated.stock || 0) + returnQty;
-    updated.rented = rentedCount - returnQty;
+    setIsSubmitting(true);
+    const updatedProduct = { ...selectedProduct };
+    const isVariant = (updatedProduct.variants && updatedProduct.variants.length > 0) || (updatedProduct.sizes && Object.keys(updatedProduct.sizes).length > 0);
 
-    if (updated.variants?.length) {
-       const [color, size] = returnVariantKey.split('|');
-       const vars = [...updated.variants];
-       const idx = vars.findIndex(v => v.color === color && v.size === size);
-       if (idx !== -1) {
-         vars[idx] = { ...vars[idx], stock: vars[idx].stock + returnQty };
-         updated.variants = vars;
-       }
-    } else if (updated.sizes) {
-      const sz = { ...updated.sizes };
-      sz[returnVariantKey] = (sz[returnVariantKey] || 0) + returnQty;
-      updated.sizes = sz;
+    // 1. Update Global Counters
+    if (actionType === 'restock') {
+        updatedProduct.stock += qty;
+    } else if (actionType === 'manual_rent') {
+        updatedProduct.stock = Math.max(0, updatedProduct.stock - qty);
+        updatedProduct.rented = (updatedProduct.rented || 0) + qty;
+    } else if (actionType === 'return') {
+        updatedProduct.stock += qty;
+        updatedProduct.rented = Math.max(0, (updatedProduct.rented || 0) - qty);
+    } else if (actionType === 'damage') {
+        updatedProduct.stock = Math.max(0, updatedProduct.stock - qty);
+        updatedProduct.damaged = (updatedProduct.damaged || 0) + qty;
+    } else if (actionType === 'repair') {
+        updatedProduct.stock += qty;
+        updatedProduct.damaged = Math.max(0, (updatedProduct.damaged || 0) - qty);
     }
 
-    await onUpdateProduct(updated);
-    setIsReturnModalOpen(false);
+    // 2. Update Variant/Size Counters
+    if (isVariant && variantKey) {
+        if (updatedProduct.variants && updatedProduct.variants.length > 0) {
+            const [color, size] = variantKey.split('|');
+            const vars = [...updatedProduct.variants];
+            const idx = vars.findIndex(v => v.color === color && v.size === size);
+            
+            if (idx !== -1) {
+                let vStock = vars[idx].stock;
+                // Logic perubahan stok varian
+                if (['restock', 'return', 'repair'].includes(actionType)) {
+                    vStock += qty;
+                } else {
+                    vStock = Math.max(0, vStock - qty);
+                }
+                vars[idx] = { ...vars[idx], stock: vStock };
+                updatedProduct.variants = vars;
+            }
+        } else if (updatedProduct.sizes) {
+            const sz = { ...updatedProduct.sizes };
+            let sStock = sz[variantKey] || 0;
+            
+            if (['restock', 'return', 'repair'].includes(actionType)) {
+                sStock += qty;
+            } else {
+                sStock = Math.max(0, sStock - qty);
+            }
+            sz[variantKey] = sStock;
+            updatedProduct.sizes = sz;
+        }
+    }
+
+    await onUpdateProduct(updatedProduct);
+    setIsSubmitting(false);
+    setIsModalOpen(false);
   };
+
+  const hasVariants = selectedProduct && ((selectedProduct.variants?.length || 0) > 0 || (selectedProduct.sizes && Object.keys(selectedProduct.sizes).length > 0));
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
       {/* Header & Filters */}
-      <div className="p-5 border-b border-gray-100 flex flex-col xl:flex-row justify-between gap-4">
+      <div className="p-5 border-b border-gray-100 flex flex-col xl:flex-row justify-between gap-4 bg-nature-50">
         <div className="flex flex-col md:flex-row items-center gap-3">
-           <h3 className="font-bold text-gray-800 flex items-center gap-2"><FileText size={18} /> Laporan Stok</h3>
-           <div className="flex gap-2 bg-gray-100 p-1 rounded-lg">
+           <h3 className="font-bold text-nature-800 flex items-center gap-2"><FileText size={18} /> Laporan Stok Gudang</h3>
+           <div className="flex gap-2 bg-white p-1 rounded-lg border border-gray-200">
               {['all', 'rented', 'damaged'].map(f => (
                 <button key={f} onClick={() => setFilter(f as any)} 
-                  className={`px-3 py-1 text-xs font-bold rounded-md transition capitalize ${filter === f ? 'bg-white shadow text-nature-700' : 'text-gray-500'}`}>
-                  {f === 'all' ? 'Semua' : f === 'rented' ? 'Keluar' : 'Rusak'}
+                  className={`px-3 py-1 text-xs font-bold rounded-md transition capitalize ${filter === f ? 'bg-nature-100 text-nature-700' : 'text-gray-500 hover:bg-gray-50'}`}>
+                  {f === 'all' ? 'Semua' : f === 'rented' ? 'Sedang Disewa' : 'Rusak / Maintenance'}
                 </button>
               ))}
            </div>
-           <select value={catFilter} onChange={(e) => setCatFilter(e.target.value)} className="text-xs font-bold p-1.5 rounded border">
+           <select value={catFilter} onChange={(e) => setCatFilter(e.target.value)} className="text-xs font-bold p-2 rounded-lg border border-gray-200 outline-none focus:border-nature-500">
               <option value="Semua">Semua Kategori</option>
               {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
            </select>
         </div>
         <div className="relative">
            <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
-           <input type="text" placeholder="Cari SKU / Nama..." className="pl-9 pr-4 py-2 text-sm border rounded-lg w-full" 
+           <input type="text" placeholder="Cari SKU / Nama..." className="pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg w-full focus:ring-2 focus:ring-nature-500 outline-none" 
              value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
         </div>
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto min-h-[400px]">
         <table className="w-full text-left text-sm text-gray-600">
-          <thead className="bg-gray-50 text-gray-700 font-bold uppercase text-xs">
+          <thead className="bg-white text-gray-700 font-bold uppercase text-xs border-b border-gray-200">
             <tr>
                <th className="px-6 py-4">Nama Barang</th>
-               <th className="px-4 py-4 text-center bg-green-50 text-green-700">Ready</th>
-               <th className="px-4 py-4 text-center bg-blue-50 text-blue-700">Keluar</th>
-               <th className="px-4 py-4 text-center bg-red-50 text-red-700">Rusak</th>
+               <th className="px-4 py-4 text-center bg-green-50 text-green-800">Ready</th>
+               <th className="px-4 py-4 text-center bg-blue-50 text-blue-800">Keluar</th>
+               <th className="px-4 py-4 text-center bg-red-50 text-red-800">Rusak</th>
                <th className="px-6 py-4 text-center">Aksi Cepat</th>
             </tr>
           </thead>
@@ -150,20 +211,45 @@ const AdminWarehouseManager: React.FC<AdminWarehouseManagerProps> = ({ products,
             {filteredProducts.map(p => {
               const isComplex = (p.variants && p.variants.length > 0) || (p.sizes && Object.keys(p.sizes).length > 0);
               return (
-                <tr key={p.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 font-medium">
-                     {p.name}
-                     {isComplex && <span className="block text-[10px] text-purple-600 italic">Multi-Varian</span>}
+                <tr key={p.id} className="hover:bg-gray-50 transition group">
+                  <td className="px-6 py-4">
+                     <div className="font-bold text-gray-800">{p.name}</div>
+                     {isComplex && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                            {p.variants?.map((v, i) => (
+                                <span key={i} className="text-[9px] px-1.5 py-0.5 bg-gray-100 rounded text-gray-500 border border-gray-200">
+                                    {v.color}-{v.size}: {v.stock}
+                                </span>
+                            ))}
+                            {p.sizes && Object.entries(p.sizes).map(([k, v]) => (
+                                <span key={k} className="text-[9px] px-1.5 py-0.5 bg-gray-100 rounded text-gray-500 border border-gray-200">
+                                    {k}: {v}
+                                </span>
+                            ))}
+                        </div>
+                     )}
                   </td>
                   <td className="text-center font-bold text-green-700 bg-green-50/30">{p.stock}</td>
                   <td className="text-center font-bold text-blue-600 bg-blue-50/30">{p.rented || '-'}</td>
                   <td className="text-center font-bold text-red-600 bg-red-50/30">{p.damaged || '-'}</td>
-                  <td className="px-6 py-4 text-center flex justify-center gap-2">
-                     <button onClick={() => handleRestock(p)} disabled={isComplex} className="p-1.5 hover:bg-green-100 text-gray-400 hover:text-green-600 rounded disabled:opacity-30"><PlusCircle size={18}/></button>
-                     <button onClick={() => handleManualRent(p)} disabled={p.stock<=0 || isComplex} className="p-1.5 hover:bg-blue-100 text-gray-400 hover:text-blue-600 rounded disabled:opacity-30"><MinusCircle size={18}/></button>
-                     <button onClick={() => handleReturnFromRent(p)} disabled={(p.rented||0)<=0} className="p-1.5 hover:bg-blue-100 text-blue-600 rounded disabled:opacity-30 border border-blue-200"><ArrowRightLeft size={18}/></button>
-                     <button onClick={() => handleReportDamage(p)} disabled={p.stock<=0 || isComplex} className="p-1.5 hover:bg-red-100 text-gray-400 hover:text-red-600 rounded disabled:opacity-30"><HeartCrack size={18}/></button>
-                     <button onClick={() => handleRepairFinish(p)} disabled={(p.damaged||0)<=0 || isComplex} className="p-1.5 hover:bg-green-100 text-gray-400 hover:text-green-600 rounded disabled:opacity-30"><Hammer size={18}/></button>
+                  <td className="px-6 py-4 text-center">
+                     <div className="flex justify-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => openActionModal(p, 'restock')} className="p-2 hover:bg-green-100 text-green-600 rounded-lg border border-transparent hover:border-green-200 transition" title="Tambah Stok">
+                            <PlusCircle size={18}/>
+                        </button>
+                        <button onClick={() => openActionModal(p, 'manual_rent')} className="p-2 hover:bg-blue-100 text-blue-600 rounded-lg border border-transparent hover:border-blue-200 transition" title="Barang Keluar Manual">
+                            <MinusCircle size={18}/>
+                        </button>
+                        <button onClick={() => openActionModal(p, 'return')} disabled={(p.rented||0)<=0} className="p-2 hover:bg-indigo-100 text-indigo-600 rounded-lg border border-transparent hover:border-indigo-200 transition disabled:opacity-20" title="Barang Kembali">
+                            <ArrowRightLeft size={18}/>
+                        </button>
+                        <button onClick={() => openActionModal(p, 'damage')} className="p-2 hover:bg-red-100 text-red-600 rounded-lg border border-transparent hover:border-red-200 transition" title="Lapor Rusak">
+                            <HeartCrack size={18}/>
+                        </button>
+                        <button onClick={() => openActionModal(p, 'repair')} disabled={(p.damaged||0)<=0} className="p-2 hover:bg-orange-100 text-orange-600 rounded-lg border border-transparent hover:border-orange-200 transition disabled:opacity-20" title="Selesai Perbaikan">
+                            <Hammer size={18}/>
+                        </button>
+                     </div>
                   </td>
                 </tr>
               )
@@ -172,33 +258,88 @@ const AdminWarehouseManager: React.FC<AdminWarehouseManagerProps> = ({ products,
         </table>
       </div>
 
-      {/* Return Modal for Complex Products */}
-      {isReturnModalOpen && returnProduct && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
-           <div className="absolute inset-0 bg-black/50" onClick={() => setIsReturnModalOpen(false)}></div>
-           <div className="relative bg-white rounded-xl p-6 w-full max-w-md shadow-xl">
-              <h3 className="font-bold text-lg mb-4">Pengembalian Barang Varian</h3>
-              <p className="text-sm text-gray-600 mb-4">{returnProduct.name}</p>
-              <form onSubmit={handleComplexReturnSubmit} className="space-y-4">
-                 <div>
-                    <label className="block text-xs font-bold mb-1">Varian / Ukuran</label>
-                    <select className="w-full border rounded p-2" value={returnVariantKey} onChange={e => setReturnVariantKey(e.target.value)} required>
-                       <option value="">Pilih...</option>
-                       {returnProduct.variants?.map((v, i) => (
-                          <option key={i} value={`${v.color}|${v.size}`}>{v.color} - {v.size}</option>
-                       ))}
-                       {returnProduct.sizes && Object.keys(returnProduct.sizes).map(sz => (
-                          <option key={sz} value={sz}>{sz}</option>
-                       ))}
-                    </select>
+      {/* UNIFIED ACTION MODAL */}
+      {isModalOpen && selectedProduct && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}></div>
+           <div className="relative bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-slide-in-right">
+              
+              {/* Modal Header */}
+              <div className={`${getModalColor()} px-6 py-4 flex justify-between items-center text-white`}>
+                 <h3 className="font-bold text-lg flex items-center gap-2">
+                    <Package size={20} /> {getModalTitle()}
+                 </h3>
+                 <button onClick={() => setIsModalOpen(false)} className="hover:bg-white/20 p-1 rounded-full transition"><X size={20}/></button>
+              </div>
+
+              <form onSubmit={handleExecuteAction} className="p-6">
+                 <div className="mb-4">
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Produk</label>
+                    <div className="font-bold text-gray-800 text-lg">{selectedProduct.name}</div>
                  </div>
-                 <div>
-                    <label className="block text-xs font-bold mb-1">Jumlah Kembali</label>
-                    <input type="number" min="1" max={returnProduct.rented} className="w-full border rounded p-2" value={returnQty} onChange={e => setReturnQty(parseInt(e.target.value))} />
+
+                 {/* Variant Selector */}
+                 {hasVariants && (
+                    <div className="mb-4">
+                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+                            Pilih Varian {actionType === 'restock' ? '(Yang Ditambah)' : '(Yang Diproses)'}
+                        </label>
+                        <select 
+                            className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm font-bold focus:ring-2 focus:ring-nature-500 outline-none"
+                            value={variantKey}
+                            onChange={(e) => setVariantKey(e.target.value)}
+                            required
+                        >
+                            <option value="">-- Pilih Varian --</option>
+                            {selectedProduct.variants?.map((v, i) => (
+                                <option key={i} value={`${v.color}|${v.size}`}>
+                                    {v.color} - {v.size} (Sisa: {v.stock})
+                                </option>
+                            ))}
+                            {selectedProduct.sizes && Object.entries(selectedProduct.sizes).map(([sz, stock]) => (
+                                <option key={sz} value={sz}>
+                                    Size {sz} (Sisa: {stock})
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                 )}
+
+                 {/* Quantity Input */}
+                 <div className="mb-6">
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Jumlah Unit</label>
+                    <div className="flex items-center gap-3">
+                        <button type="button" onClick={() => setQty(Math.max(1, qty-1))} className="p-3 bg-gray-100 rounded-xl hover:bg-gray-200"><MinusCircle size={20}/></button>
+                        <input 
+                            type="number" 
+                            min="1" 
+                            max={getMaxQty()} 
+                            className="flex-1 text-center font-black text-2xl border-none outline-none"
+                            value={qty}
+                            onChange={(e) => setQty(parseInt(e.target.value) || 1)}
+                        />
+                        <button type="button" onClick={() => setQty(Math.min(getMaxQty(), qty+1))} className="p-3 bg-gray-100 rounded-xl hover:bg-gray-200"><PlusCircle size={20}/></button>
+                    </div>
+                    {qty >= getMaxQty() && actionType !== 'restock' && (
+                        <p className="text-xs text-red-500 mt-2 font-bold flex items-center gap-1 justify-center">
+                            <AlertCircle size={12}/> Maksimal jumlah tersedia: {getMaxQty()}
+                        </p>
+                    )}
                  </div>
-                 <div className="flex justify-end gap-2">
-                    <button type="button" onClick={() => setIsReturnModalOpen(false)} className="px-4 py-2 border rounded">Batal</button>
-                    <button type="submit" className="px-4 py-2 bg-nature-600 text-white rounded font-bold">Simpan</button>
+
+                 {/* Action Buttons */}
+                 <div className="flex gap-3 pt-4 border-t border-gray-100">
+                    <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 font-bold text-gray-500 hover:bg-gray-50 rounded-xl transition">
+                        Batal
+                    </button>
+                    <button 
+                        type="submit" 
+                        disabled={isSubmitting || (hasVariants && !variantKey) || qty <= 0}
+                        className={`flex-1 py-3 font-bold text-white rounded-xl shadow-lg transition flex items-center justify-center gap-2 disabled:opacity-50 ${getModalColor()} hover:brightness-110`}
+                    >
+                        {isSubmitting ? <Loader2 className="animate-spin" size={20}/> : <Save size={20}/>}
+                        Konfirmasi
+                    </button>
                  </div>
               </form>
            </div>
