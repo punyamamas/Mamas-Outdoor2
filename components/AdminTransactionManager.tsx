@@ -1,16 +1,14 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { ClipboardList, Loader2, Calendar, Eye, Trash2, X, User, CreditCard, Banknote, ArrowRightLeft, Save, Calculator, CheckCircle, RotateCcw, Wallet, Edit, Plus, Minus, Search, ShoppingBag, Printer, Filter, DollarSign, Receipt, BarChart3, TrendingUp, Lightbulb, AlertTriangle, ArrowUpRight, Share2, Image as ImageIcon, CreditCard as CardIcon, ExternalLink, QrCode } from 'lucide-react';
+import { ClipboardList, Loader2, Calendar, Eye, Trash2, X, User, CreditCard, Banknote, ArrowRightLeft, Save, Calculator, CheckCircle, RotateCcw, Wallet, Edit, Plus, Minus, Search, ShoppingBag, Printer, Filter, DollarSign, Receipt, BarChart3, TrendingUp, Lightbulb, AlertTriangle, ArrowUpRight, Share2, Image as ImageIcon, CreditCard as CardIcon, ExternalLink, QrCode, FileText } from 'lucide-react';
 import { Transaction, Product, CartItem } from '../types';
 import { updateTransactionPayment, updateTransactionItems, updateTransactionDetails, printInvoice, applyTransactionFine, calculateOverdueFine, copyInvoiceToClipboard } from '../services/transactionService';
 import QRScannerModal from './QRScannerModal'; 
 
-// ... (Existing Interfaces & Components until the Modal Render) ...
-
 interface AdminTransactionManagerProps {
   transactions: Transaction[];
   isLoading: boolean;
-  products?: Product[]; // Added prop to select products when editing
+  products?: Product[]; 
   onStatusUpdate: (id: string, status: string) => Promise<void>;
   onDeleteTransaction: (id: string) => Promise<void>;
   onRefreshData?: () => Promise<void>;
@@ -35,19 +33,6 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
     return new Date(date.getTime() - offset).toISOString().split('T')[0];
   };
 
-  // Helper untuk format nomor WA (08xxx -> 628xxx)
-  const formatWaNumber = (phone: string) => {
-    if (!phone) return '';
-    // Hapus karakter non-angka (spasi, -, +)
-    let p = phone.replace(/\D/g, '');
-    
-    // Jika diawali 0, ganti dengan 62
-    if (p.startsWith('0')) {
-      return '62' + p.slice(1);
-    }
-    return p;
-  };
-
   // --- FILTER STATES ---
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -67,10 +52,10 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
   // State: Nominal yang SEDANG diketik (Pembayaran Baru) - DIBAGI DUA
   const [cashInput, setCashInput] = useState<number>(0);
   const [transferInput, setTransferInput] = useState<number>(0);
-  const [fineInput, setFineInput] = useState<number>(0); // New state for Fine
+  const [fineInput, setFineInput] = useState<number>(0); 
   
   const [isSavingPayment, setIsSavingPayment] = useState(false);
-  const [isApplyingFine, setIsApplyingFine] = useState(false); // New state for processing fine
+  const [isApplyingFine, setIsApplyingFine] = useState(false);
 
   // --- EDIT ITEMS STATES ---
   const [isEditingItems, setIsEditingItems] = useState(false);
@@ -83,7 +68,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
   const [editName, setEditName] = useState('');
   const [editWa, setEditWa] = useState('');
   const [editDuration, setEditDuration] = useState(2);
-  const [editIdentity, setEditIdentity] = useState(''); // NEW STATE
+  const [editIdentity, setEditIdentity] = useState('');
   const [isSavingInfo, setIsSavingInfo] = useState(false);
 
   // Reset input ke 0 setiap kali modal dibuka
@@ -99,18 +84,16 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
       setEditName(selectedTransaction.customerName);
       setEditWa(selectedTransaction.customerWhatsapp);
       setEditDuration(selectedTransaction.duration);
-      setEditIdentity(selectedTransaction.customerIdentity || ''); // INIT IDENTITY
+      setEditIdentity(selectedTransaction.customerIdentity || '');
     }
   }, [selectedTransaction]);
 
   const handleScanResult = (decodedText: string) => {
-      // Logic: QR berisi Transaction ID
       const found = transactions.find(t => t.id === decodedText);
       if (found) {
           setSelectedTransaction(found);
           setIsScannerOpen(false);
           
-          // INTELLIGENT SUGGESTION
           const status = found.status;
           if (status === 'rented') {
              alert(`📦 Transaksi Ditemukan: ${found.customerName}\nStatus: SEDANG DISEWA\n\nSilakan proses PENGEMBALIAN (Check-out) di panel.`);
@@ -124,9 +107,6 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
           setIsScannerOpen(false);
       }
   };
-
-  // ... (Rest of the component remains the same: Filters, Analytics, etc.) ...
-  // [Code truncated for brevity, assume content matches existing AdminTransactionManager logic until JSX]
 
   // --- FILTERING LOGIC ---
   const filteredTransactions = transactions.filter(t => {
@@ -151,7 +131,6 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
     return matchSearch && matchDate && matchStatus;
   });
 
-  // ... (Analytics Data Memo - Preserved) ...
   const analyticsData = useMemo(() => {
     const dataMap: Record<string, { date: string; income: number; pending: number }> = {};
     let totalRealIncome = 0;
@@ -180,7 +159,6 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
     const insights: any[] = [];
     const totalCount = filteredTransactions.length;
     
-    // Simple insight logic preserved
     if (totalCount > 0) {
         insights.push({ type: 'safe', icon: CheckCircle, color: 'text-nature-600', bg: 'bg-nature-50', title: "Data Loaded", desc: `${totalCount} transaksi dimuat.` });
     }
@@ -192,7 +170,6 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
 
   const handleResetFilter = () => {
     setSearchTerm('');
-    // Reset ke 1 bulan terakhir
     const end = new Date();
     const start = new Date();
     start.setMonth(start.getMonth() - 1);
@@ -331,7 +308,6 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
     setIsSavingPayment(false);
   };
 
-  // ... (Item editing logic preserved) ...
   const handleAddItem = (product: Product, variantKey?: string) => {
     let selectedSize = undefined;
     let selectedColor = undefined;
@@ -417,7 +393,6 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
 
       {/* 1. SUMMARY CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* ... (Summary Cards Preserved) ... */}
         {/* Card: Total Income */}
         <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
           <div className="p-3 bg-green-50 text-green-600 rounded-lg">
@@ -466,7 +441,6 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
         </button>
       </div>
 
-      {/* ... (Charts & Tables below - Preserved exactly as existing) ... */}
       {/* 2. ANALYTICS SECTION */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-slide-in-right">
          {/* CHART */}
@@ -540,7 +514,6 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
       {/* 3. FILTER TOOLBAR + SCANNER BUTTON */}
       <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-end">
-            {/* ... Filter Inputs ... */}
             <div className="lg:col-span-4 space-y-1">
                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">Cari Pelanggan</label>
                <div className="relative">
@@ -831,9 +804,35 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                     {/* RIGHT COLUMN: FINANCIALS */}
                     <div className="order-1 xl:order-2">
                         <div className="bg-gray-50 border border-gray-200 p-5 rounded-2xl shadow-sm h-full">
-                           <h4 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2 border-b border-gray-200 pb-2">
-                              <Wallet size={16}/> Status Pembayaran
-                           </h4>
+                           <div className="flex justify-between items-center border-b border-gray-200 pb-2 mb-4">
+                               <h4 className="text-sm font-bold text-gray-700 flex items-center gap-2">
+                                  <Wallet size={16}/> Status Pembayaran
+                               </h4>
+                               {/* TOMBOL CETAK UTAMA */}
+                               <div className="flex gap-1">
+                                  <button 
+                                    onClick={() => copyInvoiceToClipboard(selectedTransaction, 'full')} 
+                                    className="p-1.5 bg-white border border-gray-200 text-blue-600 rounded hover:bg-blue-50 transition"
+                                    title="Salin Gambar Nota ke Clipboard (WA)"
+                                  >
+                                    <ImageIcon size={14} />
+                                  </button>
+                                  <button 
+                                    onClick={() => printInvoice(selectedTransaction, 'view', 'rental')} 
+                                    className="p-1.5 bg-white border border-gray-200 text-gray-600 rounded hover:bg-gray-100 transition"
+                                    title="Cetak Nota Sewa (Tanpa Denda)"
+                                  >
+                                    <FileText size={14} />
+                                  </button>
+                                  <button 
+                                    onClick={() => printInvoice(selectedTransaction, 'view', 'full')} 
+                                    className="p-1.5 bg-nature-600 text-white rounded hover:bg-nature-700 transition shadow-sm"
+                                    title="Cetak Nota Lengkap"
+                                  >
+                                    <Printer size={14} />
+                                  </button>
+                               </div>
+                           </div>
 
                            <div className="space-y-4 mb-6">
                               <div className="flex justify-between items-center">
