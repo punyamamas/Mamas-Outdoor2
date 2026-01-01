@@ -68,14 +68,24 @@ export const getReviewsForProduct = async (productId: string): Promise<Review[]>
       .order('created_at', { ascending: false })
       .limit(300);
 
-    if (error || !reviews || reviews.length === 0) return [];
+    if (error) {
+        console.error("Error fetching reviews table:", error);
+        return [];
+    }
+    
+    if (!reviews || reviews.length === 0) return [];
 
     // 2. Ambil detail transaksi terkait review tersebut
     const transactionIds = reviews.map(r => r.transaction_id);
-    const { data: transactions } = await supabase
+    const { data: transactions, error: trxError } = await supabase
       .from('transactions')
       .select('id, items')
       .in('id', transactionIds);
+
+    if (trxError) {
+        console.error("Error fetching transactions for reviews (RLS Blocking?):", trxError);
+        return [];
+    }
 
     if (!transactions) return [];
 
@@ -92,7 +102,7 @@ export const getReviewsForProduct = async (productId: string): Promise<Review[]>
     return reviews.filter(r => validTransactionIds.includes(r.transaction_id));
 
   } catch (err) {
-    console.error("Error fetching product reviews:", err);
+    console.error("Error in getReviewsForProduct:", err);
     return [];
   }
 };
