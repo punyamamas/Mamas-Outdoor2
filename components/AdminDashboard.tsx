@@ -126,6 +126,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     } else {
       alert("Gagal update status transaksi.");
     }
+    return success;
   };
 
   const handleDeleteTransaction = async (id: string) => {

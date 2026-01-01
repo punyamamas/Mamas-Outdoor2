@@ -1,15 +1,15 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { ClipboardList, Loader2, Calendar, Eye, Trash2, X, User, CreditCard, Banknote, ArrowRightLeft, Save, Calculator, CheckCircle, RotateCcw, Wallet, Edit, Plus, Minus, Search, ShoppingBag, Printer, Filter, DollarSign, Receipt, BarChart3, TrendingUp, Lightbulb, AlertTriangle, ArrowUpRight, Share2, Image as ImageIcon, CreditCard as CardIcon, ExternalLink, QrCode, FileText, Clock, ShieldCheck, ChevronDown, ChevronUp } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { ClipboardList, Loader2, Calendar, Eye, Trash2, X, User, CreditCard, Banknote, ArrowRightLeft, Save, Calculator, CheckCircle, RotateCcw, Wallet, Edit, Plus, Minus, Search, ShoppingBag, Printer, Filter, DollarSign, Receipt, BarChart3, TrendingUp, Lightbulb, AlertTriangle, ArrowUpRight, Share2, Image as ImageIcon, CreditCard as CardIcon, ExternalLink, QrCode, FileText, Clock, ShieldCheck, ChevronDown, ChevronUp, Upload, LogIn, LogOut } from 'lucide-react';
 import { Transaction, Product, CartItem } from '../types';
-import { updateTransactionPayment, updateTransactionItems, updateTransactionDetails, printInvoice, applyTransactionFine, calculateOverdueFine, copyInvoiceToClipboard } from '../services/transactionService';
+import { updateTransactionPayment, updateTransactionItems, updateTransactionDetails, printInvoice, applyTransactionFine, calculateOverdueFine, copyInvoiceToClipboard, uploadPaymentProof } from '../services/transactionService';
 import QRScannerModal from './QRScannerModal'; 
 
 interface AdminTransactionManagerProps {
   transactions: Transaction[];
   isLoading: boolean;
   products?: Product[]; 
-  onStatusUpdate: (id: string, status: string) => Promise<void>;
+  onStatusUpdate: (id: string, status: string) => Promise<boolean>;
   onDeleteTransaction: (id: string) => Promise<void>;
   onRefreshData?: () => Promise<void>;
 }
@@ -56,6 +56,10 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
   
   const [isSavingPayment, setIsSavingPayment] = useState(false);
   const [isApplyingFine, setIsApplyingFine] = useState(false);
+  
+  // ADMIN UPLOAD PROOF STATE
+  const [isUploadingProof, setIsUploadingProof] = useState(false);
+  const adminFileRef = useRef<HTMLInputElement>(null);
 
   // --- EDIT ITEMS STATES ---
   const [isEditingItems, setIsEditingItems] = useState(false);
@@ -80,6 +84,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
       setFineInput(0);
       setIsEditingItems(false);
       setIsEditingInfo(false);
+      setIsUploadingProof(false);
       
       setEditedItems(selectedTransaction.items);
       setEditName(selectedTransaction.customerName);
@@ -94,15 +99,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
       if (found) {
           setSelectedTransaction(found);
           setIsScannerOpen(false);
-          
-          const status = found.status;
-          if (status === 'rented') {
-             alert(`📦 Transaksi Ditemukan: ${found.customerName}\nStatus: SEDANG DISEWA\n\nSilakan proses PENGEMBALIAN (Check-out) di panel.`);
-          } else if (status === 'booked' || status === 'pending') {
-             alert(`🛍️ Transaksi Ditemukan: ${found.customerName}\nStatus: BOOKING/PENDING\n\nSilakan proses PENGAMBILAN (Check-in).`);
-          } else if (status === 'completed') {
-             alert(`✅ Transaksi Selesai: ${found.customerName}\nBarang sudah dikembalikan sebelumnya.`);
-          }
+          // Alert dipindahkan ke UI Modal agar lebih smooth
       } else {
           alert(`Transaksi ID: ${decodedText} tidak ditemukan.`);
           setIsScannerOpen(false);
@@ -307,6 +304,32 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
       alert(`Gagal update pembayaran: ${result.error || 'Terjadi kesalahan sistem'}`);
     }
     setIsSavingPayment(false);
+  };
+
+  const handleAdminUploadProof = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (!e.target.files || e.target.files.length === 0 || !selectedTransaction) return;
+      const file = e.target.files[0];
+      if (file.size > 5 * 1024 * 1024) return alert("Maksimal 5MB");
+
+      setIsUploadingProof(true);
+      try {
+          const url = await uploadPaymentProof(selectedTransaction.id, file);
+          if (url) {
+              setSelectedTransaction({ ...selectedTransaction, paymentProofUrl: url });
+              if (onRefreshData) await onRefreshData();
+              alert("Bukti transfer berhasil diupload.");
+          }
+      } catch (e) { console.error(e); alert("Gagal upload."); }
+      finally { setIsUploadingProof(false); }
+  };
+
+  const handleChangeStatusInModal = async (newStatus: string) => {
+      if (!selectedTransaction) return;
+      const success = await onStatusUpdate(selectedTransaction.id, newStatus);
+      if (success) {
+          setSelectedTransaction({ ...selectedTransaction, status: newStatus as any });
+          if(onRefreshData) await onRefreshData();
+      }
   };
 
   const handleAddItem = (product: Product, variantKey?: string) => {
@@ -695,11 +718,41 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
            <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-5xl overflow-hidden animate-slide-in-right md:animate-none flex flex-col max-h-[95vh]">
               
               {/* Header */}
-              <div className="bg-nature-900 px-6 py-4 flex justify-between items-center text-white shrink-0">
+              <div className="bg-nature-900 px-6 py-4 flex flex-col md:flex-row justify-between items-center text-white shrink-0 gap-4">
                  <div>
                     <h3 className="text-lg font-bold flex items-center gap-2"><Calculator size={20} /> Kasir & Detail Order</h3>
                     <p className="text-xs text-nature-200 font-mono mt-0.5">#{selectedTransaction.id.slice(0,8)} - {selectedTransaction.customerName}</p>
                  </div>
+                 
+                 {/* QUICK STATUS CHANGER (NEW FEATURE) */}
+                 <div className="flex items-center gap-3 bg-white/10 px-3 py-2 rounded-xl">
+                    <span className="text-xs font-bold text-nature-200 uppercase">Ubah Status:</span>
+                    <div className="flex gap-2">
+                        {selectedTransaction.status === 'booked' && (
+                            <button onClick={() => handleChangeStatusInModal('rented')} className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1">
+                                <LogOut size={12}/> Ambil Barang
+                            </button>
+                        )}
+                        {selectedTransaction.status === 'rented' && (
+                            <button onClick={() => handleChangeStatusInModal('completed')} className="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1">
+                                <LogIn size={12}/> Kembali Barang
+                            </button>
+                        )}
+                        <select
+                          value={selectedTransaction.status}
+                          onChange={(e) => handleChangeStatusInModal(e.target.value)}
+                          className="bg-white text-gray-800 text-xs font-bold px-2 py-1.5 rounded-lg outline-none cursor-pointer"
+                        >
+                          <option value="pending">Pending</option>
+                          <option value="partial_payment">Cicilan</option>
+                          <option value="booked">Booked</option>
+                          <option value="rented">Sewa</option>
+                          <option value="completed">Selesai</option>
+                          <option value="cancelled">Batal</option>
+                        </select>
+                    </div>
+                 </div>
+
                  <button onClick={() => setSelectedTransaction(null)} className="hover:bg-white/10 p-1 rounded-full transition"><X size={24} /></button>
               </div>
 
@@ -986,7 +1039,27 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
 
                            {/* Payment Inputs */}
                            <div className="space-y-3">
-                              <label className="text-xs font-black text-gray-500 uppercase">Input Bayar</label>
+                              <div className="flex justify-between items-center">
+                                <label className="text-xs font-black text-gray-500 uppercase">Input Bayar</label>
+                                {/* Admin Upload Proof (NEW) */}
+                                <div className="relative">
+                                    <input 
+                                        type="file" 
+                                        accept="image/*" 
+                                        className="hidden" 
+                                        ref={adminFileRef}
+                                        onChange={handleAdminUploadProof}
+                                    />
+                                    <button 
+                                        onClick={() => adminFileRef.current?.click()}
+                                        disabled={isUploadingProof}
+                                        className="flex items-center gap-1 text-[10px] font-bold text-blue-600 hover:bg-blue-50 px-2 py-1 rounded transition"
+                                    >
+                                        {isUploadingProof ? <Loader2 size={10} className="animate-spin"/> : <Upload size={10}/>} Upload Bukti
+                                    </button>
+                                </div>
+                              </div>
+                              
                               <div className="flex gap-2">
                                  <div className="relative flex-1">
                                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs">Cash</span>
