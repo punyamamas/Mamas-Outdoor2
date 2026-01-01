@@ -1,8 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
-import { RotateCcw, Lock, LogOut } from 'lucide-react';
+import { RotateCcw, Lock, LogOut, Mail, Key } from 'lucide-react';
 import { Product, Category, Transaction } from '../types';
 import { getTransactions, updateTransactionStatus, deleteTransaction } from '../services/transactionService';
+import { signIn, signOut, getCurrentUser } from '../services/authService';
 
 // Import Modular Components
 import AdminSidebar from './AdminSidebar';
@@ -15,7 +16,7 @@ import AdminFinanceManager from './AdminFinanceManager';
 import AdminReportManager from './AdminReportManager';
 import AdminCustomerManager from './AdminCustomerManager';
 import AdminSystemSetup from './AdminSystemSetup';
-import AdminReviewManager from './AdminReviewManager'; // Import Baru
+import AdminReviewManager from './AdminReviewManager';
 
 interface AdminDashboardProps {
   products: Product[];
@@ -43,7 +44,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onRefresh
 }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
+  const [loginError, setLoginError] = useState('');
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+
   // Update Type State Tab
   const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'warehouse' | 'categories' | 'transactions' | 'finance' | 'reports' | 'customers' | 'system' | 'reviews'>('dashboard');
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -52,14 +58,42 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoadingTransactions, setIsLoadingTransactions] = useState(false);
 
+  // Check Session on Mount
+  useEffect(() => {
+    const checkSession = async () => {
+      const user = await getCurrentUser();
+      if (user) {
+        setIsAuthenticated(true);
+      }
+      setIsAuthChecking(false);
+    };
+    checkSession();
+  }, []);
+
   // Authentication Handler
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password === 'admin123') {
-      setIsAuthenticated(true);
-    } else {
-      alert('Password salah!');
+    setLoginError('');
+    setIsLoggingIn(true);
+
+    try {
+      const { error } = await signIn(email, password);
+      if (error) {
+        setLoginError(error.message === 'Invalid login credentials' ? 'Email atau Password salah.' : error.message);
+      } else {
+        setIsAuthenticated(true);
+      }
+    } catch (err) {
+      setLoginError('Terjadi kesalahan koneksi.');
+    } finally {
+      setIsLoggingIn(false);
     }
+  };
+
+  const handleLogout = async () => {
+    await signOut();
+    setIsAuthenticated(false);
+    onBackToHome();
   };
 
   // Fetch Transactions when tab changes to one that needs transaction data
@@ -112,25 +146,66 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // LOCK SCREEN
   if (!isAuthenticated) {
+    if (isAuthChecking) {
+      return (
+        <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-nature-600"></div>
+        </div>
+      );
+    }
+
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
         <div className="bg-white p-8 rounded-3xl shadow-2xl max-w-md w-full text-center">
            <div className="w-20 h-20 bg-nature-100 rounded-full flex items-center justify-center mx-auto mb-6 text-nature-600">
              <Lock size={40} />
            </div>
-           <h2 className="text-2xl font-black text-gray-900 mb-2">Admin Area</h2>
-           <p className="text-gray-500 mb-6">Area terbatas khusus pasukan Mamas Outdoor.</p>
+           <h2 className="text-2xl font-black text-gray-900 mb-2">Admin Portal</h2>
+           <p className="text-gray-500 mb-6 text-sm">Silakan login menggunakan akun terdaftar.</p>
            
-           <form onSubmit={handleLogin} className="space-y-4">
-             <input 
-               type="password" 
-               placeholder="Masukkan Password..." 
-               className="w-full px-5 py-3 rounded-xl border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-nature-500 outline-none transition"
-               value={password}
-               onChange={(e) => setPassword(e.target.value)}
-             />
-             <button type="submit" className="w-full py-3 bg-nature-600 hover:bg-nature-700 text-white font-bold rounded-xl shadow-lg transition">
-               Buka Pintu
+           <form onSubmit={handleLogin} className="space-y-4 text-left">
+             <div>
+                <label className="block text-xs font-bold text-gray-500 mb-1 ml-1">Email</label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-3 text-gray-400" size={18}/>
+                  <input 
+                    type="email" 
+                    placeholder="admin@mamas.com" 
+                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-nature-500 outline-none transition"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                </div>
+             </div>
+             
+             <div>
+                <label className="block text-xs font-bold text-gray-500 mb-1 ml-1">Password</label>
+                <div className="relative">
+                  <Key className="absolute left-3 top-3 text-gray-400" size={18}/>
+                  <input 
+                    type="password" 
+                    placeholder="••••••••" 
+                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-nature-500 outline-none transition"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                </div>
+             </div>
+
+             {loginError && (
+                <div className="bg-red-50 text-red-600 text-xs p-3 rounded-lg border border-red-100 font-medium">
+                   {loginError}
+                </div>
+             )}
+
+             <button 
+               type="submit" 
+               disabled={isLoggingIn}
+               className="w-full py-3 bg-nature-600 hover:bg-nature-700 text-white font-bold rounded-xl shadow-lg transition disabled:opacity-70 flex justify-center items-center gap-2"
+             >
+               {isLoggingIn ? 'Memproses...' : 'Masuk Dashboard'}
              </button>
            </form>
            
@@ -144,7 +219,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row">
-      <AdminSidebar activeTab={activeTab} setActiveTab={setActiveTab as any} onLogout={onBackToHome} />
+      <AdminSidebar activeTab={activeTab} setActiveTab={setActiveTab as any} onLogout={handleLogout} />
 
       <main className="flex-1 overflow-y-auto max-h-screen">
         <header className="bg-white border-b border-gray-200 px-8 py-5 flex justify-between items-center sticky top-0 z-30">
@@ -158,6 +233,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
              `${activeTab} Overview`}
           </h1>
           <div className="flex items-center gap-4">
+             <div className="hidden md:flex items-center gap-2 text-xs font-medium text-gray-500 bg-gray-100 px-3 py-1.5 rounded-full">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                Admin Session Active
+             </div>
              <button onClick={handleRefreshData} disabled={isRefreshing} className="p-2 text-gray-500 hover:text-nature-600 hover:bg-gray-100 rounded-lg transition disabled:animate-spin" title="Refresh Data">
                 <RotateCcw size={20} />
              </button>
