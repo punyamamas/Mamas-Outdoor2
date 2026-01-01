@@ -254,6 +254,7 @@ function App() {
       <AdminDashboard 
         products={products}
         categories={categories}
+        transactions={transactions}
         onBackToHome={() => setCurrentPage('home')}
         onAddProduct={handleAddProduct}
         onUpdateProduct={handleUpdateProduct}

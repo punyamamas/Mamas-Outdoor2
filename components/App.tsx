@@ -13,14 +13,14 @@ import { PRODUCTS, CATEGORIES as CONSTANT_CATEGORIES } from './constants';
 import { CartItem, Product, Category, Transaction } from './types';
 import { getProducts, addProduct, updateProduct, deleteProduct } from './services/productService';
 import { getCategories, addCategory, updateCategory, deleteCategory } from './services/categoryService';
-import { getTransactions } from './services/transactionService'; // Import getTransactions
-import { MapPin, Star, Plus, Check, School, Github, Loader2, Flame, Lock, Calendar, Users, ArrowRight as ArrowIcon, ChevronDown, ShieldCheck, Zap, ShoppingCart, Info, Weight, Tent, Wind, ArrowUpDown, Search, XCircle, ShoppingBag, ClipboardList, MessageCircle, Truck, CalendarCheck } from 'lucide-react';
+import { getTransactions } from './services/transactionService'; 
+import { MapPin, Star, Plus, Check, School, Github, Loader2, Flame, Lock, Calendar, Users, ArrowRight as ArrowIcon, ChevronDown, ShieldCheck, Zap, ShoppingCart, Info, Weight, Tent, Wind, ArrowUpDown, Search, XCircle, ShoppingBag, ClipboardList, MessageCircle, Truck, CalendarCheck, CalendarDays, Clock } from 'lucide-react';
 
 function App() {
   const [currentPage, setCurrentPage] = useState<'home' | 'admin'>('home');
   const [products, setProducts] = useState<Product[]>([]); 
   const [categories, setCategories] = useState<Category[]>([]);
-  const [transactions, setTransactions] = useState<Transaction[]>([]); // Store Transactions for Availability Check
+  const [transactions, setTransactions] = useState<Transaction[]>([]); 
   const [isLoading, setIsLoading] = useState(true); 
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -29,43 +29,29 @@ function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('Semua');
   
-  // State untuk pencarian
   const [searchQuery, setSearchQuery] = useState('');
-
-  // State untuk sorting
   const [sortBy, setSortBy] = useState<'default' | 'price_low' | 'price_high' | 'name'>('default');
-  
-  // State untuk detail modal
   const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
-
-  // State untuk Toast Notification
   const [toast, setToast] = useState<{ show: boolean; message: string }>({ show: false, message: '' });
 
   // --- AVAILABILITY STATE ---
-  // Default: Hari ini, Durasi 2 Hari
   const [checkDate, setCheckDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [checkDuration, setCheckDuration] = useState(2);
 
-  // Define fetch data functions
   const fetchData = async () => {
-    // Only show loading on initial load or empty state
     if (products.length === 0) setIsLoading(true);
-    
     try {
-      // Fetch concurrently: Products, Categories, and Active Transactions
       const [productsData, categoriesData, transactionsData] = await Promise.all([
         getProducts(),
         getCategories(),
         getTransactions()
       ]);
-      
       setProducts(productsData);
       setCategories(categoriesData);
       setTransactions(transactionsData);
     } catch (error) {
       console.error("Failed to load data", error);
       setProducts(PRODUCTS); 
-      // Fallback menggunakan daftar constant yang sudah diurutkan
       const fallbackCats = CONSTANT_CATEGORIES
         .filter(c => c !== 'Semua')
         .map((name, idx) => ({ id: (idx + 1).toString(), name }));
@@ -75,19 +61,16 @@ function App() {
     }
   };
 
-  // Load data on mount
   useEffect(() => {
     fetchData();
   }, []);
 
-  // Cart Management
   useEffect(() => {
     const savedCart = localStorage.getItem('mamasCart');
     if (savedCart) {
       try {
         const parsed = JSON.parse(savedCart);
         if (parsed.length > 0 && parsed[0].price2Days === undefined) {
-          console.warn("Mendeteksi format keranjang lama. Mereset keranjang.");
           setCartItems([]);
           localStorage.removeItem('mamasCart');
         } else {
@@ -107,50 +90,29 @@ function App() {
     setToast({ show: true, message });
   };
 
-  // --- AVAILABILITY LOGIC ENGINE ---
-  // Menghitung barang yang sedang "Booked" atau "Rented" pada tanggal yang dipilih user
   const bookedStockMap = useMemo(() => {
-    const bookedMap: Record<string, number> = {}; // ProductID -> Jumlah Booked
-    
-    // Convert User Selected Date Range to Timestamp
+    const bookedMap: Record<string, number> = {}; 
     const userStart = new Date(checkDate).getTime();
     const userEnd = new Date(checkDate).getTime() + (checkDuration * 24 * 60 * 60 * 1000);
 
     transactions.forEach(trx => {
-        // Skip jika transaksi batal atau sudah selesai (sudah kembali)
-        // Note: 'completed' berarti barang sudah kembali ke gudang, jadi stok aman.
         if (trx.status === 'cancelled' || trx.status === 'completed') return;
-
-        // Hitung Range Tanggal Transaksi Ini
         const trxStart = new Date(trx.rentalDate).getTime();
         const trxEnd = new Date(trx.rentalDate).getTime() + (trx.duration * 24 * 60 * 60 * 1000);
-
-        // Cek Tumpang Tindih Tanggal (Overlap)
-        // Logic: (StartA < EndB) && (EndA > StartB)
         const isOverlapping = (userStart < trxEnd) && (userEnd > trxStart);
 
         if (isOverlapping) {
             trx.items.forEach(item => {
                 bookedMap[item.id] = (bookedMap[item.id] || 0) + item.quantity;
-                
-                // Handle Paket: Jika item adalah paket, kurangi juga stok komponennya?
-                // Idealnya: Transaksi menyimpan item paket. 
-                // Untuk simplifikasi visual, kita hitung item ID utama saja.
-                // Jika arsitektur kompleks, kita perlu recursive check.
             });
         }
     });
-
     return bookedMap;
   }, [transactions, checkDate, checkDuration]);
 
-
-  // Helper untuk mendapatkan stok yang tersedia berdasarkan konfigurasi & tanggal
   const getAvailableStock = (product: Product, size?: string, color?: string): number => {
-    // 1. Ambil Stok Fisik Dasar dari Database (Total Gudang)
     let physicalStock = product.stock;
 
-    // 2. Logic Varian/Size
     if (product.variants && product.variants.length > 0 && size && color) {
       const variant = product.variants.find(v => v.size === size && v.color === color);
       physicalStock = variant ? variant.stock : 0;
@@ -158,47 +120,33 @@ function App() {
        physicalStock = product.sizes[size] || 0;
     }
 
-    // 3. Logic PAKET Dinamis (Recursive)
     if (product.packageItems && product.packageItems.length > 0) {
         const possibleStocks = product.packageItems.map(pi => {
             const child = products.find(p => p.id === pi.productId);
             if (!child) return 0;
-            // Hitung stok child yang tersedia (Physical - Booked)
             const childBooked = bookedStockMap[child.id] || 0;
             const childPhysical = child.stock;
             const childAvailable = Math.max(0, childPhysical - childBooked);
-            
             return Math.floor(childAvailable / pi.quantity);
         });
         physicalStock = possibleStocks.length > 0 ? Math.min(...possibleStocks) : 0;
     } 
     else {
-        // 4. Kurangi dengan Transaksi yang sedang berjalan (Availability Check)
-        // Hanya kurangi jika BUKAN paket (paket sudah dihitung dari komponennya di atas)
-        // Tapi tunggu, jika paket itu sendiri disewa (sebagai ID paket), kita harus kurangi juga?
-        // Asumsi: Di cartItem tersimpan ID paket. Jadi bookedMap[product.id] valid untuk paket juga.
-        
-        // PENTING: Untuk produk biasa, Available = Physical - Booked
         const bookedQty = bookedStockMap[product.id] || 0;
         physicalStock = Math.max(0, physicalStock - bookedQty);
     }
-
     return physicalStock;
   };
 
   const addToCart = (product: Product, selectedSize?: string, selectedColor?: string) => {
     const maxStock = getAvailableStock(product, selectedSize, selectedColor);
-
-    // Cek item yang sudah ada di keranjang dengan varian yang sama
     const existingItem = cartItems.find(item => 
       item.id === product.id && 
       item.selectedSize === selectedSize &&
       item.selectedColor === selectedColor
     );
-
     const currentQtyInCart = existingItem ? existingItem.quantity : 0;
 
-    // VALIDASI STOK
     if (currentQtyInCart + 1 > maxStock) {
       showToast(`Ups! Untuk tanggal ${checkDate}, sisa stok hanya ${maxStock} unit.`);
       return;
@@ -206,36 +154,26 @@ function App() {
 
     setCartItems(prev => {
       if (existingItem) {
-        // Jika sudah ada (Id & Size & Color sama), update quantity
         const newItems = [...prev];
         const index = prev.indexOf(existingItem);
         newItems[index] = { ...existingItem, quantity: existingItem.quantity + 1 };
         return newItems;
       }
-      
-      // Jika belum ada, tambah baru dengan selectedSize & selectedColor
       return [...prev, { ...product, quantity: 1, selectedSize, selectedColor }];
     });
     
-    // UX Update: Tampilkan notifikasi
-    const variantInfo = [];
-    if (selectedSize) variantInfo.push(selectedSize);
-    if (selectedColor) variantInfo.push(selectedColor);
-    const infoStr = variantInfo.length > 0 ? ` (${variantInfo.join(', ')})` : '';
-    
-    showToast(`${product.name}${infoStr} berhasil masuk keranjang!`);
+    showToast(`${product.name} berhasil masuk keranjang!`);
   };
 
   const addRecommendedToCart = (productId: string) => {
     const product = products.find(p => p.id === productId);
     if (product) {
-      // Note: Untuk rekomendasi AI, jika produk butuh size/warna, idealnya buka modal.
       const hasSize = product.sizes && Object.keys(product.sizes).length > 0;
       const hasColor = product.colors && product.colors.length > 0;
       const hasVariants = product.variants && product.variants.length > 0;
       
       if (hasSize || hasColor || hasVariants) {
-        setViewingProduct(product); // Buka modal biar user pilih varian
+        setViewingProduct(product);
       } else {
         addToCart(product);
       }
@@ -243,11 +181,9 @@ function App() {
   };
 
   const updateQuantity = (id: string, delta: number, size?: string, color?: string) => {
-    // Jika menambah quantity, cek stok dulu
     if (delta > 0) {
       const itemInCart = cartItems.find(i => i.id === id && i.selectedSize === size && i.selectedColor === color);
       if (itemInCart) {
-        // Cari produk asli untuk cek stok terbaru
         const originalProduct = products.find(p => p.id === id);
         if(originalProduct) {
             const maxStock = getAvailableStock(originalProduct, size, color);
@@ -258,7 +194,6 @@ function App() {
         }
       }
     }
-
     setCartItems(prev => prev.map(item => {
       if (item.id === id && item.selectedSize === size && item.selectedColor === color) {
         const newQty = item.quantity + delta;
@@ -274,20 +209,14 @@ function App() {
     ));
   };
 
-  const clearCart = () => {
-    setCartItems([]);
-  };
+  const clearCart = () => setCartItems([]);
 
-  // --- Product Handlers ---
+  // --- Handlers ---
   const handleAddProduct = async (newProduct: Product) => {
     setProducts(prev => [newProduct, ...prev]);
     const savedProduct = await addProduct(newProduct);
-    if (savedProduct) {
-       setProducts(prev => prev.map(p => p.id === newProduct.id ? savedProduct : p));
-    } else {
-       alert("Gagal menyimpan ke database.");
-       fetchData();
-    }
+    if (savedProduct) setProducts(prev => prev.map(p => p.id === newProduct.id ? savedProduct : p));
+    else fetchData();
   };
 
   const handleUpdateProduct = async (updatedProduct: Product) => {
@@ -298,35 +227,25 @@ function App() {
   const handleDeleteProduct = async (id: string) => {
     if (window.confirm('Yakin ingin menghapus produk ini?')) {
       const success = await deleteProduct(id);
-      if (success) {
-        setProducts(prev => prev.filter(p => p.id !== id));
-      } else {
-        fetchData();
-      }
+      if (success) setProducts(prev => prev.filter(p => p.id !== id));
+      else fetchData();
     }
   };
 
-  // --- Category Handlers ---
   const handleAddCategory = async (name: string) => {
     const newCat = await addCategory(name);
-    if (newCat) {
-      setCategories(prev => [...prev, newCat]);
-    }
+    if (newCat) setCategories(prev => [...prev, newCat]);
   };
 
   const handleUpdateCategory = async (id: string, name: string) => {
     const updated = await updateCategory(id, name);
-    if (updated) {
-      setCategories(prev => prev.map(c => c.id === id ? updated : c));
-    }
+    if (updated) setCategories(prev => prev.map(c => c.id === id ? updated : c));
   };
 
   const handleDeleteCategory = async (id: string) => {
-    if (window.confirm('Yakin hapus kategori? Produk di kategori ini mungkin akan kehilangan label kategori.')) {
+    if (window.confirm('Yakin hapus kategori?')) {
       const success = await deleteCategory(id);
-      if (success) {
-        setCategories(prev => prev.filter(c => c.id !== id));
-      }
+      if (success) setCategories(prev => prev.filter(c => c.id !== id));
     }
   };
 
@@ -335,6 +254,7 @@ function App() {
       <AdminDashboard 
         products={products}
         categories={categories}
+        transactions={transactions}
         onBackToHome={() => setCurrentPage('home')}
         onAddProduct={handleAddProduct}
         onUpdateProduct={handleUpdateProduct}
@@ -347,9 +267,7 @@ function App() {
     );
   }
 
-  // --- Filtering & Sorting Logic ---
-  
-  // 1. Filter Logic (Category + Search)
+  // --- Filter & Sort ---
   const filteredProducts = products.filter(p => {
     const matchesCategory = selectedCategory === 'Semua' || p.category === selectedCategory;
     const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -357,28 +275,20 @@ function App() {
     return matchesCategory && matchesSearch;
   });
 
-  // 2. Sort Logic
   const sortedProducts = [...filteredProducts].sort((a, b) => {
     switch (sortBy) {
-      case 'price_low':
-        return (a.isSale ? (a.salePrice||0) : a.price2Days) - (b.isSale ? (b.salePrice||0) : b.price2Days);
-      case 'price_high':
-        return (b.isSale ? (b.salePrice||0) : b.price2Days) - (a.isSale ? (a.salePrice||0) : a.price2Days);
-      case 'name':
-        return a.name.localeCompare(b.name);
+      case 'price_low': return (a.isSale ? (a.salePrice||0) : a.price2Days) - (b.isSale ? (b.salePrice||0) : b.price2Days);
+      case 'price_high': return (b.isSale ? (b.salePrice||0) : b.price2Days) - (a.isSale ? (a.salePrice||0) : a.price2Days);
+      case 'name': return a.name.localeCompare(b.name);
       case 'default':
       default:
-        // Sort berdasarkan urutan index di CONSTANT_CATEGORIES
         const idxA = CONSTANT_CATEGORIES.indexOf(a.category);
         const idxB = CONSTANT_CATEGORIES.indexOf(b.category);
-        
-        // Jika kategori berbeda, urutkan berdasarkan prioritas kategori
         if (idxA !== idxB) {
           const validIdxA = idxA === -1 ? 999 : idxA;
           const validIdxB = idxB === -1 ? 999 : idxB;
           return validIdxA - validIdxB;
         }
-        
         return a.name.localeCompare(b.name);
     }
   });
@@ -394,12 +304,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gray-50 pt-16">
-      {/* Toast Notification */}
-      <Toast 
-        message={toast.message} 
-        isVisible={toast.show} 
-        onClose={() => setToast({ ...toast, show: false })} 
-      />
+      <Toast message={toast.message} isVisible={toast.show} onClose={() => setToast({ ...toast, show: false })} />
 
       <Navbar 
         cartCount={cartItems.reduce((acc, item) => acc + item.quantity, 0)} 
@@ -414,23 +319,16 @@ function App() {
         isOpen={isCartOpen} 
         onClose={() => setIsCartOpen(false)} 
         cartItems={cartItems}
-        products={products} // Add this prop
+        products={products} 
         onUpdateQuantity={updateQuantity}
         onRemoveItem={removeItem}
         onClearCart={clearCart}
-        onRefreshData={fetchData} // Pass function to update UI after checkout
+        onRefreshData={fetchData} 
       />
 
-      <HistoryDrawer 
-        isOpen={isHistoryOpen}
-        onClose={() => setIsHistoryOpen(false)}
-      />
-
-      <TermsModal 
-        isOpen={isTermsOpen} 
-        onClose={() => setIsTermsOpen(false)} 
-      />
-
+      <HistoryDrawer isOpen={isHistoryOpen} onClose={() => setIsHistoryOpen(false)} />
+      <TermsModal isOpen={isTermsOpen} onClose={() => setIsTermsOpen(false)} />
+      
       <ProductDetailModal 
         isOpen={!!viewingProduct}
         onClose={() => setViewingProduct(null)}
@@ -440,8 +338,8 @@ function App() {
         isInCart={viewingProduct ? !!cartItems.find(i => i.id === viewingProduct.id) : false} 
       />
 
-      {/* Hero Section */}
-      <section className="relative min-h-screen flex items-center justify-center overflow-hidden py-32 group/hero">
+      {/* Hero Section WITH BOOKING WIDGET */}
+      <section className="relative min-h-[90vh] flex flex-col items-center justify-center overflow-hidden py-32 group/hero">
         <div className="absolute inset-0 z-0 overflow-hidden">
           <img 
             src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=2000&auto=format&fit=crop" 
@@ -450,34 +348,9 @@ function App() {
           />
           <div className="absolute inset-0 bg-gradient-to-b from-gray-900/90 via-gray-900/50 to-gray-50/10"></div>
           <div className="absolute inset-0 bg-black/20"></div>
-          <div className="absolute inset-0 opacity-[0.03]" style={{backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '30px 30px'}}></div>
         </div>
 
         <div className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex flex-col justify-center items-center">
-          <div className="hidden 2xl:block absolute left-4 top-1/4 animate-float" style={{animationDelay: '0s'}}>
-            <div className="bg-white/10 backdrop-blur-md border border-white/20 p-4 rounded-2xl shadow-2xl flex items-center gap-4 w-72 text-left hover:scale-105 transition duration-300 cursor-default">
-               <div className="bg-green-500/20 p-3 rounded-xl text-green-400 shadow-inner">
-                 <School size={32} />
-               </div>
-               <div>
-                 <p className="text-white font-bold text-lg leading-tight">Diskon Mahasiswa</p>
-                 <p className="text-gray-300 text-sm font-medium mt-1">UNSOED, UMP, & Lainnya</p>
-               </div>
-            </div>
-          </div>
-
-          <div className="hidden 2xl:block absolute right-4 bottom-1/4 animate-float" style={{animationDelay: '3s'}}>
-            <div className="bg-white/10 backdrop-blur-md border border-white/20 p-4 rounded-2xl shadow-2xl flex items-center gap-4 w-72 text-left hover:scale-105 transition duration-300 cursor-default">
-               <div className="bg-orange-500/20 p-3 rounded-xl text-orange-400 shadow-inner">
-                 <ShieldCheck size={32} />
-               </div>
-               <div>
-                 <p className="text-white font-bold text-lg leading-tight">Alat Terawat</p>
-                 <p className="text-gray-300 text-sm font-medium mt-1">Bersih, Wangi, No Bocor</p>
-               </div>
-            </div>
-          </div>
-
           <div className="text-center max-w-5xl mx-auto relative z-20 px-4 flex flex-col items-center">
             <div className="inline-flex items-center gap-2 bg-nature-600/90 backdrop-blur-md px-5 py-2 rounded-full text-white text-xs md:text-sm font-bold mb-8 border border-white/10 uppercase tracking-widest shadow-xl shadow-nature-900/50 hover:bg-nature-700 hover:scale-105 transition duration-300 cursor-default">
               <Flame size={16} className="text-yellow-400 fill-current animate-pulse" />
@@ -498,143 +371,122 @@ function App() {
               Partner resmi penakluk <span className="text-yellow-400 font-bold border-b-2 border-yellow-400/30 hover:bg-yellow-400/10 transition-colors px-1">Slamet, Prau, & Sindoro</span>.
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-4 w-full justify-center">
-              <a 
-                href="#katalog" 
-                className="w-full sm:w-auto bg-nature-600 hover:bg-nature-700 text-white px-8 py-4 rounded-xl font-bold text-lg transition duration-300 shadow-lg shadow-nature-600/30 flex items-center justify-center gap-2 group border border-transparent hover:border-white/20 hover:-translate-y-1 active:scale-95"
-              >
-                Gasken Sewa
-                <ArrowIcon className="group-hover:translate-x-1 transition" size={20} />
-              </a>
-              <a 
-                href="#ai-guide" 
-                className="w-full sm:w-auto bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/20 px-8 py-4 rounded-xl font-bold text-lg transition duration-300 shadow-lg flex items-center justify-center gap-2 group hover:-translate-y-1 active:scale-95"
-              >
-                <Zap size={20} className="text-yellow-400 group-hover:text-yellow-300" />
-                Tanya AI Dulu
-              </a>
-            </div>
+            {/* --- BOOKING ENGINE WIDGET --- */}
+            <div className="bg-white p-2 rounded-3xl shadow-2xl border border-gray-200 w-full max-w-4xl mx-auto transform translate-y-8 animate-slide-in-right">
+                <div className="flex flex-col md:flex-row items-center p-2 gap-2">
+                    {/* Date Input */}
+                    <div className="flex-1 bg-gray-50 rounded-2xl p-3 w-full border border-transparent hover:border-nature-200 transition group cursor-pointer relative">
+                        <label className="text-[10px] uppercase font-bold text-gray-500 tracking-widest mb-1 block">Mulai Tanggal</label>
+                        <div className="flex items-center gap-2">
+                            <CalendarDays className="text-nature-600" size={20} />
+                            <input 
+                                type="date" 
+                                className="bg-transparent font-bold text-gray-800 text-sm outline-none w-full cursor-pointer"
+                                value={checkDate}
+                                onChange={(e) => setCheckDate(e.target.value)}
+                            />
+                        </div>
+                    </div>
 
-            <div className="mt-16 flex flex-wrap justify-center gap-6 2xl:hidden">
-              <div className="flex items-center gap-3 px-5 py-2 rounded-full border border-white/20 bg-black/40 backdrop-blur-md hover:bg-black/60 transition cursor-default">
-                <School size={18} className="text-green-400" />
-                <span className="text-white text-sm font-bold tracking-wide">Diskon Mahasiswa</span>
-              </div>
-              <div className="flex items-center gap-3 px-5 py-2 rounded-full border border-white/20 bg-black/40 backdrop-blur-md hover:bg-black/60 transition cursor-default">
-                <ShieldCheck size={18} className="text-orange-400" />
-                <span className="text-white text-sm font-bold tracking-wide">Alat Terawat & Bersih</span>
-              </div>
+                    {/* Duration Input */}
+                    <div className="flex-1 bg-gray-50 rounded-2xl p-3 w-full border border-transparent hover:border-nature-200 transition group">
+                        <label className="text-[10px] uppercase font-bold text-gray-500 tracking-widest mb-1 block">Durasi Sewa</label>
+                        <div className="flex items-center gap-2">
+                            <Clock className="text-nature-600" size={20} />
+                            <select 
+                                className="bg-transparent font-bold text-gray-800 text-sm outline-none w-full cursor-pointer appearance-none"
+                                value={checkDuration}
+                                onChange={(e) => setCheckDuration(Number(e.target.value))}
+                            >
+                                <option value={2}>2 Hari (Minimal)</option>
+                                <option value={3}>3 Hari</option>
+                                <option value={4}>4 Hari</option>
+                                <option value={5}>5 Hari (Santai)</option>
+                            </select>
+                            <ChevronDown size={16} className="text-gray-400"/>
+                        </div>
+                    </div>
+
+                    {/* Search Button */}
+                    <button 
+                        onClick={() => document.getElementById('katalog')?.scrollIntoView({ behavior: 'smooth' })}
+                        className="bg-nature-600 hover:bg-nature-700 text-white font-bold py-4 px-8 rounded-2xl shadow-lg transition-all hover:scale-105 active:scale-95 w-full md:w-auto flex items-center justify-center gap-2"
+                    >
+                        <Search size={20} />
+                        Cek Ketersediaan
+                    </button>
+                </div>
             </div>
+            {/* --- END BOOKING WIDGET --- */}
+
           </div>
-        </div>
-        
-        {/* Scroll Indicator */}
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 text-white/60 animate-bounce md:hidden z-20">
-          <span className="text-[10px] font-bold uppercase tracking-widest">Scroll</span>
-          <ChevronDown size={20} />
         </div>
       </section>
 
-      {/* NEW SECTION: How It Works (Langkah Sewa) */}
-      <section className="bg-white py-16 border-b border-gray-100">
+      {/* NEW SECTION: How It Works (ENHANCED) */}
+      <section className="bg-nature-50 py-20 border-b border-nature-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-black text-gray-900">Gampang Banget!</h2>
-            <p className="text-gray-500 mt-2">Cuma butuh 3 langkah buat dapetin gear impianmu.</p>
+            <span className="text-nature-600 font-black tracking-widest uppercase text-sm mb-2 block">Panduan Pemula</span>
+            <h2 className="text-3xl font-black text-gray-900">Cara Sewa Gampang Banget!</h2>
+            <p className="text-gray-600 mt-2">Cuma butuh 3 langkah buat dapetin gear impianmu.</p>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {/* Step 1 */}
-            <div className="relative group">
-              <div className="absolute inset-0 bg-nature-100 rounded-2xl transform rotate-3 transition-transform group-hover:rotate-6"></div>
-              <div className="relative bg-white border border-gray-200 p-8 rounded-2xl shadow-sm text-center h-full hover:-translate-y-2 transition-transform duration-300">
-                <div className="w-16 h-16 bg-nature-50 rounded-full flex items-center justify-center mx-auto mb-6 text-nature-600">
+            <div className="relative group bg-white p-8 rounded-3xl shadow-sm hover:shadow-xl transition-all duration-300 border border-transparent hover:border-nature-200">
+                <div className="w-16 h-16 bg-nature-100 rounded-2xl flex items-center justify-center mb-6 text-nature-600 group-hover:scale-110 transition">
                   <ClipboardList size={32} />
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">1. Pilih Alat</h3>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">1. Pilih & Cek Stok</h3>
                 <p className="text-gray-500 text-sm leading-relaxed">
-                  Cari tenda atau carrier di katalog. Cek stok, pilih warna, dan masukkan ke keranjang.
+                  Masukkan tanggal naik gunung kamu di atas. Sistem akan otomatis menyaring alat yang tersedia. Masukkan ke keranjang.
                 </p>
-              </div>
             </div>
 
-            {/* Step 2 */}
-            <div className="relative group">
-              <div className="absolute inset-0 bg-blue-100 rounded-2xl transform -rotate-3 transition-transform group-hover:-rotate-6"></div>
-              <div className="relative bg-white border border-gray-200 p-8 rounded-2xl shadow-sm text-center h-full hover:-translate-y-2 transition-transform duration-300">
-                <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-6 text-blue-600">
+            <div className="relative group bg-white p-8 rounded-3xl shadow-sm hover:shadow-xl transition-all duration-300 border border-transparent hover:border-blue-200">
+                <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center mb-6 text-blue-600 group-hover:scale-110 transition">
                   <MessageCircle size={32} />
                 </div>
                 <h3 className="text-xl font-bold text-gray-900 mb-2">2. Chat WhatsApp</h3>
                 <p className="text-gray-500 text-sm leading-relaxed">
-                  Klik tombol pesan. Admin Mamas akan konfirmasi total harga & ketersediaan tanggal.
+                  Klik tombol pesan. Admin Mamas akan konfirmasi total harga & ketersediaan tanggal. DP 50% untuk booking.
                 </p>
-              </div>
             </div>
 
-            {/* Step 3 */}
-            <div className="relative group">
-              <div className="absolute inset-0 bg-green-100 rounded-2xl transform rotate-3 transition-transform group-hover:rotate-6"></div>
-              <div className="relative bg-white border border-gray-200 p-8 rounded-2xl shadow-sm text-center h-full hover:-translate-y-2 transition-transform duration-300">
-                <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-6 text-green-600">
+            <div className="relative group bg-white p-8 rounded-3xl shadow-sm hover:shadow-xl transition-all duration-300 border border-transparent hover:border-green-200">
+                <div className="w-16 h-16 bg-green-100 rounded-2xl flex items-center justify-center mb-6 text-green-600 group-hover:scale-110 transition">
                   <Truck size={32} />
                 </div>
                 <h3 className="text-xl font-bold text-gray-900 mb-2">3. Ambil & Gas!</h3>
                 <p className="text-gray-500 text-sm leading-relaxed">
-                  Datang ke basecamp Grendeng, titip KTP, bayar, dan langsung berangkat muncak!
+                  Datang ke basecamp Grendeng (Dekat UNSOED), titip KTP Asli, lunasi pembayaran, dan langsung berangkat muncak!
                 </p>
-              </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Catalog Section Revamped */}
+      {/* Catalog Section */}
       <section id="katalog" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 bg-white">
         <div className="text-center mb-8">
           <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-4 tracking-tight">
             Pilih <span className="text-transparent bg-clip-text bg-gradient-to-r from-nature-600 to-red-500">Gear Andalan</span>
           </h2>
           <p className="text-gray-500 text-lg max-w-2xl mx-auto">
-            Koleksi lengkap, bersih, dan terawat. Siap menemanimu menaklukkan puncak impian.
+            Koleksi lengkap, bersih, dan terawat. Stok di bawah ini otomatis menyesuaikan tanggal yang kamu pilih di atas.
           </p>
         </div>
 
-        {/* SEARCH BAR & DATE CHECKER */}
-        <div className="max-w-4xl mx-auto mb-8 px-4 flex flex-col md:flex-row gap-4 items-end">
-           {/* Date Availability Checker */}
-           <div className="w-full md:w-auto bg-nature-50 p-3 rounded-2xl border border-nature-100 shadow-sm flex flex-col sm:flex-row gap-3 items-center flex-1">
-              <div className="flex items-center gap-2 text-nature-700 font-bold text-sm whitespace-nowrap">
-                 <CalendarCheck size={18} /> Cek Tanggal:
-              </div>
-              <input 
-                type="date" 
-                className="bg-white border border-nature-200 rounded-lg px-3 py-2 text-sm font-bold text-gray-700 outline-none focus:ring-2 focus:ring-nature-500 w-full sm:w-auto"
-                value={checkDate}
-                onChange={(e) => setCheckDate(e.target.value)}
-              />
-              <span className="text-nature-400 font-bold text-sm">+</span>
-              <select 
-                className="bg-white border border-nature-200 rounded-lg px-3 py-2 text-sm font-bold text-gray-700 outline-none focus:ring-2 focus:ring-nature-500 w-full sm:w-auto"
-                value={checkDuration}
-                onChange={(e) => setCheckDuration(Number(e.target.value))}
-              >
-                 <option value={2}>2 Hari (Min)</option>
-                 <option value={3}>3 Hari</option>
-                 <option value={4}>4 Hari</option>
-                 <option value={5}>5 Hari</option>
-              </select>
-           </div>
-
-           {/* Search Input */}
-           <div className="relative group w-full md:w-auto flex-1">
+        {/* SEARCH BAR (SIMPLE) */}
+        <div className="max-w-xl mx-auto mb-8 px-4 relative group">
+           <div className="relative">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-nature-600 transition" size={20} />
               <input
                 type="text"
-                placeholder="Cari alat (Tenda, Carrier)..."
+                placeholder="Cari nama alat (misal: Tenda, Carrier)..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-12 pr-10 py-3 bg-gray-50 border border-gray-200 rounded-full focus:ring-2 focus:ring-nature-500 focus:border-transparent outline-none transition text-gray-800 font-medium h-[52px]"
+                className="w-full pl-12 pr-10 py-3 bg-gray-50 border border-gray-200 rounded-full focus:ring-2 focus:ring-nature-500 focus:border-transparent outline-none transition text-gray-800 font-medium"
               />
               {searchQuery && (
                 <button 
@@ -676,29 +528,6 @@ function App() {
           </div>
         </div>
 
-        {/* Sorting Controls */}
-        <div className="flex justify-between items-center mb-6 max-w-7xl mx-auto px-1">
-           <div className="text-sm text-gray-500 font-medium">
-             Menampilkan {sortedProducts.length} produk
-           </div>
-           <div className="flex items-center gap-2">
-             <span className="text-sm font-medium text-gray-500 hidden sm:inline">Urutkan:</span>
-             <div className="relative">
-               <select 
-                 value={sortBy}
-                 onChange={(e) => setSortBy(e.target.value as any)}
-                 className="appearance-none bg-white border border-gray-200 text-gray-700 text-sm font-bold py-2 pl-4 pr-10 rounded-xl focus:outline-none focus:ring-2 focus:ring-nature-500 focus:border-transparent cursor-pointer shadow-sm hover:bg-gray-50 transition"
-               >
-                 <option value="default">Rekomendasi (Kategori)</option>
-                 <option value="price_low">Harga Terendah</option>
-                 <option value="price_high">Harga Tertinggi</option>
-                 <option value="name">Nama (A-Z)</option>
-               </select>
-               <ArrowUpDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
-             </div>
-           </div>
-        </div>
-
         {/* Products Grid */}
         {isLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -725,8 +554,6 @@ function App() {
             {sortedProducts.map(product => {
               const inCart = cartItems.find(i => i.id === product.id);
               const displayPrice = product.price2Days || 0;
-              
-              // CALCULATE DISPLAY STOCK (Dynamic for Packages) based on DATE
               const displayStock = getAvailableStock(product);
 
               return (
@@ -736,13 +563,11 @@ function App() {
                   className="group relative bg-white rounded-3xl border border-gray-100 overflow-hidden hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)] transition-all duration-500 hover:-translate-y-2 flex flex-col h-full cursor-pointer"
                 >
                   <div className="relative h-64 overflow-hidden bg-gray-100">
-                    {/* Menggunakan ImageLoader untuk Lazy Loading & UX */}
                     <ImageLoader 
                       src={product.image} 
                       alt={product.name} 
                       className="w-full h-full object-cover group-hover:scale-110 transition duration-700 ease-in-out" 
                     />
-                    
                     <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition duration-300"></div>
 
                     <div className="absolute top-4 right-4 flex flex-col gap-2 items-end z-20">
@@ -800,9 +625,7 @@ function App() {
                         <button 
                           onClick={(e) => {
                             e.stopPropagation();
-                            // Jika produk punya varian size/warna, buka modal (viewingProduct)
                             const hasVariant = (product.sizes && Object.keys(product.sizes).length > 0) || (product.colors && product.colors.length > 0) || (product.variants && product.variants.length > 0);
-                            // Jika produk adalah paket, buka modal juga untuk lihat isi paket
                             const isPackage = product.packageItems && product.packageItems.length > 0;
 
                             if (hasVariant || isPackage) {

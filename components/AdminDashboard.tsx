@@ -22,6 +22,7 @@ import AdminCalendarManager from './AdminCalendarManager'; // Import Baru
 interface AdminDashboardProps {
   products: Product[];
   categories: Category[];
+  transactions: Transaction[]; // NEW PROP
   onBackToHome: () => void;
   onAddProduct: (product: Product) => Promise<void>;
   onUpdateProduct: (product: Product) => Promise<void>;
@@ -35,6 +36,7 @@ interface AdminDashboardProps {
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ 
   products, 
   categories,
+  transactions: propTransactions, // Rename prop to avoid conflict
   onBackToHome,
   onAddProduct,
   onUpdateProduct,
@@ -55,9 +57,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'warehouse' | 'categories' | 'transactions' | 'finance' | 'reports' | 'customers' | 'system' | 'reviews' | 'calendar'>('dashboard');
   const [isRefreshing, setIsRefreshing] = useState(false);
   
-  // Transaction State
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  // Transaction State (Use prop if available, otherwise fallback to local)
+  const [transactions, setTransactions] = useState<Transaction[]>(propTransactions);
   const [isLoadingTransactions, setIsLoadingTransactions] = useState(false);
+
+  // Sync prop changes to local state
+  useEffect(() => {
+    setTransactions(propTransactions);
+  }, [propTransactions]);
 
   // Check Session on Mount
   useEffect(() => {
@@ -97,7 +104,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     onBackToHome();
   };
 
-  // Fetch Transactions when tab changes to one that needs transaction data
+  // Fetch Transactions when tab changes (Legacy: kept for manual refresh behavior)
   useEffect(() => {
     if (isAuthenticated && (activeTab === 'transactions' || activeTab === 'customers' || activeTab === 'reports' || activeTab === 'calendar')) {
       fetchTransactions();
@@ -141,7 +148,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleRefreshData = async () => {
     setIsRefreshing(true);
     await onRefresh();
-    if (activeTab === 'transactions' || activeTab === 'customers' || activeTab === 'reports' || activeTab === 'calendar') await fetchTransactions();
+    await fetchTransactions(); // Force fresh fetch
     setTimeout(() => setIsRefreshing(false), 500);
   };
 
@@ -246,7 +253,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </header>
 
         <div className="p-8">
-          {activeTab === 'dashboard' && <AdminStats products={products} />}
+          {activeTab === 'dashboard' && <AdminStats products={products} transactions={transactions} />}
           
           {activeTab === 'categories' && (
              <AdminCategoryManager 
