@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
-import { X, Trash2, Calendar, Phone, User, ArrowRight, AlertCircle, Loader2, Clock, CreditCard, Banknote, MapPin, LocateFixed, Layers } from 'lucide-react';
+import { X, Trash2, Calendar, Phone, User, ArrowRight, AlertCircle, Loader2, Clock, CreditCard, Banknote, MapPin, LocateFixed, Layers, Upload, Image as ImageIcon, CheckCircle } from 'lucide-react';
 import { CartItem, UserDetails, Transaction, Product } from '../types';
 import { WA_NUMBER } from '../constants';
 import { processStockReduction } from '../services/productService';
-import { createTransaction } from '../services/transactionService';
+import { createTransaction, uploadPaymentProof } from '../services/transactionService';
 import ImageLoader from './ImageLoader';
 
 interface CartDrawerProps {
@@ -31,6 +31,10 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
   const [step, setStep] = useState<'cart' | 'details'>('cart');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
+  
+  // State Upload Bukti
+  const [proofFile, setProofFile] = useState<File | null>(null);
+  
   const [userDetails, setUserDetails] = useState<UserDetails>({
     name: '',
     whatsapp: '',
@@ -44,6 +48,7 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
   useEffect(() => {
     if (!isOpen) {
         setStep('cart');
+        setProofFile(null); // Reset file
     }
   }, [isOpen]);
 
@@ -175,6 +180,17 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
 
   const total = calculateTotal();
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+      if (file.size > 5 * 1024 * 1024) {
+        alert("Ukuran file maksimal 5MB");
+        return;
+      }
+      setProofFile(file);
+    }
+  };
+
   const handleCheckout = async () => {
     if (isProcessing) return;
     setIsProcessing(true);
@@ -190,19 +206,27 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
         throw new Error("Gagal membuat transaksi di database.");
       }
 
-      // 2. Process Stock Reduction (Database Update)
+      // 2. Upload Bukti Bayar (Jika Ada File)
+      let uploadedProofUrl = '';
+      if (proofFile && userDetails.paymentMethod === 'transfer') {
+         uploadedProofUrl = await uploadPaymentProof(createdTrx.id, proofFile) || '';
+      }
+
+      // 3. Process Stock Reduction (Database Update)
       await processStockReduction(cartItems);
 
-      // 3. Refresh Data Global (agar stok di katalog berkurang realtime)
+      // 4. Refresh Data Global (agar stok di katalog berkurang realtime)
       await onRefreshData();
 
-      // 4. Save Transaction to Local History
+      // 5. Save Transaction to Local History
       const existingHistory = localStorage.getItem('mamasHistory');
       const history = existingHistory ? JSON.parse(existingHistory) : [];
+      // Update local object with proof url if needed for display immediately
+      if(uploadedProofUrl) createdTrx.paymentProofUrl = uploadedProofUrl;
       history.push(createdTrx);
       localStorage.setItem('mamasHistory', JSON.stringify(history));
 
-      // 5. Construct WhatsApp Message
+      // 6. Construct WhatsApp Message
       const dpAmount = Math.ceil(total * 0.5); // DP 50%
       const remainingAmount = total - dpAmount;
       const trxIdShort = createdTrx.id.slice(0, 8); 
@@ -228,19 +252,28 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
         footer += `\n*Rekening DP: BSI 7279048215 (Umar Abdulloh)*`;
         footer += `\n*Wajib DP: Rp${dpAmount.toLocaleString('id-ID')}*`;
         footer += `\n*Pelunasan: Rp${remainingAmount.toLocaleString('id-ID')} (Saat Ambil)*`;
+        
+        if (uploadedProofUrl) {
+            footer += `\n\n✅ *Bukti Transfer Telah Diupload:*`;
+            footer += `\n${uploadedProofUrl}`;
+        } else {
+            footer += `\n\n⚠️ *Belum upload bukti transfer di web.*`;
+        }
+
       } else {
         footer += `\n*Metode Bayar: Cash di Outlet*`;
       }
       
       const fullMessage = encodeURIComponent(header + buyerInfo + "*List Barang:*\n" + itemsList + footer);
       
-      // 6. Open WhatsApp 
+      // 7. Open WhatsApp 
       setTimeout(() => {
         window.open(`https://wa.me/${WA_NUMBER}?text=${fullMessage}`, '_blank');
         
-        // 7. Reset & Close
+        // 8. Reset & Close
         onClearCart();
         setStep('cart');
+        setProofFile(null);
         onClose();
         setIsProcessing(false);
       }, 500);
@@ -524,7 +557,23 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
                          <li className="text-nature-600 font-black">
                             Wajib DP (50%): Rp{dpValue.toLocaleString('id-ID')}
                          </li>
-                         <li><em>Harap lampirkan bukti transfer di chat WhatsApp nanti.</em></li>
+                         {/* FILE UPLOAD INPUT */}
+                         <li className="mt-2 pt-2 border-t border-blue-200">
+                            <label className="block text-[10px] font-bold uppercase tracking-wide text-blue-900 mb-1 flex items-center gap-1">
+                                <Upload size={10} /> Upload Bukti Transfer (Sekarang)
+                            </label>
+                            <input 
+                                type="file" 
+                                accept="image/*"
+                                onChange={handleFileChange}
+                                className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200"
+                            />
+                            {proofFile && (
+                                <p className="text-[10px] text-green-600 font-bold mt-1 flex items-center gap-1">
+                                    <CheckCircle size={10}/> File Siap: {proofFile.name}
+                                </p>
+                            )}
+                         </li>
                        </ul>
                     </div>
                   )}
