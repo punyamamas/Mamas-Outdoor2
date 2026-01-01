@@ -4,10 +4,14 @@ import { supabase } from './supabase';
 import { Transaction, CartItem, UserDetails, PaymentLog } from '../types';
 import { processStockReduction, processStockRestoration } from './productService';
 import html2canvas from 'html2canvas';
+import QRCode from 'qrcode'; // Import QRCode Library
 
-// ... (Existing functions: createTransaction, getTransactions, getTransactionsByDateRange, refreshTransactions, getTransactionsByPhone, recordPaymentLog, getPaymentLogs, updateTransactionPayment, applyTransactionFine, updateTransactionStatus, calculateItemPriceForDuration, calculateOverdueFine, updateTransactionDetails, updateTransactionItems, deleteTransaction, copyInvoiceToClipboard, printInvoice) ...
+// ... (Existing functions: createTransaction, getTransactions, getTransactionsByDateRange, refreshTransactions, getTransactionsByPhone, recordPaymentLog, getPaymentLogs, updateTransactionPayment, applyTransactionFine, updateTransactionStatus, calculateItemPriceForDuration, calculateOverdueFine, updateTransactionDetails, updateTransactionItems, deleteTransaction) ...
 
-// Existing createTransaction function (Preserved)
+// ... createTransaction, getTransactions, etc are preserved ...
+
+// ... (Keep all functions exactly as they were until copyInvoiceToClipboard) ...
+
 export const createTransaction = async (
   userDetails: UserDetails, 
   cartItems: CartItem[], 
@@ -45,7 +49,6 @@ export const createTransaction = async (
   return mapDbToTransaction(data);
 };
 
-// Existing getTransactions function (Preserved)
 export const getTransactions = async (): Promise<Transaction[]> => {
   if (!supabase) return [];
 
@@ -62,7 +65,6 @@ export const getTransactions = async (): Promise<Transaction[]> => {
   return data.map(mapDbToTransaction);
 };
 
-// Existing getTransactionsByDateRange function (Preserved)
 export const getTransactionsByDateRange = async (startDate: string, endDate: string): Promise<Transaction[]> => {
   if (!supabase) return [];
 
@@ -87,7 +89,6 @@ export const getTransactionsByDateRange = async (startDate: string, endDate: str
   return data.map(mapDbToTransaction);
 };
 
-// Existing refreshTransactions function (Preserved)
 export const refreshTransactions = async (localIds: string[]): Promise<{ success: boolean, data: Transaction[] }> => {
   if (!supabase || localIds.length === 0) return { success: true, data: [] };
 
@@ -107,7 +108,6 @@ export const refreshTransactions = async (localIds: string[]): Promise<{ success
   };
 };
 
-// Existing getTransactionsByPhone function (Preserved)
 export const getTransactionsByPhone = async (phoneNumber: string): Promise<Transaction[]> => {
   if (!supabase || !phoneNumber) return [];
 
@@ -130,7 +130,6 @@ export const getTransactionsByPhone = async (phoneNumber: string): Promise<Trans
   return data.map(mapDbToTransaction);
 };
 
-// Existing recordPaymentLog function (Preserved)
 export const recordPaymentLog = async (log: Omit<PaymentLog, 'id' | 'created_at'>): Promise<boolean> => {
   if (!supabase) return false;
 
@@ -145,7 +144,6 @@ export const recordPaymentLog = async (log: Omit<PaymentLog, 'id' | 'created_at'
   return true;
 };
 
-// Existing getPaymentLogs function (Preserved)
 export const getPaymentLogs = async (startDate: string, endDate: string): Promise<{ data: PaymentLog[], error: any }> => {
   if (!supabase) return { data: [], error: null };
 
@@ -168,7 +166,6 @@ export const getPaymentLogs = async (startDate: string, endDate: string): Promis
   return { data: data as PaymentLog[], error: null };
 };
 
-// Existing updateTransactionPayment function (Preserved)
 export const updateTransactionPayment = async (
   id: string, 
   newTotalPaid: number,
@@ -254,7 +251,6 @@ export const updateTransactionPayment = async (
   return { success: true, newStatus };
 };
 
-// NEW FUNCTION: Upload Payment Proof
 export const uploadPaymentProof = async (transactionId: string, file: File): Promise<string | null> => {
   if (!supabase) return null;
 
@@ -263,13 +259,11 @@ export const uploadPaymentProof = async (transactionId: string, file: File): Pro
     const fileName = `${transactionId}_${Date.now()}.${fileExt}`;
     const filePath = `${fileName}`;
 
-    // 1. Upload to Supabase Storage Bucket 'payment_proofs'
     const { error: uploadError } = await supabase.storage
       .from('payment_proofs')
       .upload(filePath, file);
 
     if (uploadError) {
-      // Check if bucket missing error
       if(uploadError.message.includes('Bucket not found')) {
           alert("Gagal: Bucket 'payment_proofs' belum dibuat di Supabase.");
       }
@@ -277,12 +271,10 @@ export const uploadPaymentProof = async (transactionId: string, file: File): Pro
       return null;
     }
 
-    // 2. Get Public URL
     const { data: { publicUrl } } = supabase.storage
       .from('payment_proofs')
       .getPublicUrl(filePath);
 
-    // 3. Update Transaction Record
     const { error: updateError } = await supabase
       .from('transactions')
       .update({ payment_proof_url: publicUrl })
@@ -300,7 +292,6 @@ export const uploadPaymentProof = async (transactionId: string, file: File): Pro
   }
 };
 
-// Existing applyTransactionFine function (Preserved)
 export const applyTransactionFine = async (
   id: string, 
   fineAmount: number
@@ -340,7 +331,6 @@ export const applyTransactionFine = async (
   return { success: true, newTotal };
 };
 
-// Existing updateTransactionStatus function (Preserved)
 export const updateTransactionStatus = async (id: string, newStatus: string): Promise<boolean> => {
   if (!supabase) return false;
 
@@ -375,7 +365,6 @@ export const updateTransactionStatus = async (id: string, newStatus: string): Pr
   return true;
 };
 
-// Existing calculateItemPriceForDuration function (Preserved)
 export const calculateItemPriceForDuration = (item: CartItem, duration: number): number => {
     if (item.isSale) return item.salePrice || 0;
 
@@ -397,7 +386,6 @@ export const calculateItemPriceForDuration = (item: CartItem, duration: number):
     return unitPrice;
   };
 
-// Existing calculateOverdueFine function (Preserved)
 export const calculateOverdueFine = (transaction: Transaction): { daysLate: number; fineAmount: number } => {
   if (transaction.status !== 'rented') return { daysLate: 0, fineAmount: 0 };
 
@@ -425,7 +413,6 @@ export const calculateOverdueFine = (transaction: Transaction): { daysLate: numb
   return { daysLate, fineAmount };
 };
 
-// Existing updateTransactionDetails function (Preserved)
 export const updateTransactionDetails = async (
   id: string, 
   name: string, 
@@ -481,7 +468,6 @@ export const updateTransactionDetails = async (
   return true;
 };
 
-// Existing updateTransactionItems function (Preserved)
 export const updateTransactionItems = async (
   transactionId: string,
   newItems: CartItem[]
@@ -529,7 +515,6 @@ export const updateTransactionItems = async (
   return true;
 };
 
-// Existing deleteTransaction function (Preserved)
 export const deleteTransaction = async (id: string): Promise<boolean> => {
   if (!supabase) return false;
 
@@ -561,13 +546,11 @@ export const deleteTransaction = async (id: string): Promise<boolean> => {
   return true;
 };
 
-// Existing copyInvoiceToClipboard function (Preserved)
+// UPDATED: COPY INVOICE WITH QR CODE
 export const copyInvoiceToClipboard = async (
   trx: Transaction, 
   invoiceType: 'full' | 'rental' | 'fine' = 'full'
 ) => {
-  // ... (Full implementation as previous) ...
-  // [Code preserved for copyInvoiceToClipboard]
   const dateObj = new Date(trx.created_at || new Date());
   const dateStr = dateObj.toLocaleDateString('id-ID'); 
   const timeStr = dateObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }); 
@@ -580,6 +563,14 @@ export const copyInvoiceToClipboard = async (
   const stampColor = isGlobalPaid ? '#000000' : '#DC0000'; 
   const fmt = (val: number) => val.toLocaleString('id-ID');
   const logoUrl = "https://imgur.com/iC8ycHT.png";
+
+  // GENERATE QR CODE
+  let qrDataUrl = '';
+  try {
+    qrDataUrl = await QRCode.toDataURL(trx.id, { width: 100, margin: 0 });
+  } catch (e) {
+    console.error("QR Gen Error", e);
+  }
 
   let displayedItemsHtml = '';
   let displayedTotal = 0;
@@ -674,6 +665,13 @@ export const copyInvoiceToClipboard = async (
           <tr><td>Status</td><td style="text-align:right; font-weight:bold;">${statusLabel}</td></tr>
           <tr><td style="padding-top:5px;">Total Tagihan</td><td style="text-align:right; font-weight:bold; padding-top:5px;">${fmt(displayedTotal)}</td></tr>
         </table>
+        
+        <!-- QR CODE SECTION -->
+        <div style="margin-top:15px; text-align:center;">
+           <img src="${qrDataUrl}" style="width:100px; height:100px;" />
+           <div style="font-size:9px; margin-top:2px;">Scan untuk Cek Status</div>
+        </div>
+
         <div style="border-bottom:1px dashed #000; margin:10px 0;"></div>
         <div style="text-align:center; font-size:10px; font-style:italic; margin-top:10px;">
            Terima kasih telah menyewa di Mamas Outdoor.
@@ -718,14 +716,12 @@ export const copyInvoiceToClipboard = async (
   }
 };
 
-// Existing printInvoice function (Preserved)
-export const printInvoice = (
+// UPDATED: PRINT INVOICE WITH QR CODE
+export const printInvoice = async (
   trx: Transaction, 
   mode: 'print' | 'view' = 'print',
   invoiceType: 'full' | 'rental' | 'fine' = 'full'
 ) => {
-  // ... (Full implementation of printInvoice as previous) ...
-  // [Code preserved for printInvoice]
   const printWindow = window.open('', '', 'width=800,height=800');
   if (!printWindow) return alert('Izinkan pop-up untuk mencetak nota');
 
@@ -734,6 +730,12 @@ export const printInvoice = (
   const timeStr = dateObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }); 
   const fine = trx.fineAmount || 0;
   const rentalTotal = trx.totalPrice - fine; 
+
+  // GENERATE QR CODE
+  let qrDataUrl = '';
+  try {
+    qrDataUrl = await QRCode.toDataURL(trx.id, { width: 120, margin: 0 });
+  } catch (e) { console.error(e); }
 
   let displayedItemsHtml = '';
   let displayedTotal = 0;
@@ -843,6 +845,11 @@ export const printInvoice = (
           .footer-text { text-align: justify; margin-top: 15px; font-size: 11px; color: #000; line-height: 1.3; font-style: italic; }
           .stamp-container { position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%) rotate(-15deg); z-index: 10; pointer-events: none; opacity: 0.25; }
           .stamp { border: 5px solid ${stampColor}; color: ${stampColor}; padding: 10px 20px; font-size: 32px; font-weight: 900; text-transform: uppercase; border-radius: 8px; letter-spacing: 2px; text-align: center; display: inline-block; }
+          
+          .qr-container { text-align:center; margin-top:20px; }
+          .qr-img { width: 100px; height: 100px; display:block; margin: 0 auto; }
+          .qr-label { font-size: 9px; margin-top: 4px; font-weight:bold; }
+
           @media print { body { margin: 0; width: 80mm; padding: 0 2mm; } .no-print { display: none; } }
         </style>
       </head>
@@ -874,6 +881,12 @@ export const printInvoice = (
           <tr><td class="sum-label">Status Global</td><td class="sum-val">${statusLabel}</td></tr>
           <tr><td class="sum-label" style="padding-top:10px;">Total Tagihan Ini</td><td class="sum-val" style="padding-top:10px;">${fmt(displayedTotal)}</td></tr>
         </table>
+        
+        <div class="qr-container">
+           <img src="${qrDataUrl}" class="qr-img" />
+           <div class="qr-label">Scan untuk Cek Status</div>
+        </div>
+
         <div class="dashed-line"></div>
         <div class="footer-text">
            Terima kasih atas kepercayaan Anda telah memilih kami sebagai mitra petualangan outdoor Anda. 
@@ -896,7 +909,6 @@ export const printInvoice = (
   printWindow.document.close();
 };
 
-// Existing mapDbToTransaction function (Updated)
 const mapDbToTransaction = (dbItem: any): Transaction => {
   return {
     id: dbItem.id.toString(),
@@ -911,7 +923,7 @@ const mapDbToTransaction = (dbItem: any): Transaction => {
     totalPrice: dbItem.total_price,
     fineAmount: dbItem.fine_amount || 0, 
     amountPaid: dbItem.amount_paid || 0, 
-    paymentProofUrl: dbItem.payment_proof_url || undefined, // NEW MAPPING
+    paymentProofUrl: dbItem.payment_proof_url || undefined, 
     items: dbItem.items,
     status: dbItem.status,
     paymentMethod: dbItem.payment_method || 'cash' 
