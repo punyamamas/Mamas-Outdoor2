@@ -1,10 +1,10 @@
 
 import React from 'react';
-import { LayoutDashboard, ClipboardList, Warehouse, Package, Tags, LogOut, DollarSign, PieChart, Users, Settings } from 'lucide-react';
+import { LayoutDashboard, ClipboardList, Warehouse, Package, Tags, LogOut, DollarSign, PieChart, Users, Settings, MessageSquare } from 'lucide-react';
 
 interface AdminSidebarProps {
   activeTab: string;
-  setActiveTab: (tab: 'dashboard' | 'products' | 'warehouse' | 'categories' | 'transactions' | 'finance' | 'reports' | 'customers' | 'system') => void;
+  setActiveTab: (tab: 'dashboard' | 'products' | 'warehouse' | 'categories' | 'transactions' | 'finance' | 'reports' | 'customers' | 'system' | 'reviews') => void;
   onLogout: () => void;
 }
 
@@ -44,6 +44,12 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ activeTab, setActiveTab, on
           className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition ${activeTab === 'reports' ? 'bg-white/10 text-white font-bold' : 'text-nature-200 hover:bg-white/5'}`}
         >
           <PieChart size={20} /> Laporan
+        </button>
+        <button 
+          onClick={() => setActiveTab('reviews')}
+          className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition ${activeTab === 'reviews' ? 'bg-white/10 text-white font-bold' : 'text-nature-200 hover:bg-white/5'}`}
+        >
+          <MessageSquare size={20} /> Ulasan
         </button>
         <button 
           onClick={() => setActiveTab('warehouse')}

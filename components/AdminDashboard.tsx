@@ -15,6 +15,7 @@ import AdminFinanceManager from './AdminFinanceManager';
 import AdminReportManager from './AdminReportManager';
 import AdminCustomerManager from './AdminCustomerManager';
 import AdminSystemSetup from './AdminSystemSetup';
+import AdminReviewManager from './AdminReviewManager'; // Import Baru
 
 interface AdminDashboardProps {
   products: Product[];
@@ -43,7 +44,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'warehouse' | 'categories' | 'transactions' | 'finance' | 'reports' | 'customers' | 'system'>('dashboard');
+  // Update Type State Tab
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'warehouse' | 'categories' | 'transactions' | 'finance' | 'reports' | 'customers' | 'system' | 'reviews'>('dashboard');
   const [isRefreshing, setIsRefreshing] = useState(false);
   
   // Transaction State
@@ -90,7 +92,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setTransactions(prev => prev.filter(t => t.id !== id));
       onRefresh();
     } else {
-      // Fallback: Inform user about RLS
       const sqlCommand = `create policy "Enable delete for anon" on "public"."transactions" for delete using (true);`;
       const tryCancel = window.confirm(`GAGAL MENGHAPUS (Database Policy).\nUbah ke status 'BATAL' saja? (Stok akan kembali).`);
       
@@ -152,6 +153,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
              activeTab === 'finance' ? 'Keuangan & Kas' : 
              activeTab === 'reports' ? 'Analisis Bisnis' : 
              activeTab === 'customers' ? 'Database Pelanggan' :
+             activeTab === 'reviews' ? 'Moderasi Ulasan' :
              activeTab === 'system' ? 'System Configuration' :
              `${activeTab} Overview`}
           </h1>
@@ -215,6 +217,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
           {activeTab === 'reports' && (
              <AdminReportManager />
+          )}
+
+          {activeTab === 'reviews' && (
+             <AdminReviewManager />
           )}
 
           {activeTab === 'system' && (
