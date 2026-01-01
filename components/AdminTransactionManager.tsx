@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { ClipboardList, Loader2, Calendar, Eye, Trash2, X, User, CreditCard, Banknote, ArrowRightLeft, Save, Calculator, CheckCircle, RotateCcw, Wallet, Edit, Plus, Minus, Search, ShoppingBag, Printer, Filter, DollarSign, Receipt, BarChart3, TrendingUp, Lightbulb, AlertTriangle, ArrowUpRight, Share2, Image as ImageIcon, CreditCard as CardIcon, ExternalLink, QrCode, FileText, Clock, ShieldCheck } from 'lucide-react';
+import { ClipboardList, Loader2, Calendar, Eye, Trash2, X, User, CreditCard, Banknote, ArrowRightLeft, Save, Calculator, CheckCircle, RotateCcw, Wallet, Edit, Plus, Minus, Search, ShoppingBag, Printer, Filter, DollarSign, Receipt, BarChart3, TrendingUp, Lightbulb, AlertTriangle, ArrowUpRight, Share2, Image as ImageIcon, CreditCard as CardIcon, ExternalLink, QrCode, FileText, Clock, ShieldCheck, ChevronDown, ChevronUp } from 'lucide-react';
 import { Transaction, Product, CartItem } from '../types';
 import { updateTransactionPayment, updateTransactionItems, updateTransactionDetails, printInvoice, applyTransactionFine, calculateOverdueFine, copyInvoiceToClipboard } from '../services/transactionService';
 import QRScannerModal from './QRScannerModal'; 
@@ -62,6 +62,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
   const [editedItems, setEditedItems] = useState<CartItem[]>([]);
   const [isSavingItems, setIsSavingItems] = useState(false);
   const [itemSearchTerm, setItemSearchTerm] = useState('');
+  const [expandedProductId, setExpandedProductId] = useState<string | null>(null); // To toggle variant view
 
   // --- EDIT CUSTOMER INFO STATES ---
   const [isEditingInfo, setIsEditingInfo] = useState(false);
@@ -312,10 +313,15 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
     let selectedSize = undefined;
     let selectedColor = undefined;
     if (variantKey) {
-        const [color, size] = variantKey.split('|');
-        selectedColor = color;
-        selectedSize = size;
+        if (variantKey.includes('|')) {
+            const [color, size] = variantKey.split('|');
+            selectedColor = color;
+            selectedSize = size;
+        } else {
+            selectedSize = variantKey; // Legacy size only
+        }
     }
+    
     const existingIndex = editedItems.findIndex(i => i.id === product.id && i.selectedSize === selectedSize && i.selectedColor === selectedColor);
     if (existingIndex >= 0) {
         const newItems = [...editedItems];
@@ -326,6 +332,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
         setEditedItems([...editedItems, newItem]);
     }
     setItemSearchTerm(''); 
+    setExpandedProductId(null);
   };
 
   const handleUpdateItemQty = (index: number, delta: number) => {
@@ -742,11 +749,55 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                                     </div>
                                     {itemSearchTerm && (
                                        <div className="absolute w-full bg-white shadow-xl border border-gray-100 rounded-b-lg mt-1 max-h-48 overflow-y-auto">
-                                          {products.filter(p => p.name.toLowerCase().includes(itemSearchTerm.toLowerCase())).map(p => (
-                                              <div key={p.id} className="p-2 hover:bg-gray-50 border-b border-gray-50 last:border-0 text-sm cursor-pointer" onClick={() => handleAddItem(p)}>
-                                                 <div className="font-bold text-gray-800">{p.name}</div>
+                                          {products.filter(p => p.name.toLowerCase().includes(itemSearchTerm.toLowerCase())).map(p => {
+                                              const hasVariants = (p.sizes && Object.keys(p.sizes).length > 0) || (p.variants && p.variants.length > 0);
+                                              
+                                              return (
+                                              <div key={p.id} className="border-b border-gray-50 last:border-0 text-sm">
+                                                 <div 
+                                                    className="p-2 hover:bg-gray-50 cursor-pointer flex justify-between items-center"
+                                                    onClick={() => hasVariants ? setExpandedProductId(expandedProductId === p.id ? null : p.id) : handleAddItem(p)}
+                                                 >
+                                                    <div className="font-bold text-gray-800">{p.name}</div>
+                                                    {hasVariants && (
+                                                        <div className="text-gray-400">
+                                                            {expandedProductId === p.id ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
+                                                        </div>
+                                                    )}
+                                                 </div>
+                                                 
+                                                 {/* Variant Selection Area */}
+                                                 {hasVariants && expandedProductId === p.id && (
+                                                    <div className="bg-gray-50 p-2 flex flex-wrap gap-2">
+                                                        {p.variants && p.variants.length > 0 ? (
+                                                            // Advanced Variants
+                                                            p.variants.map((v, idx) => (
+                                                                <button 
+                                                                    key={idx}
+                                                                    onClick={() => handleAddItem(p, `${v.color}|${v.size}`)}
+                                                                    disabled={v.stock <= 0}
+                                                                    className="px-2 py-1 text-xs border rounded bg-white hover:bg-blue-50 disabled:opacity-50"
+                                                                >
+                                                                    {v.color} - {v.size} ({v.stock})
+                                                                </button>
+                                                            ))
+                                                        ) : (
+                                                            // Legacy Sizes
+                                                            p.sizes && Object.entries(p.sizes).map(([size, stock]) => (
+                                                                <button 
+                                                                    key={size}
+                                                                    onClick={() => handleAddItem(p, size)}
+                                                                    disabled={stock <= 0}
+                                                                    className="px-2 py-1 text-xs border rounded bg-white hover:bg-blue-50 disabled:opacity-50"
+                                                                >
+                                                                    {size} ({stock})
+                                                                </button>
+                                                            ))
+                                                        )}
+                                                    </div>
+                                                 )}
                                               </div>
-                                          ))}
+                                          )})}
                                        </div>
                                     )}
                                  </div>
@@ -757,7 +808,11 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                                     <div key={idx} className="flex justify-between items-center text-sm border-b border-gray-50 pb-2 last:border-0">
                                        <div>
                                           <div className="font-bold text-gray-800">{item.name}</div>
-                                          <div className="text-[10px] text-gray-500">{item.quantity} Unit</div>
+                                          <div className="text-[10px] text-gray-500">
+                                            {item.quantity} Unit
+                                            {item.selectedSize && ` • ${item.selectedSize}`}
+                                            {item.selectedColor && ` • ${item.selectedColor}`}
+                                          </div>
                                        </div>
                                        {isEditingItems && (
                                           <div className="flex gap-2">
