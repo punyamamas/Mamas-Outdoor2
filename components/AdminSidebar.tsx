@@ -1,10 +1,10 @@
 
 import React from 'react';
-import { LayoutDashboard, ClipboardList, Warehouse, Package, Tags, LogOut, DollarSign, PieChart, Users, Settings, MessageSquare } from 'lucide-react';
+import { LayoutDashboard, ClipboardList, Warehouse, Package, Tags, LogOut, DollarSign, PieChart, Users, Settings, MessageSquare, Calendar } from 'lucide-react';
 
 interface AdminSidebarProps {
   activeTab: string;
-  setActiveTab: (tab: 'dashboard' | 'products' | 'warehouse' | 'categories' | 'transactions' | 'finance' | 'reports' | 'customers' | 'system' | 'reviews') => void;
+  setActiveTab: (tab: 'dashboard' | 'products' | 'warehouse' | 'categories' | 'transactions' | 'finance' | 'reports' | 'customers' | 'system' | 'reviews' | 'calendar') => void;
   onLogout: () => void;
 }
 
@@ -20,6 +20,12 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ activeTab, setActiveTab, on
           className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition ${activeTab === 'dashboard' ? 'bg-white/10 text-white font-bold' : 'text-nature-200 hover:bg-white/5'}`}
         >
           <LayoutDashboard size={20} /> Dashboard
+        </button>
+        <button 
+          onClick={() => setActiveTab('calendar')}
+          className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition ${activeTab === 'calendar' ? 'bg-white/10 text-white font-bold' : 'text-nature-200 hover:bg-white/5'}`}
+        >
+          <Calendar size={20} /> Kalender Sewa
         </button>
         <button 
           onClick={() => setActiveTab('transactions')}

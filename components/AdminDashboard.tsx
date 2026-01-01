@@ -17,6 +17,7 @@ import AdminReportManager from './AdminReportManager';
 import AdminCustomerManager from './AdminCustomerManager';
 import AdminSystemSetup from './AdminSystemSetup';
 import AdminReviewManager from './AdminReviewManager';
+import AdminCalendarManager from './AdminCalendarManager'; // Import Baru
 
 interface AdminDashboardProps {
   products: Product[];
@@ -51,7 +52,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   // Update Type State Tab
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'warehouse' | 'categories' | 'transactions' | 'finance' | 'reports' | 'customers' | 'system' | 'reviews'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'warehouse' | 'categories' | 'transactions' | 'finance' | 'reports' | 'customers' | 'system' | 'reviews' | 'calendar'>('dashboard');
   const [isRefreshing, setIsRefreshing] = useState(false);
   
   // Transaction State
@@ -98,7 +99,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // Fetch Transactions when tab changes to one that needs transaction data
   useEffect(() => {
-    if (isAuthenticated && (activeTab === 'transactions' || activeTab === 'customers' || activeTab === 'reports')) {
+    if (isAuthenticated && (activeTab === 'transactions' || activeTab === 'customers' || activeTab === 'reports' || activeTab === 'calendar')) {
       fetchTransactions();
     }
   }, [isAuthenticated, activeTab]);
@@ -140,7 +141,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleRefreshData = async () => {
     setIsRefreshing(true);
     await onRefresh();
-    if (activeTab === 'transactions' || activeTab === 'customers' || activeTab === 'reports') await fetchTransactions();
+    if (activeTab === 'transactions' || activeTab === 'customers' || activeTab === 'reports' || activeTab === 'calendar') await fetchTransactions();
     setTimeout(() => setIsRefreshing(false), 500);
   };
 
@@ -229,6 +230,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
              activeTab === 'reports' ? 'Analisis Bisnis' : 
              activeTab === 'customers' ? 'Database Pelanggan' :
              activeTab === 'reviews' ? 'Moderasi Ulasan' :
+             activeTab === 'calendar' ? 'Kalender Ketersediaan' :
              activeTab === 'system' ? 'System Configuration' :
              `${activeTab} Overview`}
           </h1>
@@ -270,6 +272,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 products={products} 
                 categories={categories} 
                 onUpdateProduct={onUpdateProduct} 
+             />
+          )}
+
+          {activeTab === 'calendar' && (
+             <AdminCalendarManager 
+                products={products}
+                transactions={transactions}
              />
           )}
 
