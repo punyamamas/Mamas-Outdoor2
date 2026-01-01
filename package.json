@@ -15,7 +15,9 @@
     "lucide-react": "^0.344.0",
     "@google/genai": "*",
     "@supabase/supabase-js": "^2.39.7",
-    "html2canvas": "^1.4.1"
+    "html2canvas": "^1.4.1",
+    "qrcode": "^1.5.3",
+    "html5-qrcode": "^2.3.8"
   },
   "devDependencies": {
     "@types/react": "^18.2.64",
