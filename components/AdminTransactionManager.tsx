@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { ClipboardList, Loader2, Calendar, Eye, Trash2, X, User, CreditCard, Banknote, ArrowRightLeft, Save, Calculator, CheckCircle, RotateCcw, Wallet, Edit, Plus, Minus, Search, ShoppingBag, Printer, Filter, DollarSign, Receipt, BarChart3, TrendingUp, Lightbulb, AlertTriangle, ArrowUpRight, Share2, Image as ImageIcon, CreditCard as CardIcon, ExternalLink, QrCode, FileText, Clock, ShieldCheck, ChevronDown, ChevronUp, Upload, LogIn, LogOut, FileCheck, PackagePlus, Camera, RefreshCw, MessageCircle, History, CreditCard as IdCard } from 'lucide-react';
 import { Transaction, Product, CartItem, UserDetails } from '../types';
@@ -44,6 +43,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
 
   // Scanner State
   const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [scannerContext, setScannerContext] = useState<'search_trx' | 'add_item_create' | 'add_item_edit'>('search_trx');
 
   // POS (Create Transaction) States
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -337,14 +337,31 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
     setIsUploadingIdentity(false);
   };
 
+  // NEW: SMART SCANNER LOGIC (Transaction & Product)
   const handleScanSuccess = (decodedText: string) => {
       setIsScannerOpen(false);
-      const found = transactions.find(t => t.id === decodedText || t.id.includes(decodedText));
-      if (found) {
-          openEditModal(found);
-          setSearchTerm(found.id);
+
+      if (scannerContext === 'search_trx') {
+          const found = transactions.find(t => t.id === decodedText || t.id.includes(decodedText));
+          if (found) {
+              openEditModal(found);
+              setSearchTerm(found.id);
+          } else {
+              alert(`Transaksi dengan ID: ${decodedText} tidak ditemukan.`);
+          }
       } else {
-          alert(`Transaksi dengan ID: ${decodedText} tidak ditemukan.`);
+          // SCAN PRODUCT TO CART MODE
+          const product = products.find(p => p.id === decodedText);
+          if (product) {
+              if (scannerContext === 'add_item_create') {
+                  handleAddItemToNewTrx(product);
+                  // Optional: Sound feedback could go here
+              } else if (scannerContext === 'add_item_edit') {
+                  handleAddEditItem(product);
+              }
+          } else {
+              alert(`Produk dengan ID ${decodedText} tidak ditemukan di katalog.`);
+          }
       }
   };
 
@@ -526,11 +543,11 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
         </h3>
         <div className="flex flex-wrap gap-2 items-center">
            <button 
-             onClick={() => setIsScannerOpen(true)}
+             onClick={() => { setScannerContext('search_trx'); setIsScannerOpen(true); }}
              className="p-2 bg-gray-900 text-white rounded-lg hover:bg-black transition flex items-center gap-2 shadow-sm"
-             title="Scan QR Pelanggan"
+             title="Scan QR Transaksi (Nota)"
            >
-             <Camera size={18} /> <span className="hidden sm:inline text-xs font-bold">Scan QR</span>
+             <Camera size={18} /> <span className="hidden sm:inline text-xs font-bold">Scan Nota</span>
            </button>
 
            <div className="relative">
@@ -722,23 +739,32 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                              <div className="mb-4 pt-4 border-t border-gray-100">
                                 <h5 className="text-xs font-bold text-gray-600 mb-2 flex items-center gap-2"><ShoppingBag size={12}/> Edit Barang Sewaan</h5>
                                 
-                                <div className="relative mb-3">
-                                    <input 
-                                        className="w-full border border-gray-200 rounded-lg pl-3 pr-8 py-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none" 
-                                        placeholder="Cari & Tambah Barang Baru..."
-                                        value={editItemSearch}
-                                        onChange={e => setEditItemSearch(e.target.value)}
-                                    />
-                                    {editItemSearch && (
-                                        <div className="absolute w-full bg-white border shadow-lg max-h-40 overflow-y-auto z-10 rounded-b-lg mt-1">
-                                            {products.filter(p => p.name.toLowerCase().includes(editItemSearch.toLowerCase())).slice(0,10).map(p => (
-                                                <button key={p.id} onClick={() => handleAddEditItem(p)} className="w-full text-left p-2 hover:bg-gray-100 text-sm flex justify-between">
-                                                    <span>{p.name}</span>
-                                                    <span className="text-xs text-blue-600 font-bold">Stok: {p.stock}</span>
-                                                </button>
-                                            ))}
-                                        </div>
-                                    )}
+                                <div className="relative mb-3 flex gap-2">
+                                    <div className="relative flex-1">
+                                      <input 
+                                          className="w-full border border-gray-200 rounded-lg pl-3 pr-8 py-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none" 
+                                          placeholder="Cari & Tambah Barang Baru..."
+                                          value={editItemSearch}
+                                          onChange={e => setEditItemSearch(e.target.value)}
+                                      />
+                                      {editItemSearch && (
+                                          <div className="absolute w-full bg-white border shadow-lg max-h-40 overflow-y-auto z-10 rounded-b-lg mt-1">
+                                              {products.filter(p => p.name.toLowerCase().includes(editItemSearch.toLowerCase())).slice(0,10).map(p => (
+                                                  <button key={p.id} onClick={() => handleAddEditItem(p)} className="w-full text-left p-2 hover:bg-gray-100 text-sm flex justify-between">
+                                                      <span>{p.name}</span>
+                                                      <span className="text-xs text-blue-600 font-bold">Stok: {p.stock}</span>
+                                                  </button>
+                                              ))}
+                                          </div>
+                                      )}
+                                    </div>
+                                    <button 
+                                      onClick={() => { setScannerContext('add_item_edit'); setIsScannerOpen(true); }}
+                                      className="p-2 bg-gray-800 text-white rounded-lg hover:bg-black transition"
+                                      title="Scan QR Produk"
+                                    >
+                                       <Camera size={18}/>
+                                    </button>
                                 </div>
 
                                 <div className="space-y-2 bg-gray-50 p-3 rounded-lg border border-gray-100 max-h-60 overflow-y-auto">
@@ -1028,28 +1054,37 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex-1 flex-col">
                           <h4 className="font-bold text-sm text-gray-700 mb-3 flex items-center gap-2"><ShoppingBag size={16}/> Daftar Barang</h4>
                           
-                          <div className="relative mb-3">
-                             <Search className="absolute left-3 top-2.5 text-gray-400" size={14} />
-                             <input 
-                               placeholder="Cari & Tambah Barang..." 
-                               className="w-full border rounded-lg pl-9 pr-4 py-2 text-sm focus:ring-2 focus:ring-nature-500 outline-none"
-                               value={newTrxSearch}
-                               onChange={e => setNewTrxSearch(e.target.value)}
-                             />
-                             {newTrxSearch && (
-                                <div className="absolute w-full bg-white border shadow-lg max-h-48 overflow-y-auto z-10 rounded-b-lg mt-1">
-                                   {products.filter(p => p.name.toLowerCase().includes(newTrxSearch.toLowerCase())).map(p => (
-                                      <button 
-                                        key={p.id} 
-                                        onClick={() => handleAddItemToNewTrx(p)}
-                                        className="w-full text-left p-2 hover:bg-gray-50 text-sm flex justify-between border-b last:border-0"
-                                      >
-                                         <span>{p.name}</span>
-                                         <span className="text-xs font-bold text-nature-600">Stok: {p.stock}</span>
-                                      </button>
-                                   ))}
-                                </div>
-                             )}
+                          <div className="relative mb-3 flex gap-2">
+                             <div className="relative flex-1">
+                                <Search className="absolute left-3 top-2.5 text-gray-400" size={14} />
+                                <input 
+                                  placeholder="Cari & Tambah Barang..." 
+                                  className="w-full border rounded-lg pl-9 pr-4 py-2 text-sm focus:ring-2 focus:ring-nature-500 outline-none"
+                                  value={newTrxSearch}
+                                  onChange={e => setNewTrxSearch(e.target.value)}
+                                />
+                                {newTrxSearch && (
+                                  <div className="absolute w-full bg-white border shadow-lg max-h-48 overflow-y-auto z-10 rounded-b-lg mt-1">
+                                    {products.filter(p => p.name.toLowerCase().includes(newTrxSearch.toLowerCase())).map(p => (
+                                        <button 
+                                          key={p.id} 
+                                          onClick={() => handleAddItemToNewTrx(p)}
+                                          className="w-full text-left p-2 hover:bg-gray-50 text-sm flex justify-between border-b last:border-0"
+                                        >
+                                          <span>{p.name}</span>
+                                          <span className="text-xs font-bold text-nature-600">Stok: {p.stock}</span>
+                                        </button>
+                                    ))}
+                                  </div>
+                                )}
+                             </div>
+                             <button 
+                               onClick={() => { setScannerContext('add_item_create'); setIsScannerOpen(true); }}
+                               className="p-2 bg-gray-800 text-white rounded-lg hover:bg-black transition"
+                               title="Scan QR Produk"
+                             >
+                                <Camera size={18}/>
+                             </button>
                           </div>
 
                           <div className="flex-1 overflow-y-auto space-y-2 mb-4 border rounded-lg p-2 bg-gray-50 min-h-[150px]">
