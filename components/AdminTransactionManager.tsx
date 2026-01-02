@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { ClipboardList, Loader2, Calendar, Eye, Trash2, X, User, CreditCard, Banknote, ArrowRightLeft, Save, Calculator, CheckCircle, RotateCcw, Wallet, Edit, Plus, Minus, Search, ShoppingBag, Printer, Filter, DollarSign, Receipt, BarChart3, TrendingUp, Lightbulb, AlertTriangle, ArrowUpRight, Share2, Image as ImageIcon, CreditCard as CardIcon, ExternalLink, QrCode, FileText, Clock, ShieldCheck, ChevronDown, ChevronUp, Upload, LogIn, LogOut, FileCheck, PackagePlus, Camera, RefreshCw, MessageCircle, History, CreditCard as IdCard } from 'lucide-react';
 import { Transaction, Product, CartItem, UserDetails } from '../types';
@@ -207,16 +206,30 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
 
   const handleAddEditItem = (product: Product) => {
     setEditForm(prev => {
-        const existing = prev.items.find(i => i.id === product.id);
+        const existing = prev.items.find(i => i.id === product.id && !i.selectedSize && !i.selectedColor);
         let newItems;
-        if (existing) {
+        // Logic: Jika barang punya varian, selalu tambah item baru (biar bisa pilih varian berbeda)
+        // Jika barang simple, tambah qty
+        const hasVariants = (product.sizes && Object.keys(product.sizes).length > 0) || (product.variants && product.variants.length > 0);
+        
+        if (existing && !hasVariants) {
             newItems = prev.items.map(i => i.id === product.id ? { ...i, quantity: i.quantity + 1 } : i);
         } else {
-            newItems = [...prev.items, { ...product, quantity: 1 }];
+            // Default select first variant if available? No, let user select.
+            newItems = [...prev.items, { ...product, quantity: 1, selectedSize: '', selectedColor: '' }];
         }
         return { ...prev, items: newItems };
     });
     setEditItemSearch('');
+  };
+
+  // Helper untuk update varian di Edit Mode
+  const updateEditItemVariant = (idx: number, field: 'selectedSize' | 'selectedColor', val: string) => {
+      setEditForm(prev => {
+          const items = [...prev.items];
+          items[idx] = { ...items[idx], [field]: val };
+          return { ...prev, items };
+      });
   };
 
   const handleUpdateEditItemQty = (idx: number, delta: number) => {
@@ -250,6 +263,19 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
     if (!selectedTransaction) return;
     if (editForm.items.length === 0) return alert("Transaksi tidak boleh kosong (tanpa barang).");
 
+    // Validasi Varian
+    const invalidItems = editForm.items.filter(i => {
+        const prod = products.find(p => p.id === i.id);
+        if (!prod) return false;
+        const hasSize = prod.sizes && Object.keys(prod.sizes).length > 0;
+        const hasVariant = prod.variants && prod.variants.length > 0;
+        return (hasSize || hasVariant) && !i.selectedSize;
+    });
+
+    if (invalidItems.length > 0) {
+        return alert(`Mohon pilih ukuran untuk: ${invalidItems.map(i => i.name).join(', ')}`);
+    }
+
     const newTotalPrice = calculateEditTotal();
     
     const shouldUpdateStock = ['booked', 'rented', 'pending', 'partial_payment'].includes(selectedTransaction.status);
@@ -262,7 +288,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
     await updateTransactionDetails(selectedTransaction.id, {
         customerName: editForm.customerName,
         customerWhatsapp: editForm.customerWhatsapp,
-        customerIdentity: editForm.customerIdentity, // Save Identity
+        customerIdentity: editForm.customerIdentity, 
         rentalDate: editForm.rentalDate,
         duration: editForm.duration,
     });
@@ -322,13 +348,25 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
   };
 
   const handleAddItemToNewTrx = (product: Product) => {
-    const existing = newTrxItems.find(i => i.id === product.id);
-    if (existing) {
+    // Selalu tambah item baru jika barang punya varian
+    const hasVariants = (product.sizes && Object.keys(product.sizes).length > 0) || (product.variants && product.variants.length > 0);
+    const existing = newTrxItems.find(i => i.id === product.id && !i.selectedSize);
+
+    if (existing && !hasVariants) {
         setNewTrxItems(prev => prev.map(i => i.id === product.id ? { ...i, quantity: i.quantity + 1 } : i));
     } else {
-        setNewTrxItems(prev => [...prev, { ...product, quantity: 1 }]);
+        setNewTrxItems(prev => [...prev, { ...product, quantity: 1, selectedSize: '', selectedColor: '' }]);
     }
     setNewTrxSearch('');
+  };
+
+  // Helper update varian di Create Mode
+  const updateNewTrxItemVariant = (idx: number, field: 'selectedSize' | 'selectedColor', val: string) => {
+      setNewTrxItems(prev => {
+          const items = [...prev];
+          items[idx] = { ...items[idx], [field]: val };
+          return items;
+      });
   };
 
   const handleRemoveItemFromNewTrx = (idx: number) => {
@@ -355,6 +393,19 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
   const handleCreateTransaction = async () => {
     if (!newTrxDetails.name || newTrxItems.length === 0) return alert("Lengkapi data pelanggan dan barang!");
     
+    // Validasi Varian New Transaction
+    const invalidItems = newTrxItems.filter(i => {
+        const prod = products.find(p => p.id === i.id);
+        if (!prod) return false;
+        const hasSize = prod.sizes && Object.keys(prod.sizes).length > 0;
+        const hasVariant = prod.variants && prod.variants.length > 0;
+        return (hasSize || hasVariant) && !i.selectedSize;
+    });
+
+    if (invalidItems.length > 0) {
+        return alert(`Mohon pilih ukuran untuk: ${invalidItems.map(i => i.name).join(', ')}`);
+    }
+
     setIsCreating(true);
     const total = calculateNewTrxTotal();
     
@@ -390,6 +441,73 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
       if (p.startsWith('0')) p = '62' + p.slice(1);
       const url = `https://wa.me/${p}?text=Halo Kak ${name}, kami dari Mamas Outdoor...`;
       window.open(url, '_blank');
+  };
+
+  // COMPONENT RENDER HELPER FOR ITEM ROW (Edit/Create)
+  const renderItemRow = (item: CartItem, idx: number, mode: 'edit' | 'create') => {
+      const product = products.find(p => p.id === item.id);
+      const hasSize = product?.sizes && Object.keys(product.sizes).length > 0;
+      const hasVariant = product?.variants && product.variants.length > 0;
+      
+      const availableColors = hasVariant ? Array.from(new Set(product!.variants!.map(v => v.color))) : [];
+      let availableSizes: string[] = [];
+      
+      if (hasVariant) {
+          if (item.selectedColor) {
+              availableSizes = product!.variants!.filter(v => v.color === item.selectedColor).map(v => v.size);
+          } else {
+              availableSizes = Array.from(new Set(product!.variants!.map(v => v.size)));
+          }
+      } else if (hasSize) {
+          availableSizes = Object.keys(product!.sizes!);
+      }
+
+      return (
+        <div key={idx} className="flex flex-col bg-white p-3 rounded-lg border border-gray-200 shadow-sm gap-2">
+            <div className="flex justify-between items-start">
+                <div className="text-sm font-bold text-gray-700">{item.name}</div>
+                <div className="flex items-center gap-2">
+                    <button onClick={() => mode === 'edit' ? handleUpdateEditItemQty(idx, -1) : handleUpdateItemQtyNewTrx(idx, -1)} className="p-1 bg-gray-100 rounded hover:bg-gray-200"><Minus size={12}/></button>
+                    <span className="text-xs w-6 text-center font-bold">{item.quantity}</span>
+                    <button onClick={() => mode === 'edit' ? handleUpdateEditItemQty(idx, 1) : handleUpdateItemQtyNewTrx(idx, 1)} className="p-1 bg-gray-100 rounded hover:bg-gray-200"><Plus size={12}/></button>
+                    <button onClick={() => mode === 'edit' ? handleRemoveEditItem(idx) : handleRemoveItemFromNewTrx(idx)} className="text-red-500 ml-2 hover:bg-red-50 p-1 rounded"><Trash2 size={14}/></button>
+                </div>
+            </div>
+            
+            {/* VARIANT SELECTORS */}
+            {(hasSize || hasVariant) && (
+                <div className="flex gap-2 mt-1">
+                    {hasVariant && (
+                        <select 
+                            className="bg-gray-50 border border-gray-200 text-xs rounded p-1 outline-none"
+                            value={item.selectedColor || ''}
+                            onChange={e => mode === 'edit' ? updateEditItemVariant(idx, 'selectedColor', e.target.value) : updateNewTrxItemVariant(idx, 'selectedColor', e.target.value)}
+                        >
+                            <option value="">Warna...</option>
+                            {availableColors.map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                    )}
+                    <select 
+                        className="bg-gray-50 border border-gray-200 text-xs rounded p-1 outline-none flex-1"
+                        value={item.selectedSize || ''}
+                        onChange={e => mode === 'edit' ? updateEditItemVariant(idx, 'selectedSize', e.target.value) : updateNewTrxItemVariant(idx, 'selectedSize', e.target.value)}
+                    >
+                        <option value="">Pilih Ukuran...</option>
+                        {availableSizes.map(sz => {
+                            let stockInfo = 0;
+                            if(hasVariant && item.selectedColor) {
+                                const v = product?.variants?.find(v => v.color === item.selectedColor && v.size === sz);
+                                stockInfo = v ? v.stock : 0;
+                            } else if (hasSize) {
+                                stockInfo = product?.sizes?.[sz] || 0;
+                            }
+                            return <option key={sz} value={sz}>{sz} (Sisa: {stockInfo})</option>
+                        })}
+                    </select>
+                </div>
+            )}
+        </div>
+      );
   };
 
   return (
@@ -617,17 +735,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                                 </div>
 
                                 <div className="space-y-2 bg-gray-50 p-3 rounded-lg border border-gray-100 max-h-60 overflow-y-auto">
-                                    {editForm.items.map((item, idx) => (
-                                        <div key={idx} className="flex justify-between items-center bg-white p-2 rounded border border-gray-200">
-                                            <div className="text-xs font-bold text-gray-700 truncate flex-1">{item.name}</div>
-                                            <div className="flex items-center gap-2">
-                                                <button onClick={() => handleUpdateEditItemQty(idx, -1)} className="p-1 bg-gray-100 rounded hover:bg-gray-200"><Minus size={10}/></button>
-                                                <span className="text-xs w-6 text-center font-bold">{item.quantity}</span>
-                                                <button onClick={() => handleUpdateEditItemQty(idx, 1)} className="p-1 bg-gray-100 rounded hover:bg-gray-200"><Plus size={10}/></button>
-                                                <button onClick={() => handleRemoveEditItem(idx)} className="text-red-500 ml-1 hover:bg-red-50 p-1 rounded"><Trash2 size={12}/></button>
-                                            </div>
-                                        </div>
-                                    ))}
+                                    {editForm.items.map((item, idx) => renderItemRow(item, idx, 'edit'))}
                                     {editForm.items.length === 0 && <p className="text-center text-xs text-red-400 italic">List barang kosong!</p>}
                                 </div>
                                 <div className="mt-2 text-right">
@@ -910,7 +1018,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                     </div>
 
                     <div className="flex flex-col h-full">
-                       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex-1 flex flex-col">
+                       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex-1 flex-col">
                           <h4 className="font-bold text-sm text-gray-700 mb-3 flex items-center gap-2"><ShoppingBag size={16}/> Daftar Barang</h4>
                           
                           <div className="relative mb-3">
@@ -939,17 +1047,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
 
                           <div className="flex-1 overflow-y-auto space-y-2 mb-4 border rounded-lg p-2 bg-gray-50 min-h-[150px]">
                              {newTrxItems.length === 0 && <p className="text-center text-gray-400 text-xs mt-10">Belum ada barang dipilih</p>}
-                             {newTrxItems.map((item, idx) => (
-                                <div key={idx} className="flex justify-between items-center bg-white p-2 rounded shadow-sm">
-                                   <div className="text-sm font-bold text-gray-700 truncate w-32">{item.name}</div>
-                                   <div className="flex items-center gap-2">
-                                      <button onClick={() => handleUpdateItemQtyNewTrx(idx, -1)} className="p-1 bg-gray-100 rounded hover:bg-gray-200"><Minus size={12}/></button>
-                                      <span className="text-xs w-6 text-center font-bold">{item.quantity}</span>
-                                      <button onClick={() => handleUpdateItemQtyNewTrx(idx, 1)} className="p-1 bg-gray-100 rounded hover:bg-gray-200"><Plus size={12}/></button>
-                                      <button onClick={() => handleRemoveItemFromNewTrx(idx)} className="text-red-500 ml-2"><Trash2 size={14}/></button>
-                                   </div>
-                                </div>
-                             ))}
+                             {newTrxItems.map((item, idx) => renderItemRow(item, idx, 'create'))}
                           </div>
 
                           <div className="border-t pt-4">
