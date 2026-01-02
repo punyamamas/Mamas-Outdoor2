@@ -1,8 +1,9 @@
 
 import React, { useState } from 'react';
-import { Search, PlusCircle, MinusCircle, HeartCrack, Hammer, ArrowRightLeft, FileText, X, Save, AlertCircle, Package, Loader2, Printer } from 'lucide-react';
+import { Search, PlusCircle, MinusCircle, HeartCrack, Hammer, ArrowRightLeft, FileText, X, Save, AlertCircle, Package, Loader2, Printer, Camera } from 'lucide-react';
 import { Product, Category } from '../types';
 import { getStoreConfig } from '../utils/storeConfig';
+import QRScannerModal from './QRScannerModal';
 
 interface AdminWarehouseManagerProps {
   products: Product[];
@@ -25,8 +26,12 @@ const AdminWarehouseManager: React.FC<AdminWarehouseManagerProps> = ({ products,
   const [qty, setQty] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Scanner State
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
+
   const filteredProducts = products.filter(p => {
-    const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const searchLower = searchTerm.toLowerCase();
+    const matchesSearch = p.name.toLowerCase().includes(searchLower) || p.id.toLowerCase().includes(searchLower);
     let matchesStatus = true;
     if (filter === 'low_stock') matchesStatus = p.stock <= 3;
     if (filter === 'rented') matchesStatus = (p.rented || 0) > 0;
@@ -34,6 +39,11 @@ const AdminWarehouseManager: React.FC<AdminWarehouseManagerProps> = ({ products,
     const matchesCat = catFilter === 'Semua' || p.category === catFilter;
     return matchesSearch && matchesStatus && matchesCat;
   });
+
+  const handleScanSuccess = (decodedText: string) => {
+      setSearchTerm(decodedText); // Isi search bar dengan hasil scan
+      setIsScannerOpen(false); // Tutup kamera
+  };
 
   const handlePrintStockOpname = () => {
     const printWindow = window.open('', '', 'width=800,height=800');
@@ -263,6 +273,13 @@ const AdminWarehouseManager: React.FC<AdminWarehouseManagerProps> = ({ products,
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+      
+      <QRScannerModal 
+         isOpen={isScannerOpen} 
+         onClose={() => setIsScannerOpen(false)} 
+         onScanSuccess={handleScanSuccess} 
+      />
+
       {/* Header & Filters */}
       <div className="p-5 border-b border-gray-100 flex flex-col xl:flex-row justify-between gap-4 bg-nature-50">
         <div className="flex flex-col md:flex-row items-center gap-3">
@@ -281,14 +298,21 @@ const AdminWarehouseManager: React.FC<AdminWarehouseManagerProps> = ({ products,
            </select>
         </div>
         <div className="flex gap-2">
-           <div className="relative">
+           <div className="relative flex-1">
               <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
               <input type="text" placeholder="Cari SKU / Nama..." className="pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg w-full focus:ring-2 focus:ring-nature-500 outline-none" 
                 value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
            </div>
            <button 
+             onClick={() => setIsScannerOpen(true)}
+             className="bg-gray-800 hover:bg-gray-900 text-white p-2 rounded-lg transition shadow-sm"
+             title="Scan QR Barang"
+           >
+             <Camera size={18}/>
+           </button>
+           <button 
              onClick={handlePrintStockOpname} 
-             className="bg-gray-900 hover:bg-black text-white p-2 rounded-lg transition shadow-sm"
+             className="bg-gray-100 hover:bg-gray-200 text-gray-700 p-2 rounded-lg transition shadow-sm border border-gray-200"
              title="Cetak Form Stock Opname"
            >
              <Printer size={18}/>
@@ -309,52 +333,58 @@ const AdminWarehouseManager: React.FC<AdminWarehouseManagerProps> = ({ products,
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {filteredProducts.map(p => {
-              const isComplex = (p.variants && p.variants.length > 0) || (p.sizes && Object.keys(p.sizes).length > 0);
-              return (
-                <tr key={p.id} className="hover:bg-gray-50 transition group">
-                  <td className="px-6 py-4">
-                     <div className="font-bold text-gray-800">{p.name}</div>
-                     {isComplex && (
-                        <div className="flex flex-wrap gap-1 mt-1">
-                            {p.variants?.map((v, i) => (
-                                <span key={i} className="text-[9px] px-1.5 py-0.5 bg-gray-100 rounded text-gray-500 border border-gray-200">
-                                    {v.color}-{v.size}: {v.stock}
-                                </span>
-                            ))}
-                            {p.sizes && Object.entries(p.sizes).map(([k, v]) => (
-                                <span key={k} className="text-[9px] px-1.5 py-0.5 bg-gray-100 rounded text-gray-500 border border-gray-200">
-                                    {k}: {v}
-                                </span>
-                            ))}
-                        </div>
-                     )}
-                  </td>
-                  <td className="text-center font-bold text-green-700 bg-green-50/30">{p.stock}</td>
-                  <td className="text-center font-bold text-blue-600 bg-blue-50/30">{p.rented || '-'}</td>
-                  <td className="text-center font-bold text-red-600 bg-red-50/30">{p.damaged || '-'}</td>
-                  <td className="px-6 py-4 text-center">
-                     <div className="flex justify-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => openActionModal(p, 'restock')} className="p-2 hover:bg-green-100 text-green-600 rounded-lg border border-transparent hover:border-green-200 transition" title="Tambah Stok">
-                            <PlusCircle size={18}/>
-                        </button>
-                        <button onClick={() => openActionModal(p, 'manual_rent')} className="p-2 hover:bg-blue-100 text-blue-600 rounded-lg border border-transparent hover:border-blue-200 transition" title="Barang Keluar Manual">
-                            <MinusCircle size={18}/>
-                        </button>
-                        <button onClick={() => openActionModal(p, 'return')} disabled={(p.rented||0)<=0} className="p-2 hover:bg-indigo-100 text-indigo-600 rounded-lg border border-transparent hover:border-indigo-200 transition disabled:opacity-20" title="Barang Kembali">
-                            <ArrowRightLeft size={18}/>
-                        </button>
-                        <button onClick={() => openActionModal(p, 'damage')} className="p-2 hover:bg-red-100 text-red-600 rounded-lg border border-transparent hover:border-red-200 transition" title="Lapor Rusak">
-                            <HeartCrack size={18}/>
-                        </button>
-                        <button onClick={() => openActionModal(p, 'repair')} disabled={(p.damaged||0)<=0} className="p-2 hover:bg-orange-100 text-orange-600 rounded-lg border border-transparent hover:border-orange-200 transition disabled:opacity-20" title="Selesai Perbaikan">
-                            <Hammer size={18}/>
-                        </button>
-                     </div>
-                  </td>
+            {filteredProducts.length === 0 ? (
+                <tr>
+                    <td colSpan={5} className="text-center p-8 text-gray-400">Barang tidak ditemukan. Coba scan atau cari dengan nama lain.</td>
                 </tr>
-              )
-            })}
+            ) : (
+                filteredProducts.map(p => {
+                const isComplex = (p.variants && p.variants.length > 0) || (p.sizes && Object.keys(p.sizes).length > 0);
+                return (
+                    <tr key={p.id} className="hover:bg-gray-50 transition group">
+                    <td className="px-6 py-4">
+                        <div className="font-bold text-gray-800">{p.name}</div>
+                        {isComplex && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                                {p.variants?.map((v, i) => (
+                                    <span key={i} className="text-[9px] px-1.5 py-0.5 bg-gray-100 rounded text-gray-500 border border-gray-200">
+                                        {v.color}-{v.size}: {v.stock}
+                                    </span>
+                                ))}
+                                {p.sizes && Object.entries(p.sizes).map(([k, v]) => (
+                                    <span key={k} className="text-[9px] px-1.5 py-0.5 bg-gray-100 rounded text-gray-500 border border-gray-200">
+                                        {k}: {v}
+                                    </span>
+                                ))}
+                            </div>
+                        )}
+                    </td>
+                    <td className="text-center font-bold text-green-700 bg-green-50/30">{p.stock}</td>
+                    <td className="text-center font-bold text-blue-600 bg-blue-50/30">{p.rented || '-'}</td>
+                    <td className="text-center font-bold text-red-600 bg-red-50/30">{p.damaged || '-'}</td>
+                    <td className="px-6 py-4 text-center">
+                        <div className="flex justify-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                            <button onClick={() => openActionModal(p, 'restock')} className="p-2 hover:bg-green-100 text-green-600 rounded-lg border border-transparent hover:border-green-200 transition" title="Tambah Stok">
+                                <PlusCircle size={18}/>
+                            </button>
+                            <button onClick={() => openActionModal(p, 'manual_rent')} className="p-2 hover:bg-blue-100 text-blue-600 rounded-lg border border-transparent hover:border-blue-200 transition" title="Barang Keluar Manual">
+                                <MinusCircle size={18}/>
+                            </button>
+                            <button onClick={() => openActionModal(p, 'return')} disabled={(p.rented||0)<=0} className="p-2 hover:bg-indigo-100 text-indigo-600 rounded-lg border border-transparent hover:border-indigo-200 transition disabled:opacity-20" title="Barang Kembali">
+                                <ArrowRightLeft size={18}/>
+                            </button>
+                            <button onClick={() => openActionModal(p, 'damage')} className="p-2 hover:bg-red-100 text-red-600 rounded-lg border border-transparent hover:border-red-200 transition" title="Lapor Rusak">
+                                <HeartCrack size={18}/>
+                            </button>
+                            <button onClick={() => openActionModal(p, 'repair')} disabled={(p.damaged||0)<=0} className="p-2 hover:bg-orange-100 text-orange-600 rounded-lg border border-transparent hover:border-orange-200 transition disabled:opacity-20" title="Selesai Perbaikan">
+                                <Hammer size={18}/>
+                            </button>
+                        </div>
+                    </td>
+                    </tr>
+                )
+                })
+            )}
           </tbody>
         </table>
       </div>
