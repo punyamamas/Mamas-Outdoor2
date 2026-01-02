@@ -291,6 +291,62 @@ export const deletePaymentLog = async (id: string): Promise<boolean> => {
   return !error;
 };
 
+// NEW FUNCTION: Send Invoice to WhatsApp
+export const sendWhatsAppInvoice = (trx: Transaction) => {
+  const config = getStoreConfig();
+  
+  const dateObj = new Date(trx.created_at || new Date());
+  const dateStr = dateObj.toLocaleDateString('id-ID'); 
+  
+  const returnDate = new Date(trx.rentalDate);
+  returnDate.setDate(returnDate.getDate() + (trx.duration - 1));
+  const returnStr = returnDate.toLocaleDateString('id-ID', {day:'numeric', month:'short'});
+
+  // Helper untuk format mata uang
+  const fmt = (val: number) => val.toLocaleString('id-ID');
+  
+  // Format items using monospace block
+  // Limit name length to keep alignment
+  const itemsText = trx.items.map(item => {
+      const name = item.name.substring(0, 15).padEnd(15, ' ');
+      const qty = `${item.quantity}x`.padStart(3, ' ');
+      const price = fmt(calculateItemPriceForDuration(item, trx.duration)).padStart(9, ' ');
+      return `${name} ${qty} ${price}`;
+  }).join('\n');
+
+  // Status Lunas/Belum
+  const paid = trx.amountPaid || 0;
+  const total = trx.totalPrice;
+  const statusBayar = paid >= total ? "LUNAS" : `KURANG: Rp${fmt(total - paid)}`;
+
+  const message = `*NOTA DIGITAL - ${config.storeName.toUpperCase()}*
+--------------------------------
+No  : #${trx.id.slice(0,8)}
+Tgl : ${dateStr}
+Yth : ${trx.customerName}
+--------------------------------
+\`\`\`
+${itemsText}
+\`\`\`
+--------------------------------
+*Total : Rp ${fmt(total)}*
+Bayar : Rp ${fmt(paid)}
+${(trx.fineAmount||0) > 0 ? `Denda : Rp ${fmt(trx.fineAmount||0)}\n` : ''}
+*Status: ${statusBayar}*
+--------------------------------
+Ambil   : ${new Date(trx.rentalDate).toLocaleDateString('id-ID', {day:'numeric', month:'short'})}
+Kembali : ${returnStr} (${trx.duration} Hari)
+--------------------------------
+${config.footerMessage}
+Simpan struk ini sebagai bukti.`;
+
+  let phone = trx.customerWhatsapp.replace(/\D/g, '');
+  if (phone.startsWith('0')) phone = '62' + phone.slice(1);
+
+  const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+  window.open(url, '_blank');
+};
+
 export const printInvoice = async (
   trx: Transaction, 
   mode: 'print' | 'view' = 'print',
