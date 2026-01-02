@@ -1,12 +1,12 @@
 
 import React, { useState, useEffect } from 'react';
-import { Database, HardDrive, Check, Copy, Terminal, Shield, AlertTriangle, RefreshCw, Settings, Save, Clock, Printer, Bluetooth } from 'lucide-react';
+import { Database, HardDrive, Check, Copy, Terminal, Shield, AlertTriangle, RefreshCw, Settings, Save, Clock, Printer, Bluetooth, Bot, Zap, Server } from 'lucide-react';
 import { getStoreConfig, saveStoreConfig, DEFAULT_CONFIG } from '../utils/storeConfig';
 import { StoreConfig } from '../types';
 import { connectPrinter, printTestPage, getPrinterStatus, disconnectPrinter } from '../services/bluetoothPrinterService';
 
 const AdminSystemSetup: React.FC = () => {
-  const [activeSubTab, setActiveSubTab] = useState<'config' | 'database' | 'hardware'>('config');
+  const [activeSubTab, setActiveSubTab] = useState<'config' | 'database' | 'hardware' | 'automation'>('config');
   const [copiedSection, setCopiedSection] = useState<string | null>(null);
   
   // Config Form State
@@ -281,28 +281,149 @@ create policy "Public Insert" on storage.objects for insert with check (
   bucket_id in ('payment_proofs', 'product_images')
 );`;
 
+// BAGIAN 6: CRON JOB SCRIPT (SUPABASE EDGE FUNCTION)
+const cronJobScript = `// Supabase Edge Function: automated-late-check
+// Deploy this to Supabase Functions to enable SERVER-SIDE Automation
+
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+Deno.serve(async (req) => {
+  // 1. Initialize Supabase Client
+  const supabase = createClient(
+    Deno.env.get('SUPABASE_URL') ?? '',
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+  )
+
+  // 2. Configuration (From your Admin Setup)
+  const WA_GATEWAY_URL = '${config.waGatewayUrl || 'https://api.fonnte.com/send'}';
+  const WA_API_KEY = '${config.waGatewayToken || 'YOUR_API_KEY'}';
+
+  if (!WA_API_KEY) {
+    return new Response('API Key not configured', { status: 500 })
+  }
+
+  // 3. Get 'Rented' Transactions
+  const { data: transactions, error } = await supabase
+    .from('transactions')
+    .select('*')
+    .eq('status', 'rented')
+
+  if (error) return new Response(JSON.stringify(error), { status: 500 })
+
+  const results = []
+  const now = new Date()
+
+  // 4. Iterate and Check Overdue
+  for (const trx of transactions) {
+    const rentalDate = new Date(trx.rental_date)
+    // Calculate Return Date (Rental Date + Duration - 1 Day)
+    const returnDate = new Date(rentalDate)
+    returnDate.setDate(returnDate.getDate() + (trx.duration - 1))
+    
+    // Set End of Day for Return Date (23:59:59)
+    returnDate.setHours(23, 59, 59, 999)
+
+    if (now > returnDate) {
+       // OVERDUE DETECTED!
+       
+       // Calculate Days Late
+       const diffTime = Math.abs(now.getTime() - returnDate.getTime())
+       const daysLate = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+       
+       // Format Phone Number (62...)
+       let phone = trx.customer_whatsapp.replace(/\\D/g, '')
+       if (phone.startsWith('0')) phone = '62' + phone.slice(1)
+
+       const message = \`Halo Kak \${trx.customer_name},
+Kami dari Mamas Outdoor mengingatkan bahwa masa sewa alat Anda:
+No Nota: #\${trx.id.slice(0,8)}
+
+Telah *LEWAT JATUH TEMPO* selama \${daysLate} hari.
+Mohon segera dikembalikan untuk menghindari akumulasi denda lebih lanjut.
+
+Terima kasih,
+Admin Mamas Outdoor\`;
+
+       // Send Automated WhatsApp via Gateway
+       try {
+         const res = await fetch(WA_GATEWAY_URL, {
+            method: 'POST',
+            headers: { 
+              'Authorization': WA_API_KEY, 
+              'Content-Type': 'application/json' 
+            },
+            body: JSON.stringify({ 
+              target: phone, 
+              message: message,
+              countryCode: '62' // optional based on provider
+            })
+         })
+         results.push({ id: trx.id, status: 'Sent', daysLate })
+       } catch (err) {
+         results.push({ id: trx.id, status: 'Failed', error: err.message })
+       }
+    }
+  }
+
+  return new Response(
+    JSON.stringify({ 
+      success: true, 
+      processed: results.length, 
+      details: results 
+    }),
+    { headers: { 'Content-Type': 'application/json' } }
+  )
+})
+
+/* 
+CARA PASANG DI SUPABASE:
+1. Install Supabase CLI
+2. Run: supabase functions new automated-late-check
+3. Paste code diatas ke index.ts
+4. Deploy: supabase functions deploy automated-late-check
+5. Setup Cron di Database (pg_cron extension):
+   select cron.schedule(
+     'check-every-morning',
+     '0 9 * * *', -- Jam 9 Pagi Setiap Hari
+     $$
+     select
+       net.http_post(
+           url:='https://project-ref.supabase.co/functions/v1/automated-late-check',
+           headers:='{"Content-Type": "application/json", "Authorization": "Bearer SERVICE_ROLE_KEY"}'::jsonb,
+           body:='{}'::jsonb
+       ) as request_id;
+     $$
+   );
+*/`;
+
   return (
     <div className="space-y-6 pb-10">
       
       {/* Sub Tabs */}
-      <div className="flex bg-white p-1 rounded-xl border border-gray-200 w-fit">
+      <div className="flex bg-white p-1 rounded-xl border border-gray-200 w-fit overflow-x-auto">
         <button 
           onClick={() => setActiveSubTab('config')}
-          className={`px-4 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 ${activeSubTab === 'config' ? 'bg-nature-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}
+          className={`px-4 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 whitespace-nowrap ${activeSubTab === 'config' ? 'bg-nature-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}
         >
           <Settings size={16} /> Pengaturan Toko
         </button>
         <button 
           onClick={() => setActiveSubTab('hardware')}
-          className={`px-4 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 ${activeSubTab === 'hardware' ? 'bg-nature-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}
+          className={`px-4 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 whitespace-nowrap ${activeSubTab === 'hardware' ? 'bg-nature-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}
         >
-          <Printer size={16} /> Hardware & Printer
+          <Printer size={16} /> Hardware
+        </button>
+        <button 
+          onClick={() => setActiveSubTab('automation')}
+          className={`px-4 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 whitespace-nowrap ${activeSubTab === 'automation' ? 'bg-nature-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}
+        >
+          <Bot size={16} /> Bot & Automasi
         </button>
         <button 
           onClick={() => setActiveSubTab('database')}
-          className={`px-4 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 ${activeSubTab === 'database' ? 'bg-nature-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}
+          className={`px-4 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 whitespace-nowrap ${activeSubTab === 'database' ? 'bg-nature-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}
         >
-          <Database size={16} /> Database & SQL
+          <Database size={16} /> Database
         </button>
       </div>
 
@@ -400,6 +521,103 @@ create policy "Public Insert" on storage.objects for insert with check (
               </div>
            </form>
         </div>
+      )}
+
+      {activeSubTab === 'automation' && (
+          <div className="space-y-8 animate-slide-in-right">
+              {/* CONFIGURATION */}
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 max-w-4xl">
+                  <div className="flex items-start gap-4 mb-6">
+                      <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
+                          <Bot size={32}/>
+                      </div>
+                      <div>
+                          <h3 className="text-xl font-bold text-gray-900">Setup WhatsApp Gateway</h3>
+                          <p className="text-sm text-gray-500">Agar sistem bisa mengirim pesan otomatis (Server-Side), diperlukan layanan pihak ketiga.</p>
+                      </div>
+                  </div>
+
+                  <form onSubmit={handleSaveConfig} className="bg-gray-50 p-5 rounded-xl border border-gray-200 mb-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div>
+                              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">WhatsApp Gateway URL</label>
+                              <input 
+                                type="text" 
+                                placeholder="https://api.fonnte.com/send"
+                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none font-medium"
+                                value={config.waGatewayUrl}
+                                onChange={e => setConfig({...config, waGatewayUrl: e.target.value})}
+                              />
+                              <p className="text-[10px] text-gray-400 mt-1">Default: Fonnte (Recommended for Indo)</p>
+                          </div>
+                          <div>
+                              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">API Key / Token</label>
+                              <div className="relative">
+                                <input 
+                                    type="password" 
+                                    placeholder="Paste API Key disini..."
+                                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none font-medium"
+                                    value={config.waGatewayToken}
+                                    onChange={e => setConfig({...config, waGatewayToken: e.target.value})}
+                                />
+                                <div className="absolute right-2 top-2">
+                                    {config.waGatewayToken ? <Check size={16} className="text-green-500"/> : <AlertTriangle size={16} className="text-yellow-500"/>}
+                                </div>
+                              </div>
+                              <p className="text-[10px] text-gray-400 mt-1">Dapatkan di dashboard provider (misal: md.fonnte.com)</p>
+                          </div>
+                      </div>
+                      <div className="mt-4 flex justify-end">
+                          <button 
+                            type="submit"
+                            className={`px-6 py-2 rounded-lg font-bold text-white transition flex items-center gap-2 text-sm ${isSaved ? 'bg-green-600' : 'bg-indigo-600 hover:bg-indigo-700'}`}
+                            >
+                                {isSaved ? 'Tersimpan!' : 'Simpan Kredensial'}
+                            </button>
+                      </div>
+                  </form>
+              </div>
+
+              {/* CRON SCRIPT */}
+              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden border-l-4 border-l-indigo-500 max-w-4xl">
+                <div className="px-6 py-4 bg-indigo-50 border-b border-indigo-100 flex justify-between items-center">
+                   <div className="flex items-center gap-3">
+                        <Server size={20} className="text-indigo-600"/> 
+                        <div>
+                            <h4 className="font-bold text-gray-800">Server-Side Cron Job Script</h4>
+                            <p className="text-xs text-indigo-700">Script otomatis untuk cek keterlambatan setiap hari</p>
+                        </div>
+                   </div>
+                   <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded font-bold">Supabase Edge Function</span>
+                </div>
+                <div className="p-6">
+                   <div className="relative group">
+                      <pre className="bg-gray-900 text-gray-100 p-4 rounded-xl text-xs font-mono overflow-x-auto whitespace-pre-wrap border border-gray-700 max-h-96">
+                         {cronJobScript}
+                      </pre>
+                      <button 
+                         onClick={() => copyToClipboard(cronJobScript, 'cron')}
+                         className="absolute top-2 right-2 p-2 bg-white/10 hover:bg-white/20 rounded-lg text-white transition flex items-center gap-2 text-xs font-bold backdrop-blur-sm"
+                      >
+                         {copiedSection === 'cron' ? <Check size={14}/> : <Copy size={14}/>} 
+                         {copiedSection === 'cron' ? 'Disalin!' : 'Copy Script'}
+                      </button>
+                   </div>
+                   <div className="mt-4 text-sm text-gray-600 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                        <p className="font-bold mb-2">Cara Pemasangan:</p>
+                        <ol className="list-decimal pl-5 space-y-1 text-xs">
+                            <li>Pastikan Anda sudah punya akun <strong>Supabase</strong> & <strong>Fonnte</strong>.</li>
+                            <li>Install Supabase CLI di komputer Anda.</li>
+                            <li>Buat function baru: <code>supabase functions new automated-late-check</code>.</li>
+                            <li>Copy script di atas ke dalam file <code>index.ts</code> function tersebut.</li>
+                            <li>Deploy function: <code>supabase functions deploy automated-late-check</code>.</li>
+                            <li>Aktifkan <strong>pg_cron</strong> di Dashboard Supabase (Database &gt; Extensions).</li>
+                            <li>Jalankan perintah SQL (lihat komentar paling bawah di script) di SQL Editor Supabase untuk menjadwalkan pengecekan (misal: Tiap Jam 9 Pagi).</li>
+                        </ol>
+                   </div>
+                </div>
+             </div>
+          </div>
       )}
 
       {activeSubTab === 'hardware' && (

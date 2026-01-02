@@ -159,4 +159,7 @@ export interface StoreConfig {
   bankAccount: string;
   bankHolder: string;
   footerMessage: string;
+  // Automation Config
+  waGatewayUrl?: string; // e.g., https://api.fonnte.com/send
+  waGatewayToken?: string; // API Key
 }

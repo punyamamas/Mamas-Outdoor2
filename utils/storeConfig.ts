@@ -10,7 +10,9 @@ export const DEFAULT_CONFIG: StoreConfig = {
   bankName: 'BSI',
   bankAccount: '7279048215',
   bankHolder: 'Umar Abdulloh',
-  footerMessage: 'Terima kasih telah menyewa di Mamas Outdoor. #SalamLestari'
+  footerMessage: 'Terima kasih telah menyewa di Mamas Outdoor. #SalamLestari',
+  waGatewayUrl: 'https://api.fonnte.com/send', // Default Fonnte (Popular in Indo)
+  waGatewayToken: ''
 };
 
 export const getStoreConfig = (): StoreConfig => {
