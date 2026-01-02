@@ -50,9 +50,15 @@ alter table public.stock_logs enable row level security;
 drop policy if exists "Public Insert Stock Log" on public.stock_logs;
 create policy "Public Insert Stock Log" on public.stock_logs for insert with check (true);
 
--- POLICY: Admin boleh Select & Delete (untuk audit)
-drop policy if exists "Admin Manage Stock Log" on public.stock_logs;
-create policy "Admin Manage Stock Log" on public.stock_logs for select, update, delete using (auth.role() = 'authenticated');`;
+-- POLICY: Admin boleh Select, Update & Delete (untuk audit)
+drop policy if exists "Admin Select Stock Log" on public.stock_logs;
+create policy "Admin Select Stock Log" on public.stock_logs for select using (auth.role() = 'authenticated');
+
+drop policy if exists "Admin Update Stock Log" on public.stock_logs;
+create policy "Admin Update Stock Log" on public.stock_logs for update using (auth.role() = 'authenticated');
+
+drop policy if exists "Admin Delete Stock Log" on public.stock_logs;
+create policy "Admin Delete Stock Log" on public.stock_logs for delete using (auth.role() = 'authenticated');`;
 
   // BAGIAN 1: TABEL UTAMA (SECURED)
   const coreSQL = `-- BAGIAN 1: Core Tables & Policies (SECURED)
@@ -80,8 +86,14 @@ create table if not exists public.transactions (
 alter table public.transactions enable row level security;
 
 -- Public Access (Read/Write/Update): Dibutuhkan untuk Checkout & Upload Bukti Bayar
-drop policy if exists "Public Access Trx" on public.transactions;
-create policy "Public Access Trx" on public.transactions for select, insert, update using (true);
+drop policy if exists "Public Select Trx" on public.transactions;
+create policy "Public Select Trx" on public.transactions for select using (true);
+
+drop policy if exists "Public Insert Trx" on public.transactions;
+create policy "Public Insert Trx" on public.transactions for insert with check (true);
+
+drop policy if exists "Public Update Trx" on public.transactions;
+create policy "Public Update Trx" on public.transactions for update using (true);
 
 -- Admin Only (Delete): Mencegah penghapusan data oleh pihak luar
 drop policy if exists "Admin Delete Trx" on public.transactions;
@@ -116,12 +128,18 @@ create table if not exists public.products (
 alter table public.products enable row level security;
 
 -- Public Read & Update: Update dibutuhkan agar stock berkurang otomatis saat checkout (Client-side logic)
-drop policy if exists "Public Read Update Prod" on public.products;
-create policy "Public Read Update Prod" on public.products for select, update using (true);
+drop policy if exists "Public Read Prod" on public.products;
+create policy "Public Read Prod" on public.products for select using (true);
+
+drop policy if exists "Public Update Prod" on public.products;
+create policy "Public Update Prod" on public.products for update using (true);
 
 -- Admin Only (Insert & Delete): Mencegah orang asing menambah/menghapus produk
-drop policy if exists "Admin Insert Delete Prod" on public.products;
-create policy "Admin Insert Delete Prod" on public.products for insert, delete using (auth.role() = 'authenticated');
+drop policy if exists "Admin Insert Prod" on public.products;
+create policy "Admin Insert Prod" on public.products for insert with check (auth.role() = 'authenticated');
+
+drop policy if exists "Admin Delete Prod" on public.products;
+create policy "Admin Delete Prod" on public.products for delete using (auth.role() = 'authenticated');
 
 
 -- 3. CATEGORIES
@@ -136,8 +154,14 @@ drop policy if exists "Public Read Cat" on public.categories;
 create policy "Public Read Cat" on public.categories for select using (true);
 
 -- Admin Manage (Insert/Update/Delete)
-drop policy if exists "Admin Manage Cat" on public.categories;
-create policy "Admin Manage Cat" on public.categories for insert, update, delete using (auth.role() = 'authenticated');`;
+drop policy if exists "Admin Insert Cat" on public.categories;
+create policy "Admin Insert Cat" on public.categories for insert with check (auth.role() = 'authenticated');
+
+drop policy if exists "Admin Update Cat" on public.categories;
+create policy "Admin Update Cat" on public.categories for update using (auth.role() = 'authenticated');
+
+drop policy if exists "Admin Delete Cat" on public.categories;
+create policy "Admin Delete Cat" on public.categories for delete using (auth.role() = 'authenticated');`;
 
   // BAGIAN 2: FITUR TAMBAHAN (SECURED)
   const featuresSQL = `-- BAGIAN 2: Features (Reviews & Logs) - SECURED
@@ -155,8 +179,11 @@ create table if not exists public.reviews (
 alter table public.reviews enable row level security;
 
 -- Public Read & Insert
-drop policy if exists "Public Access Reviews" on public.reviews;
-create policy "Public Access Reviews" on public.reviews for select, insert using (true);
+drop policy if exists "Public Read Reviews" on public.reviews;
+create policy "Public Read Reviews" on public.reviews for select using (true);
+
+drop policy if exists "Public Insert Reviews" on public.reviews;
+create policy "Public Insert Reviews" on public.reviews for insert with check (true);
 
 -- Admin Delete Only
 drop policy if exists "Admin Delete Reviews" on public.reviews;
@@ -181,8 +208,14 @@ drop policy if exists "Public Insert PayLog" on public.payment_logs;
 create policy "Public Insert PayLog" on public.payment_logs for insert with check (true);
 
 -- Admin Read/Update/Delete (Data keuangan bersifat rahasia)
-drop policy if exists "Admin Manage PayLog" on public.payment_logs;
-create policy "Admin Manage PayLog" on public.payment_logs for select, update, delete using (auth.role() = 'authenticated');`;
+drop policy if exists "Admin Select PayLog" on public.payment_logs;
+create policy "Admin Select PayLog" on public.payment_logs for select using (auth.role() = 'authenticated');
+
+drop policy if exists "Admin Update PayLog" on public.payment_logs;
+create policy "Admin Update PayLog" on public.payment_logs for update using (auth.role() = 'authenticated');
+
+drop policy if exists "Admin Delete PayLog" on public.payment_logs;
+create policy "Admin Delete PayLog" on public.payment_logs for delete using (auth.role() = 'authenticated');`;
 
   // BAGIAN 3: STORAGE
   const storageSQL = `-- BAGIAN 3: Storage Buckets (Payment Proofs & Product Images)
