@@ -347,12 +347,12 @@ Simpan struk ini sebagai bukti.`;
   window.open(url, '_blank');
 };
 
-// NEW FUNCTION: Generate, Download, and Send IMAGE Invoice to WhatsApp
+// FEATURE: Generate Image, COPY TO CLIPBOARD, Open WA
 export const sendImageInvoiceToWhatsapp = async (trx: Transaction) => {
   const storeConfig = getStoreConfig();
   const dateObj = new Date(trx.created_at || new Date());
   
-  // Create hidden container
+  // Create hidden container for HTML rendering
   const container = document.createElement('div');
   container.style.width = '400px';
   container.style.padding = '20px';
@@ -440,32 +440,52 @@ export const sendImageInvoiceToWhatsapp = async (trx: Transaction) => {
 
   try {
       const canvas = await html2canvas(container, { scale: 2, useCORS: true });
-      const imgData = canvas.toDataURL('image/png');
       
-      // Download
-      const link = document.createElement('a');
-      link.href = imgData;
-      link.download = `Nota_${trx.customerName.replace(/\s+/g,'_')}_${trx.id.slice(0,6)}.png`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      // Convert to Blob for Clipboard
+      canvas.toBlob(async (blob) => {
+          if (!blob) throw new Error("Canvas is empty");
 
-      // Open WhatsApp
-      let phone = trx.customerWhatsapp.replace(/\D/g, '');
-      if (phone.startsWith('0')) phone = '62' + phone.slice(1);
-      
-      const caption = `Halo Kak *${trx.customerName}*,\n\nTerlampir nota digital (gambar) untuk transaksi #${trx.id.slice(0,6)}.\n\nTotal: Rp${trx.totalPrice.toLocaleString('id-ID')}\nStatus: ${statusLabel}\n\nTerima kasih!`;
-      
-      setTimeout(() => {
+          let isCopied = false;
+          try {
+              // Try writing to clipboard (Requires HTTPS or Localhost)
+              await navigator.clipboard.write([
+                  new ClipboardItem({ 'image/png': blob })
+              ]);
+              isCopied = true;
+          } catch (err) {
+              console.warn("Clipboard write failed (likely browser restriction), falling back to download", err);
+              // Fallback: Download file
+              const imgData = canvas.toDataURL('image/png');
+              const link = document.createElement('a');
+              link.href = imgData;
+              link.download = `Nota_${trx.customerName.replace(/\s+/g,'_')}_${trx.id.slice(0,6)}.png`;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+          }
+
+          // Open WhatsApp
+          let phone = trx.customerWhatsapp.replace(/\D/g, '');
+          if (phone.startsWith('0')) phone = '62' + phone.slice(1);
+          
+          const caption = `Halo Kak *${trx.customerName}*,\n\nTerlampir nota digital (gambar) untuk transaksi #${trx.id.slice(0,6)}.\n\nTotal: Rp${trx.totalPrice.toLocaleString('id-ID')}\nStatus: ${statusLabel}\n\nTerima kasih!`;
+          
           window.open(`https://wa.me/${phone}?text=${encodeURIComponent(caption)}`, '_blank');
-          alert("✅ Gambar Nota berhasil didownload!\n\nSilakan lampirkan (Attach) gambar tersebut ke chat WhatsApp yang baru terbuka.");
-      }, 500);
+
+          // Notify User
+          if (isCopied) {
+              alert("✅ Gambar Nota telah disalin ke Clipboard!\n\nWhatsApp akan terbuka, silakan tekan 'Ctrl + V' (Paste) di kolom chat.");
+          } else {
+              alert("⚠️ Gagal menyalin otomatis (Browser memblokir). Gambar telah didownload.\n\nSilakan lampirkan file gambar secara manual di WhatsApp.");
+          }
+
+          document.body.removeChild(container);
+      }, 'image/png');
 
   } catch (error) {
       console.error("Error generating invoice image:", error);
       alert("Gagal membuat gambar nota.");
-  } finally {
-      document.body.removeChild(container);
+      if (document.body.contains(container)) document.body.removeChild(container);
   }
 };
 
