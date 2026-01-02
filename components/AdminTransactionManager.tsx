@@ -1,7 +1,9 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { ClipboardList, Loader2, Calendar, Eye, Trash2, X, User, CreditCard, Banknote, ArrowRightLeft, Save, Calculator, CheckCircle, RotateCcw, Wallet, Edit, Plus, Minus, Search, ShoppingBag, Printer, Filter, DollarSign, Receipt, BarChart3, TrendingUp, Lightbulb, AlertTriangle, ArrowUpRight, Share2, Image as ImageIcon, CreditCard as CardIcon, ExternalLink, QrCode, FileText, Clock, ShieldCheck, ChevronDown, ChevronUp, Upload, LogIn, LogOut, FileCheck } from 'lucide-react';
-import { Transaction, Product, CartItem } from '../types';
-import { updateTransactionPayment, updateTransactionItems, updateTransactionDetails, printInvoice, applyTransactionFine, calculateOverdueFine, copyInvoiceToClipboard, uploadPaymentProof } from '../services/transactionService';
+import { ClipboardList, Loader2, Calendar, Eye, Trash2, X, User, CreditCard, Banknote, ArrowRightLeft, Save, Calculator, CheckCircle, RotateCcw, Wallet, Edit, Plus, Minus, Search, ShoppingBag, Printer, Filter, DollarSign, Receipt, BarChart3, TrendingUp, Lightbulb, AlertTriangle, ArrowUpRight, Share2, Image as ImageIcon, CreditCard as CardIcon, ExternalLink, QrCode, FileText, Clock, ShieldCheck, ChevronDown, ChevronUp, Upload, LogIn, LogOut, FileCheck, PackagePlus } from 'lucide-react';
+import { Transaction, Product, CartItem, UserDetails } from '../types';
+import { updateTransactionPayment, updateTransactionItems, updateTransactionDetails, printInvoice, applyTransactionFine, calculateOverdueFine, copyInvoiceToClipboard, uploadPaymentProof, createTransaction, calculateItemPriceForDuration } from '../services/transactionService';
+import { processStockReduction } from '../services/productService';
 import QRScannerModal from './QRScannerModal'; 
 
 interface AdminTransactionManagerProps {
@@ -24,10 +26,20 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
-  
-  // Modal Edit States
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   
+  // POS (Create Transaction) States
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [newTrxDetails, setNewTrxDetails] = useState<UserDetails>({
+    name: '', whatsapp: '', location: '', rentalDate: new Date().toISOString().split('T')[0], duration: 2, paymentMethod: 'cash'
+  });
+  const [newTrxItems, setNewTrxItems] = useState<CartItem[]>([]);
+  const [newTrxSearch, setNewTrxSearch] = useState('');
+  const [newTrxStatus, setNewTrxStatus] = useState('booked');
+  const [newTrxPaid, setNewTrxPaid] = useState<number>(0);
+  const [isCreating, setIsCreating] = useState(false);
+
+  // ... (Filter Logic and other existing handlers remain same) ...
   const filteredTransactions = useMemo(() => {
     return transactions.filter(t => {
       const matchesStatus = filterStatus === 'all' || t.status === filterStatus;
@@ -76,6 +88,77 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
     }
   };
 
+  // --- POS FUNCTIONS ---
+  const handleAddItemToNewTrx = (product: Product) => {
+    const existing = newTrxItems.find(i => i.id === product.id);
+    if (existing) {
+        setNewTrxItems(prev => prev.map(i => i.id === product.id ? { ...i, quantity: i.quantity + 1 } : i));
+    } else {
+        setNewTrxItems(prev => [...prev, { ...product, quantity: 1 }]);
+    }
+    setNewTrxSearch('');
+  };
+
+  const handleRemoveItemFromNewTrx = (idx: number) => {
+    setNewTrxItems(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const handleUpdateItemQtyNewTrx = (idx: number, delta: number) => {
+    setNewTrxItems(prev => prev.map((item, i) => {
+        if (i === idx) {
+            const newQty = Math.max(1, item.quantity + delta);
+            return { ...item, quantity: newQty };
+        }
+        return item;
+    }));
+  };
+
+  const calculateNewTrxTotal = () => {
+    return newTrxItems.reduce((acc, item) => {
+        const price = calculateItemPriceForDuration(item, newTrxDetails.duration);
+        return acc + (price * item.quantity);
+    }, 0);
+  };
+
+  const handleCreateTransaction = async () => {
+    if (!newTrxDetails.name || newTrxItems.length === 0) return alert("Lengkapi data pelanggan dan barang!");
+    
+    setIsCreating(true);
+    const total = calculateNewTrxTotal();
+    
+    // 1. Create Transaction
+    const newTrx = await createTransaction(
+        newTrxDetails, 
+        newTrxItems, 
+        total, 
+        newTrxDetails.location,
+        newTrxStatus,
+        newTrxPaid
+    );
+
+    if (newTrx) {
+        // 2. Reduce Stock (Important for POS)
+        // Only reduce if status implies items are booked or rented
+        if (newTrxStatus !== 'cancelled' && newTrxStatus !== 'completed') {
+            await processStockReduction(newTrxItems);
+        }
+        
+        await onRefreshData();
+        setIsCreateModalOpen(false);
+        // Reset Form
+        setNewTrxDetails({ name: '', whatsapp: '', location: '', rentalDate: new Date().toISOString().split('T')[0], duration: 2, paymentMethod: 'cash' });
+        setNewTrxItems([]);
+        setNewTrxPaid(0);
+        
+        // Open Detail
+        setSelectedTransaction(newTrx);
+        setIsEditModalOpen(true);
+    } else {
+        alert("Gagal membuat transaksi.");
+    }
+    setIsCreating(false);
+  };
+
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col h-[calc(100vh-150px)]">
       {/* Header */}
@@ -84,6 +167,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
           <ClipboardList size={20} /> Manajemen Transaksi
         </h3>
         <div className="flex flex-wrap gap-2 items-center">
+           {/* SEARCH */}
            <div className="relative">
               <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
               <input 
@@ -94,6 +178,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
            </div>
+           
            <select 
              className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-nature-500 outline-none font-bold text-gray-600"
              value={filterStatus}
@@ -106,13 +191,22 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
              <option value="completed">Selesai</option>
              <option value="cancelled">Batal</option>
            </select>
+
            <button onClick={onRefreshData} className="p-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600">
              <RotateCcw size={18} />
+           </button>
+
+           {/* POS BUTTON */}
+           <button 
+             onClick={() => setIsCreateModalOpen(true)}
+             className="flex items-center gap-2 bg-nature-600 hover:bg-nature-700 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm transition"
+           >
+             <PackagePlus size={18} /> Buat Transaksi
            </button>
         </div>
       </div>
 
-      {/* List */}
+      {/* List (Existing code) */}
       <div className="flex-1 overflow-auto">
         <table className="w-full text-sm text-left text-gray-600">
           <thead className="bg-white text-gray-700 font-bold uppercase text-xs border-b border-gray-200 sticky top-0 z-10 shadow-sm">
@@ -167,7 +261,137 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
         </table>
       </div>
 
-      {/* DETAIL MODAL */}
+      {/* MODAL: POS / CREATE TRANSACTION */}
+      {isCreateModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsCreateModalOpen(false)}></div>
+           <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl h-[90vh] flex flex-col overflow-hidden animate-slide-in-right">
+              <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                 <h3 className="font-bold text-xl text-gray-900 flex items-center gap-2">
+                    <PackagePlus className="text-nature-600"/> Buat Transaksi Baru (POS)
+                 </h3>
+                 <button onClick={() => setIsCreateModalOpen(false)} className="p-2 hover:bg-gray-200 rounded-full"><X size={20}/></button>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto p-6 bg-gray-50/50">
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* LEFT: CUSTOMER & SETTINGS */}
+                    <div className="space-y-4">
+                       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                          <h4 className="font-bold text-sm text-gray-700 mb-3 flex items-center gap-2"><User size={16}/> Data Pelanggan</h4>
+                          <div className="space-y-3">
+                             <input className="w-full border rounded p-2 text-sm" placeholder="Nama Lengkap" value={newTrxDetails.name} onChange={e => setNewTrxDetails({...newTrxDetails, name: e.target.value})} />
+                             <input className="w-full border rounded p-2 text-sm" placeholder="No WhatsApp (08...)" value={newTrxDetails.whatsapp} onChange={e => setNewTrxDetails({...newTrxDetails, whatsapp: e.target.value})} />
+                             <input className="w-full border rounded p-2 text-sm" placeholder="Domisili / Alamat" value={newTrxDetails.location} onChange={e => setNewTrxDetails({...newTrxDetails, location: e.target.value})} />
+                          </div>
+                       </div>
+
+                       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                          <h4 className="font-bold text-sm text-gray-700 mb-3 flex items-center gap-2"><Clock size={16}/> Waktu Sewa</h4>
+                          <div className="flex gap-3">
+                             <div className="flex-1">
+                                <label className="text-xs font-bold text-gray-500 block mb-1">Tgl Ambil</label>
+                                <input type="date" className="w-full border rounded p-2 text-sm" value={newTrxDetails.rentalDate} onChange={e => setNewTrxDetails({...newTrxDetails, rentalDate: e.target.value})} />
+                             </div>
+                             <div className="w-24">
+                                <label className="text-xs font-bold text-gray-500 block mb-1">Durasi</label>
+                                <input type="number" min="1" className="w-full border rounded p-2 text-sm" value={newTrxDetails.duration} onChange={e => setNewTrxDetails({...newTrxDetails, duration: parseInt(e.target.value)||1})} />
+                             </div>
+                          </div>
+                       </div>
+
+                       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                          <h4 className="font-bold text-sm text-gray-700 mb-3 flex items-center gap-2"><Wallet size={16}/> Pembayaran & Status</h4>
+                          <div className="space-y-3">
+                             <div>
+                                <label className="text-xs font-bold text-gray-500 block mb-1">Status Awal</label>
+                                <select className="w-full border rounded p-2 text-sm font-bold" value={newTrxStatus} onChange={e => setNewTrxStatus(e.target.value)}>
+                                   <option value="booked">Booked (Lunas/Siap Ambil)</option>
+                                   <option value="rented">Rented (Barang Keluar)</option>
+                                   <option value="pending">Pending (Belum Lunas)</option>
+                                </select>
+                             </div>
+                             <div>
+                                <label className="text-xs font-bold text-gray-500 block mb-1">Uang Muka (DP) / Bayar</label>
+                                <div className="relative">
+                                   <span className="absolute left-3 top-2 text-gray-400 text-sm">Rp</span>
+                                   <input type="number" className="w-full border rounded p-2 pl-8 text-sm font-bold" value={newTrxPaid} onChange={e => setNewTrxPaid(parseInt(e.target.value)||0)} />
+                                </div>
+                             </div>
+                          </div>
+                       </div>
+                    </div>
+
+                    {/* RIGHT: ITEMS & TOTAL */}
+                    <div className="flex flex-col h-full">
+                       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex-1 flex flex-col">
+                          <h4 className="font-bold text-sm text-gray-700 mb-3 flex items-center gap-2"><ShoppingBag size={16}/> Daftar Barang</h4>
+                          
+                          {/* Search Product */}
+                          <div className="relative mb-3">
+                             <Search className="absolute left-3 top-2.5 text-gray-400" size={14} />
+                             <input 
+                               placeholder="Cari & Tambah Barang..." 
+                               className="w-full border rounded-lg pl-9 pr-4 py-2 text-sm focus:ring-2 focus:ring-nature-500 outline-none"
+                               value={newTrxSearch}
+                               onChange={e => setNewTrxSearch(e.target.value)}
+                             />
+                             {newTrxSearch && (
+                                <div className="absolute w-full bg-white border shadow-lg max-h-48 overflow-y-auto z-10 rounded-b-lg mt-1">
+                                   {products.filter(p => p.name.toLowerCase().includes(newTrxSearch.toLowerCase())).map(p => (
+                                      <button 
+                                        key={p.id} 
+                                        onClick={() => handleAddItemToNewTrx(p)}
+                                        className="w-full text-left p-2 hover:bg-gray-50 text-sm flex justify-between border-b last:border-0"
+                                      >
+                                         <span>{p.name}</span>
+                                         <span className="text-xs font-bold text-nature-600">Stok: {p.stock}</span>
+                                      </button>
+                                   ))}
+                                </div>
+                             )}
+                          </div>
+
+                          {/* Item List */}
+                          <div className="flex-1 overflow-y-auto space-y-2 mb-4 border rounded-lg p-2 bg-gray-50 min-h-[150px]">
+                             {newTrxItems.length === 0 && <p className="text-center text-gray-400 text-xs mt-10">Belum ada barang dipilih</p>}
+                             {newTrxItems.map((item, idx) => (
+                                <div key={idx} className="flex justify-between items-center bg-white p-2 rounded shadow-sm">
+                                   <div className="text-sm font-bold text-gray-700 truncate w-32">{item.name}</div>
+                                   <div className="flex items-center gap-2">
+                                      <button onClick={() => handleUpdateItemQtyNewTrx(idx, -1)} className="p-1 bg-gray-100 rounded hover:bg-gray-200"><Minus size={12}/></button>
+                                      <span className="text-xs w-6 text-center font-bold">{item.quantity}</span>
+                                      <button onClick={() => handleUpdateItemQtyNewTrx(idx, 1)} className="p-1 bg-gray-100 rounded hover:bg-gray-200"><Plus size={12}/></button>
+                                      <button onClick={() => handleRemoveItemFromNewTrx(idx)} className="text-red-500 ml-2"><Trash2 size={14}/></button>
+                                   </div>
+                                </div>
+                             ))}
+                          </div>
+
+                          {/* Total Summary */}
+                          <div className="border-t pt-4">
+                             <div className="flex justify-between items-center mb-2">
+                                <span className="text-gray-600 text-sm">Total Estimasi</span>
+                                <span className="text-xl font-black text-gray-900">Rp{calculateNewTrxTotal().toLocaleString('id-ID')}</span>
+                             </div>
+                             <button 
+                                onClick={handleCreateTransaction}
+                                disabled={isCreating || newTrxItems.length === 0}
+                                className="w-full bg-nature-600 text-white font-bold py-3 rounded-xl hover:bg-nature-700 transition flex items-center justify-center gap-2 disabled:opacity-50"
+                             >
+                                {isCreating ? <Loader2 className="animate-spin" size={20}/> : <Save size={20}/>}
+                                Simpan Transaksi
+                             </button>
+                          </div>
+                       </div>
+                    </div>
+                 </div>
+              </div>
+           </div>
+        </div>
+      )}
+
+      {/* DETAIL MODAL (Existing Code) */}
       {isEditModalOpen && selectedTransaction && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={closeEditModal}></div>

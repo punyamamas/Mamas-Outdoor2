@@ -1,11 +1,10 @@
 
 // ... existing imports ...
 import React, { useState, useRef } from 'react';
-import { Plus, Search, Edit, Trash2, X, Layers, Scissors, Palette, Image as ImageIcon, Save, Loader2, ShoppingBag, Upload } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, X, Layers, Scissors, Palette, Image as ImageIcon, Save, Loader2, ShoppingBag, Upload, QrCode } from 'lucide-react';
 import { Product, Category, ProductVariant, ColorImage, PackageItem } from '../types';
 import { uploadProductImage } from '../services/productService';
-
-// ... (Interface AdminProductManagerProps remains same) ...
+import QRCode from 'qrcode'; // Need to import this for generating label
 
 interface AdminProductManagerProps {
   products: Product[];
@@ -15,7 +14,7 @@ interface AdminProductManagerProps {
   onDeleteProduct: (id: string) => Promise<void>;
 }
 
-// Helper structure
+// ... Helper structure interfaces ...
 interface TempVariantGroup {
   id: string; 
   colorName: string;
@@ -30,36 +29,33 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
   onUpdateProduct,
   onDeleteProduct
 }) => {
+  // ... existing states ...
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   
-  // File Input Refs
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const variantFileInputRef = useRef<HTMLInputElement>(null); // NEW REF for variant upload
-  const [uploadingVariantId, setUploadingVariantId] = useState<string | null>(null); // Track which variant is uploading
+  const variantFileInputRef = useRef<HTMLInputElement>(null); 
+  const [uploadingVariantId, setUploadingVariantId] = useState<string | null>(null); 
 
-  // ... (States formData, useAdvancedVariants, tempVariantGroups, simpleSizes, etc remain same) ...
-  // Form States
   const [formData, setFormData] = useState<Partial<Product>>({
     name: '', category: '', price2Days: 0, salePrice: 0, isSale: false, stock: 0, description: '', image: '', packageItems: []
   });
 
-  // Variant States
   const [useAdvancedVariants, setUseAdvancedVariants] = useState(false);
   const [tempVariantGroups, setTempVariantGroups] = useState<TempVariantGroup[]>([]);
   const [simpleSizes, setSimpleSizes] = useState<{ [key: string]: number }>({});
   
-  // Package States
   const [isPackageMode, setIsPackageMode] = useState(false);
   const [packageSearchTerm, setPackageSearchTerm] = useState('');
 
-  // Constants
   const AVAILABLE_SIZES = ['S', 'M', 'L', 'XL', 'XXL', '36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46', '47', '48'];
 
-  // ... (openModal function remains same) ...
+  // ... openModal, handleSubmit, handleImageUpload, handleVariantImageUpload, logic ...
+  // Re-declare these functions from the previous implementation
+  
   const openModal = (product?: Product) => {
     if (product) {
       setEditingProduct(product);
@@ -101,7 +97,6 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
     setIsModalOpen(true);
   };
 
-  // ... (handleSubmit remains same) ...
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -149,41 +144,28 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
     finally { setIsSubmitting(false); }
   };
 
-  // MAIN Image Upload Logic (Keep as is)
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
     const file = e.target.files[0];
-    if (file.size > 2 * 1024 * 1024) return alert("Ukuran gambar maksimal 2MB agar loading cepat.");
-
+    if (file.size > 2 * 1024 * 1024) return alert("Ukuran gambar maksimal 2MB.");
     setIsUploading(true);
     try {
       const url = await uploadProductImage(file);
       if (url) setFormData({ ...formData, image: url });
     } catch (error) { console.error(error); alert("Gagal upload gambar."); } 
-    finally { 
-        setIsUploading(false);
-        if (fileInputRef.current) fileInputRef.current.value = '';
-    }
+    finally { setIsUploading(false); if (fileInputRef.current) fileInputRef.current.value = ''; }
   };
 
-  // NEW: Variant Image Upload Logic
   const handleVariantImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0 || !uploadingVariantId) return;
     const file = e.target.files[0];
     if (file.size > 2 * 1024 * 1024) return alert("Ukuran gambar maksimal 2MB.");
-
     setIsUploading(true);
     try {
       const url = await uploadProductImage(file);
-      if (url) {
-        setTempVariantGroups(prev => prev.map(g => g.id === uploadingVariantId ? { ...g, imageUrl: url } : g));
-      }
+      if (url) setTempVariantGroups(prev => prev.map(g => g.id === uploadingVariantId ? { ...g, imageUrl: url } : g));
     } catch (error) { console.error(error); alert("Gagal upload gambar varian."); }
-    finally { 
-        setIsUploading(false); 
-        setUploadingVariantId(null);
-        if (variantFileInputRef.current) variantFileInputRef.current.value = '';
-    }
+    finally { setIsUploading(false); setUploadingVariantId(null); if (variantFileInputRef.current) variantFileInputRef.current.value = ''; }
   };
 
   const triggerVariantUpload = (groupId: string) => {
@@ -191,21 +173,56 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
       variantFileInputRef.current?.click();
   };
 
-  // ... (Package Logic, Variant Logic Add/Remove helpers remain same) ...
-  // Package Logic
+  // --- NEW: PRINT LABEL QR ---
+  const handlePrintLabel = async (product: Product) => {
+    try {
+        // Generate QR Data URL
+        const qrUrl = await QRCode.toDataURL(product.id, { width: 150, margin: 1 });
+        
+        const printWindow = window.open('', '', 'width=400,height=400');
+        if (!printWindow) return;
+
+        printWindow.document.write(`
+            <html>
+                <head>
+                    <title>Print Label</title>
+                    <style>
+                        @page { size: 50mm 50mm; margin: 0; }
+                        body { margin: 0; padding: 5px; text-align: center; font-family: monospace; }
+                        .label { border: 2px solid black; padding: 5px; border-radius: 5px; }
+                        img { width: 100px; height: 100px; }
+                        .name { font-weight: bold; font-size: 12px; margin-bottom: 5px; line-height: 1.1; }
+                        .id { font-size: 10px; }
+                    </style>
+                </head>
+                <body>
+                    <div class="label">
+                        <div class="name">${product.name}</div>
+                        <img src="${qrUrl}" />
+                        <div class="id">ID: ${product.id.slice(0,8)}</div>
+                        <div class="id">${product.category}</div>
+                    </div>
+                    <script>
+                        window.onload = () => { window.print(); window.close(); }
+                    </script>
+                </body>
+            </html>
+        `);
+        printWindow.document.close();
+    } catch (e) {
+        console.error("QR Error", e);
+        alert("Gagal generate QR");
+    }
+  };
+
+  // ... Package & Variant Helpers ...
   const addToPackage = (item: Product) => {
     if (formData.packageItems?.find(p => p.productId === item.id)) return;
     setFormData(prev => ({ ...prev, packageItems: [...(prev.packageItems || []), { productId: item.id, quantity: 1 }] }));
     setPackageSearchTerm('');
   };
-  const removeFromPackage = (pid: string) => {
-    setFormData(prev => ({ ...prev, packageItems: prev.packageItems?.filter(p => p.productId !== pid) }));
-  };
-  const updatePackageQty = (pid: string, qty: number) => {
-    setFormData(prev => ({ ...prev, packageItems: prev.packageItems?.map(p => p.productId === pid ? { ...p, quantity: qty } : p) }));
-  };
-
-  // Variant Logic
+  const removeFromPackage = (pid: string) => { setFormData(prev => ({ ...prev, packageItems: prev.packageItems?.filter(p => p.productId !== pid) })); };
+  const updatePackageQty = (pid: string, qty: number) => { setFormData(prev => ({ ...prev, packageItems: prev.packageItems?.map(p => p.productId === pid ? { ...p, quantity: qty } : p) })); };
   const addVariantGroup = () => setTempVariantGroups([...tempVariantGroups, { id: Date.now().toString(), colorName: '', imageUrl: '', sizes: {} }]);
   const removeVariantGroup = (id: string) => setTempVariantGroups(tempVariantGroups.filter(g => g.id !== id));
   const updateVariantGroup = (id: string, f: keyof TempVariantGroup, v: any) => setTempVariantGroups(tempVariantGroups.map(g => g.id === id ? { ...g, [f]: v } : g));
@@ -234,7 +251,6 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-      {/* ... (Table render remains same) ... */}
       <div className="p-5 border-b border-gray-100 flex flex-col md:flex-row justify-between gap-4">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-3 text-gray-400" size={18} />
@@ -292,6 +308,7 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
                 <td className="px-6 py-4 font-bold">{product.stock}</td>
                 <td className="px-6 py-4 text-center">
                    <div className="flex justify-center gap-2">
+                     <button onClick={() => handlePrintLabel(product)} className="text-gray-600 hover:bg-gray-100 p-2 rounded" title="Cetak QR Label"><QrCode size={16}/></button>
                      <button onClick={() => openModal(product)} className="text-blue-600 hover:bg-blue-50 p-2 rounded"><Edit size={16}/></button>
                      <button onClick={() => onDeleteProduct(product.id)} className="text-red-600 hover:bg-red-50 p-2 rounded"><Trash2 size={16}/></button>
                    </div>
@@ -302,7 +319,7 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
         </table>
       </div>
 
-      {/* MODAL FORM */}
+      {/* MODAL FORM (Same as before) */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}></div>
@@ -329,7 +346,7 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
                  </div>
                </div>
 
-               {/* Sale vs Rent Toggle (Same) */}
+               {/* Sale vs Rent Toggle */}
                <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                      <div className={`p-2 rounded-lg ${formData.isSale ? 'bg-blue-500 text-white' : 'bg-white text-blue-500'}`}>
@@ -346,7 +363,7 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
                   </label>
                </div>
                
-               {/* Pricing (Same) */}
+               {/* Pricing */}
                {formData.isSale ? (
                    <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
                       <label className="block text-sm font-bold text-blue-800 mb-1">Harga Jual (Satuan)</label>
@@ -370,10 +387,9 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
                  </label>
                </div>
 
-               {/* Variant Logic Area - UPDATED WITH UPLOAD */}
+               {/* Variant Logic Area */}
                {useAdvancedVariants ? (
                  <div className="space-y-4 border p-4 rounded-lg">
-                    {/* HIDDEN VARIANT UPLOAD INPUT */}
                     <input 
                       type="file" 
                       ref={variantFileInputRef} 
@@ -441,13 +457,12 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
                  </div>
                )}
                
-               {/* Image & Desc (Same) */}
+               {/* Image & Desc */}
                <div>
                   <label className="block text-sm font-bold mb-1">URL Gambar Utama</label>
                   <div className="flex gap-2">
                     <input className="flex-1 border rounded p-2" value={formData.image} onChange={e => setFormData({...formData, image: e.target.value})} placeholder="https://..." />
                     
-                    {/* Hidden File Input */}
                     <input 
                       type="file" 
                       ref={fileInputRef} 
@@ -456,7 +471,6 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
                       onChange={handleImageUpload} 
                     />
                     
-                    {/* Active Upload Button */}
                     <button 
                       type="button" 
                       onClick={() => fileInputRef.current?.click()}
@@ -473,7 +487,7 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
                   <textarea rows={3} className="w-full border rounded p-2" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
                </div>
 
-               {/* Package Builder (Same) */}
+               {/* Package Builder */}
                {isPackageMode && (
                  <div className="border border-purple-200 bg-purple-50 p-4 rounded-lg">
                     <h4 className="font-bold text-purple-800 flex items-center gap-2 mb-3"><Layers size={16}/> Isi Paket Hemat</h4>

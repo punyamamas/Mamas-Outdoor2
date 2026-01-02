@@ -1,3 +1,4 @@
+
 import { supabase } from './supabase';
 import { Transaction, CartItem, UserDetails, PaymentLog } from '../types';
 import { processStockReduction, processStockRestoration } from './productService';
@@ -48,7 +49,14 @@ export const calculateItemPriceForDuration = (item: any, days: number): number =
     return unitPrice;
 };
 
-export const createTransaction = async (userDetails: UserDetails, items: CartItem[], total: number, location?: string): Promise<Transaction | null> => {
+export const createTransaction = async (
+  userDetails: UserDetails, 
+  items: CartItem[], 
+  total: number, 
+  location?: string,
+  customStatus?: string, // NEW: Untuk Admin POS
+  initialPaid?: number // NEW: Untuk Admin POS
+): Promise<Transaction | null> => {
   const newTrx: any = {
     customer_name: userDetails.name,
     customer_whatsapp: userDetails.whatsapp,
@@ -57,8 +65,8 @@ export const createTransaction = async (userDetails: UserDetails, items: CartIte
     duration: userDetails.duration,
     items: items,
     total_price: total,
-    amount_paid: 0,
-    status: 'pending',
+    amount_paid: initialPaid || 0,
+    status: customStatus || 'pending',
     payment_method: userDetails.paymentMethod,
     created_at: new Date().toISOString()
   };
@@ -181,12 +189,6 @@ export const applyTransactionFine = async (id: string, fineAmount: number): Prom
   const { data } = await supabase.from('transactions').select('total_price, fine_amount').eq('id', id).single();
   if (!data) return false;
   
-  // Calculate new total: remove old fine (if any embedded) and add new fine? 
-  // No, let's assume total_price tracks total bill.
-  // Actually fine_amount is just a record. 
-  // IMPORTANT: We need to update total_price to include fine if it wasn't there.
-  // But logic might be complex if repeated. Let's just set fine_amount and let app handle total display.
-  // OR: total_price = (total_price - old_fine) + new_fine
   const oldFine = data.fine_amount || 0;
   const newTotal = (data.total_price - oldFine) + fineAmount;
 
