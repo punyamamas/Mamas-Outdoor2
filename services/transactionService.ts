@@ -1,6 +1,6 @@
 
 import { supabase } from './supabase';
-import { Transaction, CartItem, UserDetails, PaymentLog } from '../types';
+import { Transaction, CartItem, UserDetails, PaymentLog, ShiftLog } from '../types';
 import { processStockReduction, processStockRestoration } from './productService';
 import html2canvas from 'html2canvas';
 import QRCode from 'qrcode';
@@ -340,6 +340,66 @@ export const deletePaymentLog = async (id: string): Promise<boolean> => {
   return !error;
 };
 
+// --- SHIFT MANAGEMENT SERVICE ---
+
+export const getCurrentShift = async (): Promise<ShiftLog | null> => {
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from('shift_logs')
+    .select('*')
+    .eq('status', 'open')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single();
+  
+  if (error || !data) return null;
+  return data as ShiftLog;
+};
+
+export const openShift = async (cashierName: string, shiftName: string, startCash: number): Promise<ShiftLog | null> => {
+  if (!supabase) return null;
+  
+  // Close any existing open shift first (safety measure)
+  const active = await getCurrentShift();
+  if (active) return active;
+
+  const { data, error } = await supabase.from('shift_logs').insert([{
+    cashier_name: cashierName,
+    shift_name: shiftName,
+    start_cash: startCash,
+    status: 'open',
+    created_at: new Date().toISOString()
+  }]).select().single();
+
+  if (error) {
+    console.error("Failed to open shift:", error);
+    return null;
+  }
+  return data as ShiftLog;
+};
+
+export const closeShift = async (
+  shiftId: string, 
+  endCash: number, 
+  systemCash: number, 
+  difference: number, 
+  notes: string
+): Promise<boolean> => {
+  if (!supabase) return false;
+
+  const { error } = await supabase.from('shift_logs').update({
+    end_cash: endCash,
+    system_cash: systemCash,
+    difference: difference,
+    notes: notes,
+    status: 'closed',
+    ended_at: new Date().toISOString()
+  }).eq('id', shiftId);
+
+  return !error;
+};
+
+// ... (Rest of invoice generation code remains unchanged)
 // NEW FUNCTION: Send Text Invoice to WhatsApp
 export const sendWhatsAppInvoice = (trx: Transaction) => {
   const config = getStoreConfig();

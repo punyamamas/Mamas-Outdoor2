@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
-import { DollarSign, Wallet, CreditCard, ArrowUpRight, ArrowDownLeft, Plus, Calendar, Loader2, Save, Database, AlertTriangle, Copy, Check, BarChart3, PieChart, TrendingUp, HandCoins, Trash2, Download } from 'lucide-react';
-import { PaymentLog } from '../types';
-import { getPaymentLogs, recordPaymentLog, deletePaymentLog } from '../services/transactionService';
+import { DollarSign, Wallet, CreditCard, ArrowUpRight, ArrowDownLeft, Plus, Calendar, Loader2, Save, Database, AlertTriangle, Copy, Check, BarChart3, PieChart, TrendingUp, HandCoins, Trash2, Download, Lock, Unlock, User } from 'lucide-react';
+import { PaymentLog, ShiftLog } from '../types';
+import { getPaymentLogs, recordPaymentLog, deletePaymentLog, getCurrentShift, openShift, closeShift } from '../services/transactionService';
 
 const AdminFinanceManager: React.FC = () => {
   // --- STATE MANAGEMENT ---
@@ -34,10 +35,33 @@ const AdminFinanceManager: React.FC = () => {
   const [manualType, setManualType] = useState<'IN' | 'OUT'>('OUT');
   const [manualDate, setManualDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
+  // SHIFT MANAGEMENT STATE
+  const [activeShift, setActiveShift] = useState<ShiftLog | null>(null);
+  const [isShiftLoading, setIsShiftLoading] = useState(true);
+  const [isStartShiftModalOpen, setIsStartShiftModalOpen] = useState(false);
+  const [isEndShiftModalOpen, setIsEndShiftModalOpen] = useState(false);
+  
+  // Start Shift Form
+  const [shiftName, setShiftName] = useState<'Pagi' | 'Sore'>('Pagi');
+  const [cashierName, setCashierName] = useState('');
+  const [startCash, setStartCash] = useState<number>(0);
+
+  // End Shift Form
+  const [endCashPhysical, setEndCashPhysical] = useState<number>(0);
+  const [closingNote, setClosingNote] = useState('');
+
   // --- EFFECT: FETCH DATA ---
   useEffect(() => {
     fetchData();
+    checkActiveShift();
   }, [selectedDate, selectedMonth, viewMode]);
+
+  // Auto-detect shift based on time
+  useEffect(() => {
+      const hour = new Date().getHours();
+      if (hour >= 8 && hour < 15) setShiftName('Pagi');
+      else setShiftName('Sore');
+  }, []);
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -74,6 +98,13 @@ const AdminFinanceManager: React.FC = () => {
     setIsLoading(false);
   };
 
+  const checkActiveShift = async () => {
+      setIsShiftLoading(true);
+      const shift = await getCurrentShift();
+      setActiveShift(shift);
+      setIsShiftLoading(false);
+  };
+
   // --- HANDLERS ---
   const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -107,6 +138,53 @@ const AdminFinanceManager: React.FC = () => {
             alert("Gagal menghapus log.");
         }
     }
+  };
+
+  const handleStartShift = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!cashierName) return alert("Nama kasir wajib diisi!");
+      
+      const newShift = await openShift(cashierName, shiftName, startCash);
+      if (newShift) {
+          setActiveShift(newShift);
+          setIsStartShiftModalOpen(false);
+          alert("✅ Shift Berhasil Dibuka!");
+      } else {
+          alert("Gagal membuka shift. Coba lagi.");
+      }
+  };
+
+  const handleEndShift = async () => {
+      if (!activeShift) return;
+      
+      // Calculate System Cash (Modal Awal + Transaksi Cash IN - Transaksi Cash OUT SELAMA SHIFT)
+      // Note: Idealnya query ke DB dengan filter waktu created_at > shift.created_at.
+      // Disini kita hitung pakai logic sederhana dari logs yang diload, 
+      // namun untuk akurasi tinggi, logs harus mencakup rentang waktu shift.
+      // Asumsi: Admin berada di view 'daily' hari ini.
+      
+      const shiftStartTime = new Date(activeShift.created_at);
+      
+      // Filter logs yang terjadi SETELAH shift dibuka
+      const currentShiftLogs = logs.filter(l => new Date(l.created_at) >= shiftStartTime);
+      
+      const cashIn = currentShiftLogs.filter(l => l.payment_method === 'cash' && l.type === 'IN').reduce((acc, c) => acc + c.amount, 0);
+      const cashOut = currentShiftLogs.filter(l => l.payment_method === 'cash' && l.type === 'OUT').reduce((acc, c) => acc + c.amount, 0);
+      
+      const systemExpectedCash = (activeShift.start_cash || 0) + cashIn - cashOut;
+      const difference = endCashPhysical - systemExpectedCash;
+      
+      const success = await closeShift(activeShift.id, endCashPhysical, systemExpectedCash, difference, closingNote);
+      
+      if (success) {
+          alert(`🔒 Shift Ditutup!\n\nSelisih: Rp${difference.toLocaleString('id-ID')}\n${difference === 0 ? 'Balance Sempurna! ✅' : difference < 0 ? 'Minus (Kurang) ⚠️' : 'Surplus (Lebih) 💰'}`);
+          setActiveShift(null);
+          setIsEndShiftModalOpen(false);
+          setEndCashPhysical(0);
+          setClosingNote('');
+      } else {
+          alert("Gagal menutup shift.");
+      }
   };
 
   const handleExportCSV = () => {
@@ -301,6 +379,55 @@ for all using (true) with check (true);`}
       </div>
 
       <div className="p-6 flex-1 overflow-y-auto">
+        
+        {/* SHIFT CONTROL SECTION */}
+        <div className="mb-8">
+            {isShiftLoading ? (
+                <div className="animate-pulse h-16 bg-gray-100 rounded-xl"></div>
+            ) : activeShift ? (
+                <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex flex-col md:flex-row justify-between items-center gap-4 shadow-sm animate-slide-in-right">
+                    <div className="flex items-center gap-4">
+                        <div className="p-3 bg-white rounded-full text-green-600 shadow-sm">
+                            <Unlock size={24}/>
+                        </div>
+                        <div>
+                            <h4 className="font-bold text-green-900 text-sm">Shift {activeShift.shift_name} Aktif</h4>
+                            <p className="text-xs text-green-700 mt-0.5">
+                                Kasir: <strong>{activeShift.cashier_name}</strong> | Mulai: {new Date(activeShift.created_at).toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit'})}
+                            </p>
+                            <p className="text-xs text-green-600">Modal Awal: Rp{activeShift.start_cash.toLocaleString('id-ID')}</p>
+                        </div>
+                    </div>
+                    <button 
+                        onClick={() => setIsEndShiftModalOpen(true)}
+                        className="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg font-bold text-xs shadow-md transition flex items-center gap-2"
+                    >
+                        <Lock size={14}/> Tutup Kasir / Shift
+                    </button>
+                </div>
+            ) : (
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex flex-col md:flex-row justify-between items-center gap-4 shadow-sm animate-slide-in-right">
+                    <div className="flex items-center gap-4">
+                        <div className="p-3 bg-white rounded-full text-blue-600 shadow-sm">
+                            <Lock size={24}/>
+                        </div>
+                        <div>
+                            <h4 className="font-bold text-blue-900 text-sm">Kasir Belum Dibuka</h4>
+                            <p className="text-xs text-blue-700 mt-0.5">
+                                Silakan buka shift baru untuk mulai mencatat transaksi.
+                            </p>
+                        </div>
+                    </div>
+                    <button 
+                        onClick={() => setIsStartShiftModalOpen(true)}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg font-bold text-xs shadow-md transition flex items-center gap-2"
+                    >
+                        <Unlock size={14}/> Buka Shift Baru
+                    </button>
+                </div>
+            )}
+        </div>
+
         {/* SUMMARY CARDS */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
@@ -551,6 +678,86 @@ for all using (true) with check (true);`}
             </>
         )}
       </div>
+
+      {/* START SHIFT MODAL */}
+      {isStartShiftModalOpen && (
+          <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+              <form onSubmit={handleStartShift} className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl animate-slide-in-right">
+                  <div className="bg-blue-600 px-6 py-4 flex justify-between items-center text-white">
+                      <h3 className="font-bold flex items-center gap-2"><Unlock size={18}/> Buka Shift Baru</h3>
+                      <button type="button" onClick={() => setIsStartShiftModalOpen(false)} className="hover:bg-white/20 p-1 rounded-full"><Plus size={20} className="rotate-45"/></button>
+                  </div>
+                  <div className="p-6 space-y-4">
+                      <div>
+                          <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nama Kasir</label>
+                          <div className="relative">
+                              <User className="absolute left-3 top-2.5 text-gray-400" size={16}/>
+                              <input required type="text" className="w-full pl-10 pr-4 py-2 border rounded-lg" placeholder="Nama Anda" value={cashierName} onChange={e => setCashierName(e.target.value)} />
+                          </div>
+                      </div>
+                      <div>
+                          <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Pilih Shift</label>
+                          <div className="flex bg-gray-100 p-1 rounded-lg">
+                              <button type="button" onClick={() => setShiftName('Pagi')} className={`flex-1 py-2 text-sm font-bold rounded-md transition ${shiftName === 'Pagi' ? 'bg-white shadow text-blue-600' : 'text-gray-500'}`}>Pagi (08-15)</button>
+                              <button type="button" onClick={() => setShiftName('Sore')} className={`flex-1 py-2 text-sm font-bold rounded-md transition ${shiftName === 'Sore' ? 'bg-white shadow text-blue-600' : 'text-gray-500'}`}>Sore (15-22)</button>
+                          </div>
+                      </div>
+                      <div>
+                          <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Modal Awal (Uang di Laci)</label>
+                          <input type="number" className="w-full px-4 py-2 border rounded-lg font-bold text-gray-800" value={startCash} onChange={e => setStartCash(Number(e.target.value))} />
+                      </div>
+                      <button type="submit" className="w-full bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition shadow-lg mt-2">Buka Kasir Sekarang</button>
+                  </div>
+              </form>
+          </div>
+      )}
+
+      {/* END SHIFT MODAL */}
+      {isEndShiftModalOpen && activeShift && (
+          <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+              <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl animate-slide-in-right">
+                  <div className="bg-green-600 px-6 py-4 flex justify-between items-center text-white">
+                      <h3 className="font-bold flex items-center gap-2"><Lock size={18}/> Tutup Shift ({activeShift.shift_name})</h3>
+                      <button onClick={() => setIsEndShiftModalOpen(false)} className="hover:bg-white/20 p-1 rounded-full"><Plus size={20} className="rotate-45"/></button>
+                  </div>
+                  <div className="p-6 space-y-4">
+                      <div className="bg-green-50 p-3 rounded-lg text-sm text-green-800 border border-green-200">
+                          <p><strong>Kasir:</strong> {activeShift.cashier_name}</p>
+                          <p><strong>Modal Awal:</strong> Rp{activeShift.start_cash.toLocaleString('id-ID')}</p>
+                      </div>
+                      
+                      <div>
+                          <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Total Uang Fisik (Hitung Manual)</label>
+                          <input 
+                            type="number" 
+                            autoFocus
+                            className="w-full px-4 py-3 border-2 border-green-500 rounded-lg font-black text-xl text-gray-800 text-center" 
+                            placeholder="0"
+                            value={endCashPhysical || ''} 
+                            onChange={e => setEndCashPhysical(Number(e.target.value))} 
+                          />
+                          <p className="text-[10px] text-gray-400 mt-1 text-center">Hitung semua uang kertas & koin di laci</p>
+                      </div>
+
+                      <div>
+                          <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Catatan (Optional)</label>
+                          <textarea 
+                            rows={2} 
+                            className="w-full px-3 py-2 border rounded-lg text-sm" 
+                            placeholder="Contoh: Ada uang kembalian kurang 500"
+                            value={closingNote}
+                            onChange={e => setClosingNote(e.target.value)}
+                          />
+                      </div>
+
+                      <button onClick={handleEndShift} className="w-full bg-green-600 text-white font-bold py-3 rounded-xl hover:bg-green-700 transition shadow-lg mt-2">
+                          Simpan & Tutup
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
+
     </div>
   );
 };

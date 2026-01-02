@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Database, HardDrive, Check, Copy, Terminal, Shield, AlertTriangle, RefreshCw, Settings, Save } from 'lucide-react';
+import { Database, HardDrive, Check, Copy, Terminal, Shield, AlertTriangle, RefreshCw, Settings, Save, Clock } from 'lucide-react';
 import { getStoreConfig, saveStoreConfig, DEFAULT_CONFIG } from '../utils/storeConfig';
 import { StoreConfig } from '../types';
 
@@ -59,6 +59,29 @@ create policy "Admin Update Stock Log" on public.stock_logs for update using (au
 
 drop policy if exists "Admin Delete Stock Log" on public.stock_logs;
 create policy "Admin Delete Stock Log" on public.stock_logs for delete using (auth.role() = 'authenticated');`;
+
+// BAGIAN 5: SHIFT LOGS (Kasir)
+const shiftLogSQL = `-- BAGIAN 5: Shift Logs (Kasir)
+create table if not exists public.shift_logs (
+  id uuid default gen_random_uuid() primary key,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  ended_at timestamp with time zone,
+  shift_name text, -- 'Pagi', 'Sore'
+  cashier_name text,
+  start_cash numeric default 0,
+  end_cash numeric default 0,
+  system_cash numeric default 0,
+  difference numeric default 0,
+  status text default 'open', -- 'open', 'closed'
+  notes text
+);
+
+alter table public.shift_logs enable row level security;
+
+-- Policy: Admin Full Access
+drop policy if exists "Admin Manage Shifts" on public.shift_logs;
+create policy "Admin Manage Shifts" on public.shift_logs for all using (auth.role() = 'authenticated');
+`;
 
   // BAGIAN 1: TABEL UTAMA (SECURED)
   const coreSQL = `-- BAGIAN 1: Core Tables & Policies (SECURED)
@@ -422,7 +445,7 @@ create policy "Public Insert" on storage.objects for insert with check (
                 </div>
              </div>
 
-             {/* STEP 3: STOCK LOGS (NEW) */}
+             {/* STEP 3: STOCK LOGS */}
              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden border-l-4 border-l-orange-500">
                 <div className="px-6 py-4 bg-gray-50 border-b border-gray-100">
                    <h4 className="font-bold text-gray-800 flex items-center gap-2">
@@ -463,6 +486,29 @@ create policy "Public Insert" on storage.objects for insert with check (
                       >
                          {copiedSection === 'storage' ? <Check size={14}/> : <Copy size={14}/>} 
                          {copiedSection === 'storage' ? 'Disalin!' : 'Copy SQL'}
+                      </button>
+                   </div>
+                </div>
+             </div>
+
+             {/* STEP 5: SHIFT LOGS (NEW) */}
+             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden border-l-4 border-l-purple-500">
+                <div className="px-6 py-4 bg-gray-50 border-b border-gray-100">
+                   <h4 className="font-bold text-gray-800 flex items-center gap-2">
+                      <Clock size={18} className="text-purple-600"/> Bagian 5: Manajemen Shift Kasir
+                   </h4>
+                </div>
+                <div className="p-6">
+                   <div className="relative group">
+                      <pre className="bg-gray-900 text-gray-100 p-4 rounded-xl text-xs font-mono overflow-x-auto whitespace-pre-wrap border border-gray-700 max-h-64">
+                         {shiftLogSQL}
+                      </pre>
+                      <button 
+                         onClick={() => copyToClipboard(shiftLogSQL, 'shift')}
+                         className="absolute top-2 right-2 p-2 bg-white/10 hover:bg-white/20 rounded-lg text-white transition flex items-center gap-2 text-xs font-bold backdrop-blur-sm"
+                      >
+                         {copiedSection === 'shift' ? <Check size={14}/> : <Copy size={14}/>} 
+                         {copiedSection === 'shift' ? 'Disalin!' : 'Copy SQL'}
                       </button>
                    </div>
                 </div>

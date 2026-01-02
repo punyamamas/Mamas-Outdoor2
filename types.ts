@@ -125,6 +125,21 @@ export interface StockLog {
   actor?: string; // Siapa yang mengubah (Admin email)
 }
 
+// NEW: Interface Shift Log (Kasir)
+export interface ShiftLog {
+  id: string;
+  created_at: string;
+  ended_at?: string;
+  shift_name: 'Pagi' | 'Sore'; // Pagi (08-15), Sore (15-22)
+  cashier_name: string;
+  start_cash: number; // Modal Awal
+  end_cash?: number; // Uang Fisik saat Tutup
+  system_cash?: number; // Uang di Sistem (Modal + Transaksi Tunai)
+  difference?: number; // Selisih (End - System)
+  status: 'open' | 'closed';
+  notes?: string;
+}
+
 export enum GeminiModel {
   FLASH = 'gemini-3-flash-preview',
 }
