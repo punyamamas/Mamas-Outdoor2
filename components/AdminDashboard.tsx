@@ -1,9 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
-import { RotateCcw, Lock, LogOut, Mail, Key } from 'lucide-react';
+import { RotateCcw, Lock, LogOut, Mail, Key, BellRing, X } from 'lucide-react';
 import { Product, Category, Transaction } from '../types';
 import { getTransactions, updateTransactionStatus, deleteTransaction } from '../services/transactionService';
 import { signIn, signOut, getCurrentUser } from '../services/authService';
+import { supabase } from '../services/supabase'; // Import Supabase Client
 
 // Import Modular Components
 import AdminSidebar from './AdminSidebar';
@@ -61,6 +62,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [transactions, setTransactions] = useState<Transaction[]>(propTransactions);
   const [isLoadingTransactions, setIsLoadingTransactions] = useState(false);
 
+  // NOTIFICATION STATE
+  const [newOrderAlert, setNewOrderAlert] = useState<any | null>(null);
+
   // Sync prop changes to local state
   useEffect(() => {
     setTransactions(propTransactions);
@@ -77,6 +81,61 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     };
     checkSession();
   }, []);
+
+  // REALTIME LISTENER FOR NEW ORDERS
+  useEffect(() => {
+    if (!isAuthenticated || !supabase) return;
+
+    // Request Browser Notification Permission
+    if (Notification.permission !== "granted") {
+      Notification.requestPermission();
+    }
+
+    console.log("Activating Realtime Listener for Transactions...");
+
+    const channel = supabase
+      .channel('admin-dashboard-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'transactions'
+        },
+        async (payload) => {
+          console.log("New Transaction Event:", payload);
+          const newTrx = payload.new;
+          
+          // 1. Play Sound (Ting!)
+          // Menggunakan lonceng notifikasi standar
+          try {
+             const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+             await audio.play();
+          } catch (e) {
+             console.warn("Audio playback blocked:", e);
+          }
+
+          // 2. Show In-App Alert
+          setNewOrderAlert(newTrx);
+
+          // 3. Show System Notification (jika tab tidak aktif)
+          if (document.hidden && Notification.permission === "granted") {
+             new Notification("🔔 Orderan Baru Masuk!", {
+                body: `Pelanggan: ${newTrx.customer_name}\nTotal: Rp${(newTrx.total_price||0).toLocaleString('id-ID')}`,
+                icon: 'https://imgur.com/iC8ycHT.png'
+             });
+          }
+
+          // 4. Auto Refresh Data
+          handleRefreshData(); 
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [isAuthenticated]);
 
   // Authentication Handler
   const handleLogin = async (e: React.FormEvent) => {
@@ -227,7 +286,38 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row">
+    <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row relative">
+      
+      {/* NOTIFICATION POPUP (Global) */}
+      {newOrderAlert && (
+        <div className="fixed bottom-6 right-6 z-[100] animate-slide-in-right">
+           <div className="bg-white border-l-4 border-nature-600 rounded-xl shadow-2xl p-4 max-w-sm flex items-start gap-4 pr-10 relative">
+              <button 
+                onClick={() => setNewOrderAlert(null)} 
+                className="absolute top-2 right-2 text-gray-400 hover:text-gray-600"
+              >
+                <X size={16} />
+              </button>
+              <div className="p-3 bg-nature-100 text-nature-700 rounded-full animate-pulse">
+                 <BellRing size={24} />
+              </div>
+              <div>
+                 <h4 className="font-bold text-gray-900">Pesanan Baru Masuk!</h4>
+                 <p className="text-sm text-gray-600 mt-1 font-bold">{newOrderAlert.customer_name}</p>
+                 <p className="text-xs text-gray-500 mt-0.5">Total: Rp{(newOrderAlert.total_price||0).toLocaleString('id-ID')}</p>
+                 <div className="mt-2 flex gap-2">
+                    <button 
+                      onClick={() => { setActiveTab('transactions'); setNewOrderAlert(null); handleRefreshData(); }}
+                      className="text-xs bg-nature-600 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-nature-700 transition"
+                    >
+                       Lihat
+                    </button>
+                 </div>
+              </div>
+           </div>
+        </div>
+      )}
+
       <AdminSidebar activeTab={activeTab} setActiveTab={setActiveTab as any} onLogout={handleLogout} />
 
       <main className="flex-1 overflow-y-auto max-h-screen">
