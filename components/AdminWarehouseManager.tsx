@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Search, PlusCircle, MinusCircle, HeartCrack, Hammer, ArrowRightLeft, FileText, X, Save, AlertCircle, Package, Loader2, Printer } from 'lucide-react';
 import { Product, Category } from '../types';
