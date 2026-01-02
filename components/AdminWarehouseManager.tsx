@@ -1,7 +1,7 @@
-
 import React, { useState } from 'react';
-import { Search, PlusCircle, MinusCircle, HeartCrack, Hammer, ArrowRightLeft, FileText, X, Save, AlertCircle, Package, Loader2 } from 'lucide-react';
+import { Search, PlusCircle, MinusCircle, HeartCrack, Hammer, ArrowRightLeft, FileText, X, Save, AlertCircle, Package, Loader2, Printer } from 'lucide-react';
 import { Product, Category } from '../types';
+import { getStoreConfig } from '../utils/storeConfig';
 
 interface AdminWarehouseManagerProps {
   products: Product[];
@@ -33,6 +33,103 @@ const AdminWarehouseManager: React.FC<AdminWarehouseManagerProps> = ({ products,
     const matchesCat = catFilter === 'Semua' || p.category === catFilter;
     return matchesSearch && matchesStatus && matchesCat;
   });
+
+  const handlePrintStockOpname = () => {
+    const printWindow = window.open('', '', 'width=800,height=800');
+    if (!printWindow) return;
+
+    const config = getStoreConfig();
+    const dateStr = new Date().toLocaleDateString('id-ID', { weekday:'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+    // Group by Category for printing
+    const grouped: Record<string, Product[]> = {};
+    products.forEach(p => {
+        const c = p.category || 'Lainnya';
+        if(!grouped[c]) grouped[c] = [];
+        grouped[c].push(p);
+    });
+
+    let tableContent = '';
+    Object.keys(grouped).sort().forEach(cat => {
+        tableContent += `<tr><td colspan="6" style="background:#eee; font-weight:bold; padding:5px;">KATEGORI: ${cat.toUpperCase()}</td></tr>`;
+        grouped[cat].forEach((p, idx) => {
+            // Cek varian untuk detail
+            let variantInfo = '';
+            if (p.variants && p.variants.length > 0) {
+                variantInfo = '<br/><span style="font-size:10px; color:#666;">' + 
+                    p.variants.map(v => `${v.color}-${v.size}: ${v.stock}`).join(', ') + 
+                '</span>';
+            } else if (p.sizes && Object.keys(p.sizes).length > 0) {
+                variantInfo = '<br/><span style="font-size:10px; color:#666;">' + 
+                    Object.entries(p.sizes).map(([k,v]) => `${k}: ${v}`).join(', ') + 
+                '</span>';
+            }
+
+            tableContent += `
+                <tr>
+                    <td style="text-align:center;">${idx + 1}</td>
+                    <td>${p.name} ${variantInfo}</td>
+                    <td style="text-align:center; font-weight:bold;">${p.stock}</td>
+                    <td style="text-align:center;">${p.rented || 0}</td>
+                    <td style="text-align:center;">${p.damaged || 0}</td>
+                    <td style="border-bottom:1px solid #ccc;"></td> 
+                </tr>
+            `;
+        });
+    });
+
+    const html = `
+        <html>
+        <head>
+            <title>Form Cek Stok - ${config.storeName}</title>
+            <style>
+                body { font-family: sans-serif; padding: 20px; }
+                h2, h4 { margin: 0; text-align: center; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 12px; }
+                th, td { border: 1px solid #999; padding: 6px; }
+                th { background: #ddd; }
+                .footer { margin-top: 30px; display: flex; justify-content: space-between; font-size: 12px; }
+                .sign { text-align: center; width: 150px; }
+                .sign br { display: block; margin-bottom: 50px; }
+            </style>
+        </head>
+        <body>
+            <h2>FORM STOCK OPNAME (CEK FISIK)</h2>
+            <h4>${config.storeName}</h4>
+            <p style="text-align:center; font-size:12px;">Tanggal Cek: ${dateStr}</p>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th width="5%">No</th>
+                        <th>Nama Barang</th>
+                        <th width="10%">Sistem (Ready)</th>
+                        <th width="10%">Sedang Sewa</th>
+                        <th width="10%">Rusak</th>
+                        <th width="15%">Fisik (Real)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${tableContent}
+                </tbody>
+            </table>
+
+            <div class="footer">
+                <div class="sign">
+                    Dihitung Oleh:<br/><br/>(_________________)
+                </div>
+                <div class="sign">
+                    Diperiksa Oleh (Admin):<br/><br/>(_________________)
+                </div>
+            </div>
+            <script>window.print();</script>
+        </body>
+        </html>
+    `;
+
+    printWindow.document.write(html);
+    printWindow.document.close();
+  };
 
   const openActionModal = (product: Product, type: ActionType) => {
     setSelectedProduct(product);
@@ -68,18 +165,12 @@ const AdminWarehouseManager: React.FC<AdminWarehouseManagerProps> = ({ products,
   const getMaxQty = () => {
     if (!selectedProduct) return 9999;
     
-    let currentStock = 0;
-    
     // Helper untuk ambil stok varian spesifik atau global
     const getVariantStock = (key: 'stock' | 'rented' | 'damaged') => {
         if (variantKey) {
             if (selectedProduct.variants && selectedProduct.variants.length > 0) {
                 const [color, size] = variantKey.split('|');
                 const v = selectedProduct.variants.find(item => item.color === color && item.size === size);
-                // Note: Schema Varian saat ini hanya menyimpan 'stock' (available). 
-                // Tracking rented/damaged per varian belum didukung penuh oleh schema lama, 
-                // jadi kita fallback ke stok global untuk limit validasi rented/damaged, 
-                // atau gunakan stok varian untuk limit pengambilan.
                 if (key === 'stock') return v ? v.stock : 0;
             } else if (selectedProduct.sizes) {
                 if (key === 'stock') return selectedProduct.sizes[variantKey] || 0;
@@ -94,7 +185,7 @@ const AdminWarehouseManager: React.FC<AdminWarehouseManagerProps> = ({ products,
             return getVariantStock('stock');
         
         case 'return':      // Mengurangi Rented
-            return selectedProduct.rented || 0; // Global limit karena varian rented tidak ditrack detail
+            return selectedProduct.rented || 0; // Global limit
             
         case 'repair':      // Mengurangi Damaged
             return selectedProduct.damaged || 0; // Global limit
@@ -188,10 +279,19 @@ const AdminWarehouseManager: React.FC<AdminWarehouseManagerProps> = ({ products,
               {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
            </select>
         </div>
-        <div className="relative">
-           <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
-           <input type="text" placeholder="Cari SKU / Nama..." className="pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg w-full focus:ring-2 focus:ring-nature-500 outline-none" 
-             value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+        <div className="flex gap-2">
+           <div className="relative">
+              <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
+              <input type="text" placeholder="Cari SKU / Nama..." className="pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg w-full focus:ring-2 focus:ring-nature-500 outline-none" 
+                value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+           </div>
+           <button 
+             onClick={handlePrintStockOpname} 
+             className="bg-gray-900 hover:bg-black text-white p-2 rounded-lg transition shadow-sm"
+             title="Cetak Form Stock Opname"
+           >
+             <Printer size={18}/>
+           </button>
         </div>
       </div>
 

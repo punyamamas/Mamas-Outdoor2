@@ -698,7 +698,13 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                                      <label className="text-xs font-bold text-gray-500 block mb-1">Durasi (Hari)</label>
                                      <div className="flex items-center gap-2">
                                         <input type="number" min="1" className="w-20 border rounded p-2 text-sm text-center font-bold" value={editForm.duration} onChange={e => setEditForm({...editForm, duration: parseInt(e.target.value) || 1})} />
-                                        <span className="text-xs text-gray-400 italic">Harga otomatis berubah</span>
+                                        <button 
+                                            type="button"
+                                            onClick={() => setEditForm(prev => ({...prev, duration: prev.duration + 1}))}
+                                            className="px-2 py-1 bg-green-50 text-green-700 text-xs font-bold rounded border border-green-200 hover:bg-green-100"
+                                        >
+                                            +1 Hari
+                                        </button>
                                      </div>
                                  </div>
                                  <div className="md:col-span-2">
