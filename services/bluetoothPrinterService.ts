@@ -1,6 +1,7 @@
 
 import { Transaction } from '../types';
 import { getStoreConfig } from '../utils/storeConfig';
+import QRCode from 'qrcode';
 
 // --- TYPE DEFINITIONS FOR WEB BLUETOOTH API ---
 interface BluetoothRemoteGATTCharacteristic {
@@ -43,8 +44,80 @@ const COMMANDS = {
   CUT_PAPER: GS + 'V' + '\x41' + '\x03', // Partial cut
 };
 
+// KONFIGURASI UKURAN KERTAS 80MM
+const PRINTER_WIDTH = 48; // 80mm biasanya 48 karakter (Font A). Untuk 58mm gunakan 32.
+
 let printCharacteristic: BluetoothRemoteGATTCharacteristic | null = null;
 let connectedDevice: BluetoothDevice | null = null;
+
+// --- IMAGE PROCESSING UTILS (Convert Image/QR to ESC/POS Bitmap) ---
+const processImageForPrinter = async (src: string, targetWidth: number = 384): Promise<Uint8Array | null> => {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.crossOrigin = "Anonymous";
+        img.src = src;
+        img.onload = () => {
+            // Create Canvas
+            const canvas = document.createElement('canvas');
+            // Calculate height ensuring aspect ratio
+            const height = Math.floor((img.height * targetWidth) / img.width);
+            canvas.width = targetWidth;
+            canvas.height = height;
+            
+            const ctx = canvas.getContext('2d');
+            if (!ctx) { resolve(null); return; }
+            
+            // Draw image white background first (for transparent PNGs like Logo/QR)
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0, targetWidth, height);
+            
+            const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const pixels = imgData.data;
+            
+            // Convert to ESC/POS Raster Bit Image (GS v 0)
+            // Format: GS v 0 m xL xH yL yH d1...dk
+            const xL = (canvas.width / 8) % 256;
+            const xH = Math.floor((canvas.width / 8) / 256);
+            const yL = canvas.height % 256;
+            const yH = Math.floor(canvas.height / 256);
+            
+            // Header Command
+            const header = [0x1D, 0x76, 0x30, 0, xL, xH, yL, yH];
+            const bytes: number[] = [];
+            
+            // Process Pixels
+            for (let y = 0; y < canvas.height; y++) {
+                for (let x = 0; x < canvas.width; x += 8) {
+                    let byte = 0;
+                    for (let b = 0; b < 8; b++) {
+                        if (x + b < canvas.width) {
+                            const offset = (y * canvas.width + (x + b)) * 4;
+                            // Calculate luminance (grayscale)
+                            const r = pixels[offset];
+                            const g = pixels[offset + 1];
+                            const b_val = pixels[offset + 2];
+                            const brightness = (r * 0.299 + g * 0.587 + b_val * 0.114);
+                            
+                            // Thresholding (Black if dark, White if light)
+                            if (brightness < 128) {
+                                byte |= (1 << (7 - b)); // Set bit to 1 for black
+                            }
+                        }
+                    }
+                    bytes.push(byte);
+                }
+            }
+            
+            // Combine Header + Data
+            const finalData = new Uint8Array(header.length + bytes.length);
+            finalData.set(header);
+            finalData.set(bytes, header.length);
+            resolve(finalData);
+        };
+        img.onerror = () => resolve(null);
+    });
+};
 
 // --- HELPER: CALCULATE PRICE ---
 const calculateItemPriceForDuration = (item: any, days: number): number => {
@@ -67,13 +140,13 @@ const calculateItemPriceForDuration = (item: any, days: number): number => {
 
 // --- HELPER: FORMAT ROW (JUSTIFY BETWEEN) ---
 // Membuat format: "Label .......... Value"
-const formatRow = (left: string, right: string, width: number = 32) => {
+const formatRow = (left: string, right: string, width: number = PRINTER_WIDTH) => {
     const leftLen = left.length;
     const rightLen = right.length;
     // Pastikan ada minimal 1 spasi
     const spaceLen = Math.max(1, width - leftLen - rightLen);
     
-    // Jika teks kiri + kanan terlalu panjang, potong kiri atau wrap (disini kita potong agar rapi)
+    // Jika teks kiri + kanan terlalu panjang, potong kiri agar rapi
     if (leftLen + rightLen > width) {
         const cutLeft = left.substring(0, width - rightLen - 1);
         return cutLeft + ' ' + right;
@@ -137,23 +210,42 @@ const encoder = new TextEncoder();
 
 const sendCommand = async (command: string) => {
     if (!printCharacteristic) throw new Error("Printer not connected");
-    await printCharacteristic.writeValue(encoder.encode(command));
+    // Pecah command panjang (seperti gambar) menjadi chunk kecil (max 512 bytes)
+    // karena Bluetooth Low Energy (BLE) punya limitasi paket data
+    const maxChunk = 512;
+    const data = encoder.encode(command);
+    for (let i = 0; i < data.length; i += maxChunk) {
+        await printCharacteristic.writeValue(data.slice(i, i + maxChunk));
+    }
 };
 
 const sendText = async (text: string) => {
     if (!printCharacteristic) throw new Error("Printer not connected");
-    await printCharacteristic.writeValue(encoder.encode(text));
+    const data = encoder.encode(text);
+    const maxChunk = 512;
+    for (let i = 0; i < data.length; i += maxChunk) {
+        await printCharacteristic.writeValue(data.slice(i, i + maxChunk));
+    }
 };
 
-// Helper Garis Putus-putus
-const createDivider = () => '-'.repeat(32) + LF;
+const sendBytes = async (data: Uint8Array) => {
+    if (!printCharacteristic) throw new Error("Printer not connected");
+    const maxChunk = 512;
+    for (let i = 0; i < data.length; i += maxChunk) {
+        await printCharacteristic.writeValue(data.slice(i, i + maxChunk));
+    }
+};
+
+// Helper Garis Putus-putus (Sesuai lebar kertas)
+const createDivider = () => '-'.repeat(PRINTER_WIDTH) + LF;
 
 export const printTestPage = async () => {
     if (!printCharacteristic) return alert("Printer belum terhubung!");
     try {
         await sendCommand(COMMANDS.INIT);
         await sendCommand(COMMANDS.ALIGN_CENTER);
-        await sendText("TEST CONNECTION OK\n");
+        await sendText("TEST 80MM PRINTER OK\n");
+        await sendText(createDivider());
         await sendCommand(COMMANDS.CUT_PAPER);
     } catch (e) {
         alert("Gagal mencetak test page.");
@@ -168,11 +260,10 @@ export const printTransactionReceipt = async (trx: Transaction) => {
 
     const config = getStoreConfig();
     const dateObj = new Date(trx.created_at || new Date());
-    // Format tanggal: 2/1/2026 - 21.22
     const dateStr = `${dateObj.getDate()}/${dateObj.getMonth()+1}/${dateObj.getFullYear()}`;
     const timeStr = dateObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }).replace(':', '.');
 
-    // Hitung Periode: 2 Jan s/d 3 Jan 26 (2 Hari)
+    // Periode
     const startDate = new Date(trx.rentalDate);
     const returnDate = new Date(startDate);
     returnDate.setDate(startDate.getDate() + (trx.duration - 1));
@@ -180,47 +271,62 @@ export const printTransactionReceipt = async (trx: Transaction) => {
     const endStr = returnDate.toLocaleDateString('id-ID', {day:'numeric', month:'short', year:'2-digit'});
     const periodeStr = `${startStr} s/d ${endStr} (${trx.duration} Hari)`;
 
-    // Status Lunas
+    // Status
     const paid = trx.amountPaid || 0;
     const total = trx.totalPrice;
     const isLunas = paid >= total;
     const statusText = isLunas ? "LUNAS" : "BELUM LUNAS";
-    const notaType = isLunas ? "NOTA TAGIHAN" : "NOTA SEWA"; // Sesuai screenshot
+    const notaType = isLunas ? "NOTA TAGIHAN" : "NOTA SEWA";
 
-    // Pelanggan Format: MO-46 Ian
+    // Pelanggan
     const custId = `MO-${trx.id.slice(0,4)}`;
-    const custName = trx.customerName.split(' ')[0]; // Ambil nama depan saja biar muat
+    const custName = trx.customerName.split(' ')[0];
     const pelangganStr = `${custId} ${custName}`;
 
+    // --- PREPARE IMAGES (LOGO & QR) ---
+    // Gunakan URL Logo (Pastikan URL ini bisa diakses dan support CORS/Anonymous jika perlu)
+    // Jika tidak muncul, pastikan format PNG/JPG dan server mengizinkan akses.
+    const logoUrl = "https://imgur.com/iC8ycHT.png"; 
+    
+    // Generate QR Data URL
+    let qrDataUrl = '';
     try {
-        // 1. HEADER (LOGO TEXT & ALAMAT)
+        qrDataUrl = await QRCode.toDataURL(trx.id, { margin: 0, width: 200 });
+    } catch (e) { console.error("QR Fail", e); }
+
+    try {
         await sendCommand(COMMANDS.INIT);
+        
+        // 1. HEADER (LOGO)
         await sendCommand(COMMANDS.ALIGN_CENTER);
         
-        // "MAMAS OUTDOOR" (Bold, Double Height)
+        // Process & Print Logo (Width ~300px agar pas di tengah)
+        const logoBytes = await processImageForPrinter(logoUrl, 350);
+        if (logoBytes) {
+            await sendBytes(logoBytes);
+            await sendText(LF); // Spacer after logo
+        }
+
+        // TEXT HEADER
         await sendCommand(COMMANDS.BOLD_ON);
         await sendCommand(COMMANDS.TEXT_DOUBLE_HEIGHT);
         await sendText(config.storeName.toUpperCase() + LF);
-        await sendCommand(COMMANDS.TEXT_NORMAL); // Reset size
+        await sendCommand(COMMANDS.TEXT_NORMAL);
         await sendCommand(COMMANDS.BOLD_OFF);
         
-        // Alamat (Wrap text manual jika perlu, tapi printer usually wraps)
         await sendText("Jalan Cenderawasih, Grendeng, Purwokerto" + LF);
         await sendText("Utara" + LF);
         
-        // WA (Bold)
         await sendCommand(COMMANDS.BOLD_ON);
         await sendText(`WA: ${config.adminWhatsapp}` + LF);
         await sendCommand(COMMANDS.BOLD_OFF);
         
         await sendText(createDivider());
 
-        // 2. METADATA (Rata Kiri - Kanan)
+        // 2. METADATA (80mm Layout)
         await sendCommand(COMMANDS.ALIGN_LEFT);
         
-        // Jenis: NOTA TAGIHAN (Bold Right)
-        // Kita manual bold bagian kanan agak susah di satu baris, jadi kita bold semua atau tidak.
-        // Strategi: Print normal, alignment via spaces.
+        // Jenis (Right Align Hack using formatRow)
         await sendCommand(COMMANDS.BOLD_ON);
         await sendText(formatRow("Jenis", notaType) + LF);
         await sendCommand(COMMANDS.BOLD_OFF);
@@ -228,23 +334,13 @@ export const printTransactionReceipt = async (trx: Transaction) => {
         await sendText(formatRow("No Nota", `TRX/${trx.id.slice(0,6).toUpperCase()}`) + LF);
         await sendText(formatRow("Pelanggan", pelangganStr) + LF);
         await sendText(formatRow("Jaminan", trx.customerIdentity || "-") + LF);
-        
-        // Tanggal: 2/1/2026 - 21.22
         await sendText(formatRow("Tanggal", `${dateStr} - ${timeStr}`) + LF);
-        
-        // Periode (Italic simulated by layout context, standard font)
-        // Periode is usually slightly indented or full width in screenshot
         await sendText(`Periode: ${periodeStr}` + LF);
-        
         await sendText(formatRow("Kasir", "Admin") + LF);
         
         await sendText(createDivider());
 
         // 3. ITEMS
-        // Format Screenshot:
-        // 2H TRIPOD (Bold)
-        // 1 x 13.000 ................. 13.000
-        
         for (const item of trx.items) {
             const unitPrice = calculateItemPriceForDuration(item, trx.duration);
             const lineTotal = unitPrice * item.quantity;
@@ -252,7 +348,6 @@ export const printTransactionReceipt = async (trx: Transaction) => {
             const variantInfo = item.selectedSize || item.selectedColor 
                 ? ` (${item.selectedSize || ''} ${item.selectedColor || ''})` : '';
             
-            // Nama Barang (Bold)
             const prefix = item.isSale ? "" : `${trx.duration}H `;
             const itemName = `${prefix}${item.name.toUpperCase()}${variantInfo}`;
             
@@ -260,15 +355,13 @@ export const printTransactionReceipt = async (trx: Transaction) => {
             await sendText(itemName + LF);
             await sendCommand(COMMANDS.BOLD_OFF);
             
-            // Kalkulasi
             const calcLeft = `${item.quantity} x ${unitPrice.toLocaleString('id-ID')}`;
             const calcRight = lineTotal.toLocaleString('id-ID');
             await sendText(formatRow(calcLeft, calcRight) + LF);
         }
         
-        // Denda jika ada
         if ((trx.fineAmount || 0) > 0) {
-             await sendText(LF); // Spacer
+             await sendText(LF);
              await sendCommand(COMMANDS.BOLD_ON);
              await sendText("DENDA KETERLAMBATAN" + LF);
              await sendCommand(COMMANDS.BOLD_OFF);
@@ -278,39 +371,35 @@ export const printTransactionReceipt = async (trx: Transaction) => {
         await sendText(createDivider());
 
         // 4. TOTAL & STATUS
-        // Status Global ....... LUNAS (Bold)
-        await sendText("Status Global" + ' '.repeat(32 - "Status Global".length - statusText.length) + statusText + LF);
+        await sendText(formatRow("Status Global", statusText) + LF);
         
-        // Total Tagihan Ini ... 13.000 (Bold)
         await sendCommand(COMMANDS.BOLD_ON);
-        const totalLabel = "Total Tagihan Ini";
-        const totalVal = trx.totalPrice.toLocaleString('id-ID');
-        await sendText(formatRow(totalLabel, totalVal) + LF);
+        await sendText(formatRow("Total Tagihan Ini", trx.totalPrice.toLocaleString('id-ID')) + LF);
         await sendCommand(COMMANDS.BOLD_OFF);
         
-        // Spacer for visual separation
         await sendText(LF);
 
-        // 5. QR CODE PLACEHOLDER & FOOTER
-        // Note: Generic thermal printers need specific hex commands for QR. 
-        // To be safe and fast, we use text or skip graphic QR.
-        // We will center the text placeholder.
+        // 5. QR CODE (BITMAP) & FOOTER
         await sendCommand(COMMANDS.ALIGN_CENTER);
         
-        // Placeholder kotak QR (Text based art)
-        await sendText("Scan untuk Cek Status" + LF);
+        if (qrDataUrl) {
+            // Process & Print QR Code (Width ~200px)
+            const qrBytes = await processImageForPrinter(qrDataUrl, 250);
+            if (qrBytes) {
+                await sendBytes(qrBytes);
+                await sendText(LF);
+            }
+        }
         
+        await sendText("Scan untuk Cek Status" + LF);
         await sendCommand(COMMANDS.ALIGN_LEFT);
         await sendText(createDivider());
         
-        // Footer Message (Italic-like)
         await sendCommand(COMMANDS.ALIGN_CENTER);
-        // Split footer message nicely
         const msg = config.footerMessage || "Terima kasih telah menyewa";
         await sendText(msg + LF);
         await sendText("#SalamLestari" + LF);
         
-        // Feed & Cut
         await sendText(LF + LF + LF);
         await sendCommand(COMMANDS.CUT_PAPER);
 
