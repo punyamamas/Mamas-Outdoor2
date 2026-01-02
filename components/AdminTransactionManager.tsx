@@ -178,15 +178,24 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
     setIsRecordingPayment(true);
 
     try {
+        // LOGIC KEMBALIAN: Hitung berapa yang harus dibayar
+        const remainingBill = selectedTransaction.totalPrice - selectedTransaction.amountPaid;
+        
+        // Income real adalah minimal dari (uang masuk vs sisa hutang)
+        // Contoh: Hutang 20rb, Bayar 50rb -> Income 20rb. 
+        const realIncome = Math.min(newPaymentAmount, remainingBill);
+
         // 1. Update Transaction Paid Amount
         const currentPaid = selectedTransaction.amountPaid || 0;
-        const updatedPaid = currentPaid + newPaymentAmount;
+        const updatedPaid = currentPaid + realIncome;
+        
+        // Update ke database transaksi (amount_paid = lunas/cicil)
         await updateTransactionPayment(selectedTransaction.id, updatedPaid);
 
-        // 2. Auto Record to Payment Log
+        // 2. Auto Record to Payment Log (Hanya mencatat realIncome)
         await recordPaymentLog({
             transaction_id: selectedTransaction.id,
-            amount: newPaymentAmount,
+            amount: realIncome,
             payment_method: newPaymentMethod,
             type: 'IN',
             description: `Pelunasan/Cicilan Sewa #${selectedTransaction.id.slice(0,6)}`,
@@ -195,9 +204,17 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
 
         // 3. Update Local State
         setSelectedTransaction({ ...selectedTransaction, amountPaid: updatedPaid });
+        
+        // Hitung Kembalian untuk Alert
+        const change = newPaymentAmount - realIncome;
+        if (change > 0) {
+            alert(`✅ Pembayaran Berhasil!\n\n💰 KEMBALIAN: Rp${change.toLocaleString('id-ID')}`);
+        } else {
+            alert(`✅ Pembayaran Rp${realIncome.toLocaleString('id-ID')} Berhasil Dicatat.`);
+        }
+
         setNewPaymentAmount(0);
         await onRefreshData();
-        alert(`Berhasil mencatat pembayaran Rp${newPaymentAmount.toLocaleString('id-ID')}`);
     } catch (e) {
         console.error("Payment Error", e);
         alert("Gagal mencatat pembayaran.");
@@ -442,6 +459,15 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
         if (newTrxStatus !== 'cancelled' && newTrxStatus !== 'completed') {
             await processStockReduction(newTrxItems);
         }
+        
+        // Show Change Alert if necessary
+        const change = newTrxPaid - total;
+        if (change > 0) {
+            alert(`✅ Transaksi Berhasil!\n\n💰 KEMBALIAN: Rp${change.toLocaleString('id-ID')}\n(Uang masuk tercatat: Rp${total.toLocaleString('id-ID')})`);
+        } else {
+            alert("Transaksi Berhasil!");
+        }
+
         await onRefreshData();
         setIsCreateModalOpen(false);
         setNewTrxDetails({ name: '', whatsapp: '', location: '', rentalDate: new Date().toISOString().split('T')[0], duration: 2, paymentMethod: 'cash' });
@@ -527,6 +553,34 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
             )}
         </div>
       );
+  };
+
+  const getPaymentChangeDisplay = (inputAmount: number, total: number) => {
+      const change = inputAmount - total;
+      if (change > 0) {
+          return (
+              <div className="mt-2 p-2 bg-green-100 border border-green-200 rounded-lg text-center animate-pulse">
+                  <p className="text-xs font-bold text-green-800 uppercase">Kembalian</p>
+                  <p className="text-lg font-black text-green-700">Rp{change.toLocaleString('id-ID')}</p>
+              </div>
+          )
+      }
+      return null;
+  };
+
+  const getAddPaymentChangeDisplay = () => {
+      if (!selectedTransaction) return null;
+      const remaining = Math.max(0, selectedTransaction.totalPrice - selectedTransaction.amountPaid);
+      const change = newPaymentAmount - remaining;
+      
+      if (change > 0 && newPaymentAmount > 0) {
+          return (
+              <div className="mt-2 text-right">
+                  <span className="text-xs text-green-600 font-bold">Kembalian: Rp{change.toLocaleString('id-ID')}</span>
+              </div>
+          )
+      }
+      return null;
   };
 
   return (
@@ -921,6 +975,10 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                                         <option value="transfer">TF</option>
                                     </select>
                                  </div>
+                                 
+                                 {/* Helper Change Calculator */}
+                                 {getAddPaymentChangeDisplay()}
+
                                  <button 
                                     onClick={handleAddPayment}
                                     disabled={!newPaymentAmount || isRecordingPayment}
@@ -1045,7 +1103,9 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                                    <span className="absolute left-3 top-2 text-gray-400 text-sm">Rp</span>
                                    <input type="number" className="w-full border rounded p-2 pl-8 text-sm font-bold" value={newTrxPaid} onChange={e => setNewTrxPaid(parseInt(e.target.value)||0)} />
                                 </div>
-                                <p className="text-[10px] text-green-600 mt-1 italic font-medium">*Otomatis masuk Laporan Keuangan</p>
+                                <p className="text-[10px] text-green-600 mt-1 italic font-medium">*Otomatis masuk Laporan Keuangan (Real)</p>
+                                
+                                {getPaymentChangeDisplay(newTrxPaid, calculateNewTrxTotal())}
                              </div>
                           </div>
                        </div>
