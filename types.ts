@@ -136,6 +136,7 @@ export interface ShiftLog {
   end_cash?: number; // Uang Fisik saat Tutup
   system_cash?: number; // Uang di Sistem (Modal + Transaksi Tunai)
   difference?: number; // Selisih (End - System)
+  cash_withdrawal?: number; // NEW: Uang yang disetor/ditarik dari laci (Rekapitulasi)
   status: 'open' | 'closed';
   notes?: string;
 }

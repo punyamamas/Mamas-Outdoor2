@@ -72,6 +72,7 @@ create table if not exists public.shift_logs (
   end_cash numeric default 0,
   system_cash numeric default 0,
   difference numeric default 0,
+  cash_withdrawal numeric default 0, -- NEW: Uang disetor (Rekapitulasi)
   status text default 'open', -- 'open', 'closed'
   notes text
 );

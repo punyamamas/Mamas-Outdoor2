@@ -356,6 +356,19 @@ export const getCurrentShift = async (): Promise<ShiftLog | null> => {
   return data as ShiftLog;
 };
 
+// NEW: Get Shift History
+export const getShiftHistory = async (): Promise<ShiftLog[]> => {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from('shift_logs')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(30); // Last 30 shifts
+  
+  if (error) return [];
+  return data as ShiftLog[];
+};
+
 export const openShift = async (cashierName: string, shiftName: string, startCash: number): Promise<ShiftLog | null> => {
   if (!supabase) return null;
   
@@ -383,6 +396,7 @@ export const closeShift = async (
   endCash: number, 
   systemCash: number, 
   difference: number, 
+  cashWithdrawal: number, // NEW
   notes: string
 ): Promise<boolean> => {
   if (!supabase) return false;
@@ -391,6 +405,7 @@ export const closeShift = async (
     end_cash: endCash,
     system_cash: systemCash,
     difference: difference,
+    cash_withdrawal: cashWithdrawal, // NEW
     notes: notes,
     status: 'closed',
     ended_at: new Date().toISOString()
