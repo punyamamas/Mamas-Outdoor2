@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { ClipboardList, Loader2, Calendar, Eye, Trash2, X, User, CreditCard, Banknote, ArrowRightLeft, Save, Calculator, CheckCircle, RotateCcw, Wallet, Edit, Plus, Minus, Search, ShoppingBag, Printer, Filter, DollarSign, Receipt, BarChart3, TrendingUp, Lightbulb, AlertTriangle, ArrowUpRight, Share2, Image as ImageIcon, CreditCard as CardIcon, ExternalLink, QrCode, FileText, Clock, ShieldCheck, ChevronDown, ChevronUp, Upload, LogIn, LogOut, FileCheck, PackagePlus, Camera } from 'lucide-react';
+import { ClipboardList, Loader2, Calendar, Eye, Trash2, X, User, CreditCard, Banknote, ArrowRightLeft, Save, Calculator, CheckCircle, RotateCcw, Wallet, Edit, Plus, Minus, Search, ShoppingBag, Printer, Filter, DollarSign, Receipt, BarChart3, TrendingUp, Lightbulb, AlertTriangle, ArrowUpRight, Share2, Image as ImageIcon, CreditCard as CardIcon, ExternalLink, QrCode, FileText, Clock, ShieldCheck, ChevronDown, ChevronUp, Upload, LogIn, LogOut, FileCheck, PackagePlus, Camera, RefreshCw } from 'lucide-react';
 import { Transaction, Product, CartItem, UserDetails } from '../types';
 import { updateTransactionPayment, updateTransactionItems, updateTransactionDetails, printInvoice, applyTransactionFine, calculateOverdueFine, copyInvoiceToClipboard, uploadPaymentProof, createTransaction, calculateItemPriceForDuration } from '../services/transactionService';
 import { processStockReduction } from '../services/productService';
@@ -28,6 +28,16 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   
+  // --- EDIT MODE STATES ---
+  const [isEditingData, setIsEditingData] = useState(false);
+  const [editForm, setEditForm] = useState<{
+    customerName: string;
+    customerWhatsapp: string;
+    rentalDate: string;
+    duration: number;
+    fineAmount: number;
+  }>({ customerName: '', customerWhatsapp: '', rentalDate: '', duration: 0, fineAmount: 0 });
+
   // Scanner State
   const [isScannerOpen, setIsScannerOpen] = useState(false);
 
@@ -58,6 +68,15 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
   // --- Handlers ---
   const openEditModal = (trx: Transaction) => {
     setSelectedTransaction(trx);
+    setIsEditingData(false); // Reset edit mode
+    // Init form data
+    setEditForm({
+        customerName: trx.customerName,
+        customerWhatsapp: trx.customerWhatsapp,
+        rentalDate: trx.rentalDate.split('T')[0],
+        duration: trx.duration,
+        fineAmount: trx.fineAmount || 0
+    });
     setIsEditModalOpen(true);
   };
 
@@ -113,6 +132,70 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
     }
   };
 
+  // NEW: Save Detail Changes
+  const handleSaveDetails = async () => {
+    if (!selectedTransaction) return;
+
+    // 1. Cek apakah durasi berubah? Jika ya, recalculate harga
+    let newTotalPrice = selectedTransaction.totalPrice;
+    
+    if (editForm.duration !== selectedTransaction.duration) {
+        const newItemsPrice = selectedTransaction.items.reduce((acc, item) => {
+            const price = calculateItemPriceForDuration(item, editForm.duration);
+            return acc + (price * item.quantity);
+        }, 0);
+        // Total baru = Harga Barang Baru + Denda (jika ada)
+        // Note: fineAmount di DB terpisah atau include? di createTransaction servicenya: total_price = item_price. Fine ditambah manual.
+        // Jadi kita reset total price based on duration, lalu tambah fine yang diinput.
+        newTotalPrice = newItemsPrice + editForm.fineAmount;
+    } else {
+        // Jika durasi sama, cuma update fine amount adjustment
+        // Total Lama - Fine Lama + Fine Baru
+        const oldFine = selectedTransaction.fineAmount || 0;
+        newTotalPrice = (selectedTransaction.totalPrice - oldFine) + editForm.fineAmount;
+    }
+
+    // 2. Call Service Update Details
+    // Kita perlu update 'fine_amount' dan 'total_price' manual di service updateTransactionDetails?
+    // Service updateTransactionDetails saat ini hanya update customer info. Kita perlu update manual via applyTransactionFine untuk fine.
+    
+    // Update Info Dasar
+    await updateTransactionDetails(selectedTransaction.id, {
+        customerName: editForm.customerName,
+        customerWhatsapp: editForm.customerWhatsapp,
+        rentalDate: editForm.rentalDate,
+        duration: editForm.duration,
+        // Hack: kirim properti lain jika service mendukung, atau panggil multiple service
+    });
+
+    // Update Denda & Total Price (Khusus)
+    await applyTransactionFine(selectedTransaction.id, editForm.fineAmount);
+    
+    // Update Total Price jika durasi berubah (Harus update items price juga sebenarnya di DB, tapi karena struktur JSONB items menyimpan harga statis atau dinamis?
+    // Di sistem ini harga dihitung on-the-fly display, tapi total_price disimpan di kolom terpisah.
+    // Jadi kita harus update kolom total_price di tabel transactions.
+    // Mari gunakan applyTransactionFine karena dia update total_price juga. 
+    // Tapi applyTransactionFine logikanya: total = (total - old_fine) + new_fine.
+    // Jika durasi berubah, base price berubah. Jadi kita butuh update total_price manual.
+    // Workaround: Panggil updateTransactionItems dengan items yang sama tapi total baru.
+    await updateTransactionItems(selectedTransaction.id, selectedTransaction.items, newTotalPrice);
+
+    // Refresh UI
+    setSelectedTransaction({
+        ...selectedTransaction,
+        customerName: editForm.customerName,
+        customerWhatsapp: editForm.customerWhatsapp,
+        rentalDate: editForm.rentalDate,
+        duration: editForm.duration,
+        fineAmount: editForm.fineAmount,
+        totalPrice: newTotalPrice
+    });
+    
+    setIsEditingData(false);
+    onRefreshData();
+    alert("Data berhasil diperbarui!");
+  };
+
   const handleUploadProof = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!selectedTransaction || !e.target.files || e.target.files.length === 0) return;
     const file = e.target.files[0];
@@ -126,12 +209,9 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
   // --- SCANNER HANDLER ---
   const handleScanSuccess = (decodedText: string) => {
       setIsScannerOpen(false);
-      // Cari transaksi berdasarkan ID (Exact Match)
       const found = transactions.find(t => t.id === decodedText || t.id.includes(decodedText));
-      
       if (found) {
           openEditModal(found);
-          // Optional: Filter list juga
           setSearchTerm(found.id);
       } else {
           alert(`Transaksi dengan ID: ${decodedText} tidak ditemukan.`);
@@ -176,7 +256,6 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
     setIsCreating(true);
     const total = calculateNewTrxTotal();
     
-    // 1. Create Transaction
     const newTrx = await createTransaction(
         newTrxDetails, 
         newTrxItems, 
@@ -187,19 +266,14 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
     );
 
     if (newTrx) {
-        // 2. Reduce Stock (Important for POS)
         if (newTrxStatus !== 'cancelled' && newTrxStatus !== 'completed') {
             await processStockReduction(newTrxItems);
         }
-        
         await onRefreshData();
         setIsCreateModalOpen(false);
-        // Reset Form
         setNewTrxDetails({ name: '', whatsapp: '', location: '', rentalDate: new Date().toISOString().split('T')[0], duration: 2, paymentMethod: 'cash' });
         setNewTrxItems([]);
         setNewTrxPaid(0);
-        
-        // Open Detail
         setSelectedTransaction(newTrx);
         setIsEditModalOpen(true);
     } else {
@@ -224,7 +298,6 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
           <ClipboardList size={20} /> Manajemen Transaksi
         </h3>
         <div className="flex flex-wrap gap-2 items-center">
-           {/* SCAN BUTTON (NEW) */}
            <button 
              onClick={() => setIsScannerOpen(true)}
              className="p-2 bg-gray-900 text-white rounded-lg hover:bg-black transition flex items-center gap-2 shadow-sm"
@@ -233,7 +306,6 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
              <Camera size={18} /> <span className="hidden sm:inline text-xs font-bold">Scan QR</span>
            </button>
 
-           {/* SEARCH */}
            <div className="relative">
               <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
               <input 
@@ -262,7 +334,6 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
              <RotateCcw size={18} />
            </button>
 
-           {/* POS BUTTON */}
            <button 
              onClick={() => setIsCreateModalOpen(true)}
              className="flex items-center gap-2 bg-nature-600 hover:bg-nature-700 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm transition"
@@ -337,11 +408,23 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
             <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
                <div>
                   <h3 className="font-bold text-xl text-gray-900 flex items-center gap-2">
-                     <ClipboardList className="text-nature-600"/> Detail Transaksi #{selectedTransaction.id.slice(0,8)}
+                     <ClipboardList className="text-nature-600"/> 
+                     {isEditingData ? 'Edit Data Transaksi' : `Detail Transaksi #${selectedTransaction.id.slice(0,8)}`}
                   </h3>
-                  <p className="text-xs text-gray-500 mt-1">Dibuat: {new Date(selectedTransaction.created_at || '').toLocaleString('id-ID')}</p>
+                  {!isEditingData && <p className="text-xs text-gray-500 mt-1">Dibuat: {new Date(selectedTransaction.created_at || '').toLocaleString('id-ID')}</p>}
                </div>
-               <button onClick={closeEditModal} className="p-2 hover:bg-gray-200 rounded-full transition"><X size={20}/></button>
+               <div className="flex items-center gap-2">
+                   {!isEditingData ? (
+                       <button onClick={() => setIsEditingData(true)} className="flex items-center gap-1 bg-white border border-gray-200 text-gray-600 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-gray-50">
+                           <Edit size={14}/> Edit Data
+                       </button>
+                   ) : (
+                       <button onClick={() => setIsEditingData(false)} className="flex items-center gap-1 bg-gray-100 text-gray-600 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-gray-200">
+                           <X size={14}/> Batal
+                       </button>
+                   )}
+                   <button onClick={closeEditModal} className="p-2 hover:bg-gray-200 rounded-full transition"><X size={20}/></button>
+               </div>
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 bg-gray-50/50">
@@ -350,25 +433,69 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                   {/* LEFT: STATUS & ITEMS */}
                   <div className="xl:col-span-2 space-y-6">
                      
-                     {/* Status Card */}
-                     <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
-                        <h4 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2"><CheckCircle size={16}/> Update Status</h4>
-                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                           {['pending', 'booked', 'rented', 'completed', 'cancelled'].map(s => (
-                              <button 
-                                key={s}
-                                onClick={() => handleStatusChange(selectedTransaction.id, s)}
-                                className={`px-3 py-2 rounded-xl text-xs font-bold uppercase transition border ${
-                                   selectedTransaction.status === s 
-                                   ? 'bg-nature-600 text-white border-nature-600 shadow-md' 
-                                   : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
-                                }`}
-                              >
-                                 {s}
-                              </button>
-                           ))}
-                        </div>
-                     </div>
+                     {/* EDIT FORM (Conditionally Rendered) */}
+                     {isEditingData ? (
+                         <div className="bg-white p-5 rounded-2xl border border-blue-200 shadow-sm animate-slide-in-right">
+                             <h4 className="text-sm font-bold text-blue-800 mb-4 flex items-center gap-2"><Edit size={16}/> Form Edit Data</h4>
+                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                 <div>
+                                     <label className="text-xs font-bold text-gray-500 block mb-1">Nama Pelanggan</label>
+                                     <input className="w-full border rounded p-2 text-sm" value={editForm.customerName} onChange={e => setEditForm({...editForm, customerName: e.target.value})} />
+                                 </div>
+                                 <div>
+                                     <label className="text-xs font-bold text-gray-500 block mb-1">WhatsApp</label>
+                                     <input className="w-full border rounded p-2 text-sm" value={editForm.customerWhatsapp} onChange={e => setEditForm({...editForm, customerWhatsapp: e.target.value})} />
+                                 </div>
+                                 <div>
+                                     <label className="text-xs font-bold text-gray-500 block mb-1">Tanggal Sewa</label>
+                                     <input type="date" className="w-full border rounded p-2 text-sm" value={editForm.rentalDate} onChange={e => setEditForm({...editForm, rentalDate: e.target.value})} />
+                                 </div>
+                                 <div>
+                                     <label className="text-xs font-bold text-gray-500 block mb-1">Durasi (Hari)</label>
+                                     <div className="flex items-center gap-2">
+                                        <input type="number" min="1" className="w-20 border rounded p-2 text-sm text-center font-bold" value={editForm.duration} onChange={e => setEditForm({...editForm, duration: parseInt(e.target.value) || 1})} />
+                                        <span className="text-xs text-gray-400 italic">Total harga akan dihitung ulang otomatis</span>
+                                     </div>
+                                 </div>
+                                 <div className="md:col-span-2 bg-red-50 p-3 rounded-lg border border-red-100">
+                                     <label className="text-xs font-bold text-red-700 block mb-1 flex items-center gap-1"><AlertTriangle size={12}/> Biaya Tambahan / Denda Manual (Rp)</label>
+                                     <input 
+                                        type="number" 
+                                        className="w-full border border-red-200 rounded p-2 text-sm font-bold text-red-600" 
+                                        value={editForm.fineAmount} 
+                                        onChange={e => setEditForm({...editForm, fineAmount: parseInt(e.target.value) || 0})} 
+                                        placeholder="0"
+                                     />
+                                     <p className="text-[10px] text-red-500 mt-1">Isi jika ada biaya kerusakan, cuci, atau keterlambatan manual.</p>
+                                 </div>
+                             </div>
+                             <div className="mt-4 pt-4 border-t border-gray-100 flex justify-end">
+                                 <button onClick={handleSaveDetails} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 shadow-sm">
+                                     <Save size={16}/> Simpan Perubahan
+                                 </button>
+                             </div>
+                         </div>
+                     ) : (
+                         /* Status Card (Read Only) */
+                         <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
+                            <h4 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2"><CheckCircle size={16}/> Update Status</h4>
+                            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                            {['pending', 'booked', 'rented', 'completed', 'cancelled'].map(s => (
+                                <button 
+                                    key={s}
+                                    onClick={() => handleStatusChange(selectedTransaction.id, s)}
+                                    className={`px-3 py-2 rounded-xl text-xs font-bold uppercase transition border ${
+                                    selectedTransaction.status === s 
+                                    ? 'bg-nature-600 text-white border-nature-600 shadow-md' 
+                                    : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+                                    }`}
+                                >
+                                    {s}
+                                </button>
+                            ))}
+                            </div>
+                         </div>
+                     )}
 
                      {/* Items Card */}
                      <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
@@ -405,10 +532,10 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                               <span className="font-bold text-green-600">Rp{selectedTransaction.amountPaid.toLocaleString('id-ID')}</span>
                            </div>
                            
-                           {/* INFO DENDA */}
-                           {(selectedTransaction.fineAmount || 0) > 0 && (
+                           {/* INFO DENDA DISPLAY */}
+                           {(selectedTransaction.fineAmount || 0) > 0 && !isEditingData && (
                                <div className="flex justify-between text-sm bg-red-50 p-2 rounded text-red-700 border border-red-100">
-                                  <span>Denda (Masuk Total)</span>
+                                  <span>Denda / Charge</span>
                                   <span className="font-bold">Rp{selectedTransaction.fineAmount?.toLocaleString('id-ID')}</span>
                                </div>
                            )}
