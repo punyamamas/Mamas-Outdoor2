@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { ClipboardList, Loader2, Calendar, Eye, Trash2, X, User, CreditCard, Banknote, ArrowRightLeft, Save, Calculator, CheckCircle, RotateCcw, Wallet, Edit, Plus, Minus, Search, ShoppingBag, Printer, Filter, DollarSign, Receipt, BarChart3, TrendingUp, Lightbulb, AlertTriangle, ArrowUpRight, Share2, Image as ImageIcon, CreditCard as CardIcon, ExternalLink, QrCode, FileText, Clock, ShieldCheck, ChevronDown, ChevronUp, Upload, LogIn, LogOut, FileCheck, PackagePlus, Camera, RefreshCw, MessageCircle, History, CreditCard as IdCard } from 'lucide-react';
 import { Transaction, Product, CartItem, UserDetails } from '../types';
@@ -591,11 +592,11 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
         <table className="w-full text-sm text-left text-gray-600">
           <thead className="bg-white text-gray-700 font-bold uppercase text-xs border-b border-gray-200 sticky top-0 z-10 shadow-sm">
             <tr>
-              <th className="px-6 py-4">ID & Tanggal</th>
-              <th className="px-6 py-4">Pelanggan</th>
-              <th className="px-6 py-4">Status</th>
-              <th className="px-6 py-4 text-right">Total</th>
-              <th className="px-6 py-4 text-center">Aksi</th>
+              <th className="px-6 py-4 whitespace-nowrap">ID & Tanggal</th>
+              <th className="px-6 py-4 whitespace-nowrap">Pelanggan</th>
+              <th className="px-6 py-4 whitespace-nowrap">Status</th>
+              <th className="px-6 py-4 text-right whitespace-nowrap">Total</th>
+              <th className="px-6 py-4 text-center whitespace-nowrap">Aksi</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 bg-white">
@@ -606,15 +607,15 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
             ) : (
               filteredTransactions.map(trx => (
                 <tr key={trx.id} className="hover:bg-gray-50 transition group cursor-pointer" onClick={() => openEditModal(trx)}>
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4 whitespace-nowrap">
                     <div className="font-bold text-gray-900">#{trx.id.slice(0,8)}</div>
                     <div className="text-xs text-gray-500">{new Date(trx.rentalDate).toLocaleDateString('id-ID')}</div>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4 whitespace-nowrap">
                     <div className="font-bold text-gray-800">{trx.customerName}</div>
                     <div className="text-xs text-gray-400">{trx.customerWhatsapp}</div>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase border ${
                       trx.status === 'pending' ? 'bg-orange-50 text-orange-600 border-orange-100' :
                       trx.status === 'booked' ? 'bg-blue-50 text-blue-600 border-blue-100' :
@@ -625,10 +626,10 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                       {trx.status}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-right font-mono font-bold text-gray-800">
+                  <td className="px-6 py-4 text-right font-mono font-bold text-gray-800 whitespace-nowrap">
                     Rp{trx.totalPrice.toLocaleString('id-ID')}
                   </td>
-                  <td className="px-6 py-4 text-center" onClick={(e) => e.stopPropagation()}>
+                  <td className="px-6 py-4 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                     <div className="flex justify-center gap-2">
                       <button onClick={() => openEditModal(trx)} className="p-2 hover:bg-blue-50 text-blue-600 rounded-lg transition"><Eye size={18}/></button>
                       <button onClick={() => onDeleteTransaction(trx.id)} className="p-2 hover:bg-red-50 text-red-600 rounded-lg transition"><Trash2 size={18}/></button>
