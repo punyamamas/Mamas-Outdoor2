@@ -347,15 +347,31 @@ Simpan struk ini sebagai bukti.`;
   window.open(url, '_blank');
 };
 
-// FEATURE: Generate Image, COPY TO CLIPBOARD, Open WA
+// FEATURE: Generate Image IDENTICAL TO PRINT, COPY TO CLIPBOARD, Open WA
 export const sendImageInvoiceToWhatsapp = async (trx: Transaction) => {
   const storeConfig = getStoreConfig();
   const dateObj = new Date(trx.created_at || new Date());
+  const dateStr = dateObj.toLocaleDateString('id-ID'); 
+  const timeStr = dateObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
   
-  // Create hidden container for HTML rendering
+  const startDate = new Date(trx.rentalDate);
+  const returnDate = new Date(startDate);
+  returnDate.setDate(startDate.getDate() + (trx.duration - 1));
+  const rentalPeriodStr = `${startDate.toLocaleDateString('id-ID', {day:'numeric', month:'short'})} s/d ${returnDate.toLocaleDateString('id-ID', {day:'numeric', month:'short', year:'2-digit'})} (${trx.duration} Hari)`;
+
+  const fine = trx.fineAmount || 0;
+  const paidGlobal = trx.amountPaid || 0;
+  const totalGlobal = trx.totalPrice;
+  const isGlobalPaid = paidGlobal >= totalGlobal;
+  const statusLabel = isGlobalPaid ? 'LUNAS' : 'BELUM LUNAS';
+  const stampColor = isGlobalPaid ? '#000000' : '#000000';
+  const logoUrl = "https://imgur.com/iC8ycHT.png";
+  const fmt = (val: number) => val.toLocaleString('id-ID');
+
+  // Create hidden container matching Print Styles
   const container = document.createElement('div');
-  container.style.width = '400px';
-  container.style.padding = '20px';
+  container.style.width = '350px'; // Simulating ~80mm width
+  container.style.padding = '15px';
   container.style.backgroundColor = 'white';
   container.style.color = 'black';
   container.style.fontFamily = "'Roboto Mono', monospace";
@@ -363,83 +379,115 @@ export const sendImageInvoiceToWhatsapp = async (trx: Transaction) => {
   container.style.top = '-10000px';
   container.style.left = '0';
   container.style.zIndex = '-1000';
-  
-  const fine = trx.fineAmount || 0;
-  const rentalTotal = trx.totalPrice - fine;
-  const paidGlobal = trx.amountPaid || 0;
-  const isPaid = paidGlobal >= trx.totalPrice;
-  const statusLabel = isPaid ? 'LUNAS' : 'BELUM LUNAS';
-  const stampColor = isPaid ? '#22c55e' : '#ef4444'; 
-  
-  const itemsHtml = trx.items.map(item => {
-      const unitPrice = calculateItemPriceForDuration(item, trx.duration);
-      const total = unitPrice * item.quantity;
-      return `
-        <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:12px;">
-            <div style="flex:1;">
-                <div style="font-weight:bold;">${item.name}</div>
-                <div style="font-size:10px; color:#666;">${item.quantity} x Rp${unitPrice.toLocaleString('id-ID')}</div>
-            </div>
-            <div style="font-weight:bold;">Rp${total.toLocaleString('id-ID')}</div>
-        </div>
-      `;
+  container.style.lineHeight = '1.4';
+  container.style.fontSize = '11px';
+
+  // Generate QR
+  let qrDataUrl = '';
+  try {
+    qrDataUrl = await QRCode.toDataURL(trx.id, { width: 100, margin: 0 });
+  } catch (e) { console.error(e); }
+
+  const itemsHtml = trx.items.map((item) => {
+    const unitPrice = calculateItemPriceForDuration(item, trx.duration);
+    const totalPrice = unitPrice * item.quantity;
+    const variantInfo = item.selectedSize || item.selectedColor 
+      ? `(${[item.selectedSize, item.selectedColor].filter(Boolean).join('/')})` : '';
+    const label = item.isSale ? 'BELI' : `${trx.duration}H`;
+
+    return `
+    <div style="margin-bottom: 8px;">
+      <div style="font-weight: 700; font-size: 11px; margin-bottom: 2px;">${label} ${item.name.toUpperCase()} ${variantInfo}</div>
+      <div style="display: flex; justify-content: space-between; font-size: 11px; color: #000;">
+        <span>${item.quantity} x ${fmt(unitPrice)}</span>
+        <span>${fmt(totalPrice)}</span>
+      </div>
+    </div>
+    `;
   }).join('');
 
   const fineHtml = fine > 0 ? `
-    <div style="display:flex; justify-content:space-between; margin-top:8px; border-top:1px dashed #ccc; padding-top:8px; font-size:12px; color:red;">
-        <div>Denda Keterlambatan</div>
-        <div>Rp${fine.toLocaleString('id-ID')}</div>
+    <div style="margin-top:5px; border-top:1px dotted #ccc; padding-top:5px;">
+      <div style="color:red; font-weight:700;">DENDA KETERLAMBATAN</div>
+      <div style="display: flex; justify-content: space-between; font-size: 11px;">
+        <span>Extra Charge</span>
+        <span>${fmt(fine)}</span>
+      </div>
     </div>
   ` : '';
 
   container.innerHTML = `
-    <div style="text-align:center; border-bottom:2px dashed #000; padding-bottom:15px; margin-bottom:15px;">
-        <h2 style="margin:0; font-size:20px; font-weight:900; text-transform:uppercase;">${storeConfig.storeName}</h2>
-        <p style="margin:5px 0 0; font-size:11px;">${storeConfig.storeAddress}</p>
-        <p style="margin:2px 0 0; font-size:11px;">WA: ${storeConfig.adminWhatsapp}</p>
-    </div>
-    
-    <div style="margin-bottom:15px; font-size:12px;">
-        <div style="display:flex; justify-content:space-between;"><span>Nota:</span> <strong>#${trx.id.slice(0,8)}</strong></div>
-        <div style="display:flex; justify-content:space-between;"><span>Tgl:</span> <span>${dateObj.toLocaleDateString('id-ID')}</span></div>
-        <div style="display:flex; justify-content:space-between;"><span>Plg:</span> <span>${trx.customerName.slice(0,15)}</span></div>
-    </div>
-
-    <div style="border-top:2px solid #000; border-bottom:2px solid #000; padding:10px 0; margin-bottom:15px;">
-        ${itemsHtml}
-        ${fineHtml}
-    </div>
-
-    <div style="margin-bottom:20px;">
-        <div style="display:flex; justify-content:space-between; font-size:14px; font-weight:bold; margin-bottom:5px;">
-            <span>TOTAL TAGIHAN</span>
-            <span>Rp${trx.totalPrice.toLocaleString('id-ID')}</span>
-        </div>
-        <div style="display:flex; justify-content:space-between; font-size:12px; color:#444;">
-            <span>Sudah Bayar</span>
-            <span>Rp${paidGlobal.toLocaleString('id-ID')}</span>
-        </div>
-        <div style="display:flex; justify-content:space-between; font-size:12px; color:${paidGlobal >= trx.totalPrice ? 'green' : 'red'}; font-weight:bold; margin-top:5px;">
-            <span>Sisa Kekurangan</span>
-            <span>Rp${Math.max(0, trx.totalPrice - paidGlobal).toLocaleString('id-ID')}</span>
-        </div>
-    </div>
-
-    <div style="text-align:center; margin-bottom:20px;">
-        <div style="display:inline-block; border:2px solid ${stampColor}; color:${stampColor}; padding:5px 15px; font-size:20px; font-weight:900; border-radius:5px; transform:rotate(-5deg);">
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700;900&display=swap');
+    </style>
+    <div style="position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%) rotate(-15deg); z-index: 10; pointer-events: none; opacity: 0.15;">
+        <div style="border: 4px solid ${stampColor}; color: ${stampColor}; padding: 8px 15px; font-size: 24px; font-weight: 900; text-transform: uppercase; border-radius: 8px; letter-spacing: 2px; text-align: center;">
             ${statusLabel}
         </div>
     </div>
+    <div style="text-align: center; margin-bottom: 10px;">
+      <img src="${logoUrl}" style="width: 60px; height: auto; margin: 5px auto; display: block; filter: grayscale(100%) contrast(150%);" />
+      <div style="font-size: 16px; font-weight: 900; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 1px;">${storeConfig.storeName}</div>
+      <div style="font-size: 10px; margin-bottom: 2px; white-space: pre-wrap;">${storeConfig.storeAddress}</div>
+      <div style="font-size: 10px; font-weight: bold;">WA: ${storeConfig.adminWhatsapp}</div>
+    </div>
+    
+    <div style="border-bottom: 1px dashed #000; margin: 10px 0; width: 100%;"></div>
+    
+    <table style="width: 100%; font-size: 10px;">
+      <tr><td style="width: 35%;">Jenis</td><td style="text-align: right; font-weight: 900;">NOTA TAGIHAN</td></tr>
+      <tr><td>No Nota</td><td style="text-align: right;">TRX/${trx.id.slice(0, 8).toUpperCase()}</td></tr>
+      <tr><td>Pelanggan</td><td style="text-align: right;">MO-${trx.id.slice(0,4)} ${trx.customerName.slice(0,12)}</td></tr>
+      <tr><td>Jaminan</td><td style="text-align: right;">${trx.customerIdentity || '-'}</td></tr>
+      <tr><td>Tanggal</td><td style="text-align: right;">${dateStr} - ${timeStr}</td></tr>
+      <tr><td colspan="2" style="padding-top:4px; font-style:italic; font-size:9px;">Periode: ${rentalPeriodStr}</td></tr>
+      <tr><td>Kasir</td><td style="text-align: right;">Admin</td></tr>
+    </table>
 
-    <div style="text-align:center; font-size:10px; color:#666; font-style:italic;">
-        ${storeConfig.footerMessage}
+    <div style="border-bottom: 1px dashed #000; margin: 10px 0; width: 100%;"></div>
+
+    <div style="margin-top: 10px; margin-bottom: 10px;">
+      ${itemsHtml}
+      ${fineHtml}
+    </div>
+
+    <div style="border-bottom: 1px dashed #000; margin: 10px 0; width: 100%;"></div>
+
+    <table style="width: 100%; font-size: 11px; margin-top: 5px;">
+      <tr><td style="text-align: left;">Status Global</td><td style="text-align: right; font-weight: bold;">${statusLabel}</td></tr>
+      <tr><td style="text-align: left; padding-top:5px;">Total Tagihan Ini</td><td style="text-align: right; padding-top:5px; font-weight:bold;">${fmt(trx.totalPrice)}</td></tr>
+    </table>
+
+    <div style="text-align:center; margin-top:15px;">
+       <img src="${qrDataUrl}" style="width: 80px; height: 80px; display:block; margin: 0 auto;" />
+       <div style="font-size: 8px; margin-top: 2px; font-weight:bold;">Scan untuk Cek Status</div>
+    </div>
+
+    <div style="border-bottom: 1px dashed #000; margin: 10px 0; width: 100%;"></div>
+    <div style="text-align: justify; margin-top: 10px; font-size: 9px; color: #000; line-height: 1.3; font-style: italic;">
+       ${storeConfig.footerMessage}
     </div>
   `;
 
   document.body.appendChild(container);
 
+  // Helper to load image
+  const waitForImage = (src: string) => new Promise<void>((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve();
+      img.onerror = () => resolve(); // Proceed even if error
+      img.src = src;
+  });
+
   try {
-      const canvas = await html2canvas(container, { scale: 2, useCORS: true });
+      // Ensure logo loads before capture
+      await waitForImage(logoUrl);
+
+      const canvas = await html2canvas(container, { 
+          scale: 2, 
+          useCORS: true,
+          backgroundColor: '#ffffff'
+      });
       
       // Convert to Blob for Clipboard
       canvas.toBlob(async (blob) => {
@@ -447,7 +495,6 @@ export const sendImageInvoiceToWhatsapp = async (trx: Transaction) => {
 
           let isCopied = false;
           try {
-              // Try writing to clipboard (Requires HTTPS or Localhost)
               await navigator.clipboard.write([
                   new ClipboardItem({ 'image/png': blob })
               ]);
@@ -468,15 +515,15 @@ export const sendImageInvoiceToWhatsapp = async (trx: Transaction) => {
           let phone = trx.customerWhatsapp.replace(/\D/g, '');
           if (phone.startsWith('0')) phone = '62' + phone.slice(1);
           
-          const caption = `Halo Kak *${trx.customerName}*,\n\nTerlampir nota digital (gambar) untuk transaksi #${trx.id.slice(0,6)}.\n\nTotal: Rp${trx.totalPrice.toLocaleString('id-ID')}\nStatus: ${statusLabel}\n\nTerima kasih!`;
+          const caption = `Halo Kak *${trx.customerName}*,\n\nTerlampir nota digital resmi (gambar) untuk transaksi #${trx.id.slice(0,6)}.\n\nTotal: Rp${trx.totalPrice.toLocaleString('id-ID')}\nStatus: ${statusLabel}\n\nTerima kasih!`;
           
           window.open(`https://wa.me/${phone}?text=${encodeURIComponent(caption)}`, '_blank');
 
           // Notify User
           if (isCopied) {
-              alert("✅ Gambar Nota telah disalin ke Clipboard!\n\nWhatsApp akan terbuka, silakan tekan 'Ctrl + V' (Paste) di kolom chat.");
+              alert("✅ Gambar Nota (Format Cetak) telah disalin ke Clipboard!\n\nWhatsApp akan terbuka, silakan tekan 'Ctrl + V' (Paste) di kolom chat.");
           } else {
-              alert("⚠️ Gagal menyalin otomatis (Browser memblokir). Gambar telah didownload.\n\nSilakan lampirkan file gambar secara manual di WhatsApp.");
+              alert("⚠️ Gagal menyalin otomatis. Gambar telah didownload.\n\nSilakan lampirkan file gambar secara manual di WhatsApp.");
           }
 
           document.body.removeChild(container);
