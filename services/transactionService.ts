@@ -15,6 +15,7 @@ const mapDbToTransaction = (dbItem: any): Transaction => {
     customerCampus: dbItem.customer_campus || '-',
     customerLocation: dbItem.customer_location || undefined,
     customerIdentity: dbItem.customer_identity || undefined,
+    identityPhotoUrl: dbItem.identity_photo_url || undefined, // Mapped
     rentalDate: dbItem.rental_date,
     duration: dbItem.duration,
     totalPrice: dbItem.total_price,
@@ -49,6 +50,12 @@ export const calculateItemPriceForDuration = (item: any, days: number): number =
     return unitPrice;
 };
 
+export const recordPaymentLog = async (log: Partial<PaymentLog>): Promise<boolean> => {
+  if (!supabase) return false;
+  const { error } = await supabase.from('payment_logs').insert([log]);
+  return !error;
+};
+
 export const createTransaction = async (
   userDetails: UserDetails, 
   items: CartItem[], 
@@ -77,10 +84,24 @@ export const createTransaction = async (
   }
 
   const { data, error } = await supabase.from('transactions').insert([newTrx]).select().single();
+  
   if (error) {
     console.error('Create transaction error:', error);
     return null;
   }
+
+  // AUTO LOG TO FINANCE IF INITIAL PAID > 0
+  if (data && initialPaid && initialPaid > 0) {
+      await recordPaymentLog({
+          transaction_id: data.id,
+          amount: initialPaid,
+          payment_method: userDetails.paymentMethod || 'cash',
+          type: 'IN',
+          description: `Pembayaran Awal / DP Sewa atas nama ${userDetails.name}`,
+          category: 'Sewa'
+      });
+  }
+
   return mapDbToTransaction(data);
 };
 
@@ -145,8 +166,8 @@ export const deleteTransaction = async (id: string): Promise<boolean> => {
 export const uploadPaymentProof = async (transactionId: string, file: File): Promise<string | null> => {
   if (!supabase) return null;
   const fileExt = file.name.split('.').pop();
-  const fileName = `${transactionId}_${Date.now()}.${fileExt}`;
-  const filePath = `${fileName}`;
+  const fileName = `${transactionId}_proof_${Date.now()}.${fileExt}`;
+  const filePath = fileName;
 
   const { error: uploadError } = await supabase.storage.from('payment_proofs').upload(filePath, file);
   if (uploadError) {
@@ -157,6 +178,28 @@ export const uploadPaymentProof = async (transactionId: string, file: File): Pro
   const { data: { publicUrl } } = supabase.storage.from('payment_proofs').getPublicUrl(filePath);
   
   await supabase.from('transactions').update({ payment_proof_url: publicUrl }).eq('id', transactionId);
+  
+  return publicUrl;
+};
+
+// NEW: Upload Identity Proof (Foto KTP)
+export const uploadIdentityProof = async (transactionId: string, file: File): Promise<string | null> => {
+  if (!supabase) return null;
+  const fileExt = file.name.split('.').pop();
+  const fileName = `${transactionId}_identity_${Date.now()}.${fileExt}`;
+  const filePath = fileName;
+
+  // Use payment_proofs bucket or create a new 'identity_proofs' bucket if preferred. 
+  // Reusing payment_proofs for simplicity as per user request context.
+  const { error: uploadError } = await supabase.storage.from('payment_proofs').upload(filePath, file);
+  if (uploadError) {
+      console.error('Upload identity error:', uploadError);
+      return null;
+  }
+
+  const { data: { publicUrl } } = supabase.storage.from('payment_proofs').getPublicUrl(filePath);
+  
+  await supabase.from('transactions').update({ identity_photo_url: publicUrl }).eq('id', transactionId);
   
   return publicUrl;
 };
@@ -232,12 +275,6 @@ export const getPaymentLogs = async (startDate?: string, endDate?: string): Prom
   
   const { data, error } = await query;
   return { data: data || [], error };
-};
-
-export const recordPaymentLog = async (log: Partial<PaymentLog>): Promise<boolean> => {
-  if (!supabase) return false;
-  const { error } = await supabase.from('payment_logs').insert([log]);
-  return !error;
 };
 
 export const deletePaymentLog = async (id: string): Promise<boolean> => {

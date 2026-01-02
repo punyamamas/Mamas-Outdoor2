@@ -73,6 +73,7 @@ export interface Transaction {
   customerCampus: string; // Mapped from customer_campus
   customerLocation?: string; // New Field: Lokasi dari IP Geolocation
   customerIdentity?: string; // NEW: No KTP/KTM/SIM
+  identityPhotoUrl?: string; // NEW: Foto KTP/Jaminan
   rentalDate: string; // Mapped from rental_date
   duration: number;
   totalPrice: number; // Mapped from total_price (Rental + Fine)

@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { ClipboardList, Loader2, Calendar, Eye, Trash2, X, User, CreditCard, Banknote, ArrowRightLeft, Save, Calculator, CheckCircle, RotateCcw, Wallet, Edit, Plus, Minus, Search, ShoppingBag, Printer, Filter, DollarSign, Receipt, BarChart3, TrendingUp, Lightbulb, AlertTriangle, ArrowUpRight, Share2, Image as ImageIcon, CreditCard as CardIcon, ExternalLink, QrCode, FileText, Clock, ShieldCheck, ChevronDown, ChevronUp, Upload, LogIn, LogOut, FileCheck, PackagePlus, Camera, RefreshCw, MessageCircle, History, CreditCard as IdCard } from 'lucide-react';
 import { Transaction, Product, CartItem, UserDetails } from '../types';
-import { updateTransactionPayment, updateTransactionItems, updateTransactionDetails, printInvoice, applyTransactionFine, calculateOverdueFine, copyInvoiceToClipboard, uploadPaymentProof, createTransaction, calculateItemPriceForDuration } from '../services/transactionService';
+import { updateTransactionPayment, updateTransactionItems, updateTransactionDetails, printInvoice, applyTransactionFine, calculateOverdueFine, copyInvoiceToClipboard, uploadPaymentProof, createTransaction, calculateItemPriceForDuration, recordPaymentLog, uploadIdentityProof } from '../services/transactionService';
 import { processStockReduction, processStockRestoration } from '../services/productService';
 import QRScannerModal from './QRScannerModal'; 
 
@@ -32,7 +33,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
   const [editForm, setEditForm] = useState<{
     customerName: string;
     customerWhatsapp: string;
-    customerIdentity: string; // NEW FIELD
+    customerIdentity: string; 
     rentalDate: string;
     duration: number;
     fineAmount: number;
@@ -54,6 +55,14 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
   const [newTrxStatus, setNewTrxStatus] = useState('booked');
   const [newTrxPaid, setNewTrxPaid] = useState<number>(0);
   const [isCreating, setIsCreating] = useState(false);
+
+  // Payment Recording State
+  const [newPaymentAmount, setNewPaymentAmount] = useState<number>(0);
+  const [newPaymentMethod, setNewPaymentMethod] = useState<'cash' | 'transfer'>('cash');
+  const [isRecordingPayment, setIsRecordingPayment] = useState(false);
+
+  // Identity Photo State
+  const [isUploadingIdentity, setIsUploadingIdentity] = useState(false);
 
   // --- CUSTOMER AUTOCOMPLETE LOGIC ---
   const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false);
@@ -115,12 +124,13 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
     setEditForm({
         customerName: trx.customerName,
         customerWhatsapp: trx.customerWhatsapp,
-        customerIdentity: trx.customerIdentity || '', // Load Identity
+        customerIdentity: trx.customerIdentity || '', 
         rentalDate: trx.rentalDate.split('T')[0],
         duration: trx.duration,
         fineAmount: trx.fineAmount || 0,
         items: JSON.parse(JSON.stringify(trx.items)) 
     });
+    setNewPaymentAmount(0); // Reset Payment Input
     setIsEditModalOpen(true);
   };
 
@@ -161,12 +171,37 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
     }
   };
 
-  const handlePaymentUpdate = async (amount: number) => {
-    if (!selectedTransaction) return;
-    const success = await updateTransactionPayment(selectedTransaction.id, amount);
-    if (success) {
-      setSelectedTransaction({ ...selectedTransaction, amountPaid: amount });
-      onRefreshData();
+  // FITUR: TAMBAH PEMBAYARAN + CATAT KE KEUANGAN OTOMATIS
+  const handleAddPayment = async () => {
+    if (!selectedTransaction || newPaymentAmount <= 0) return;
+    setIsRecordingPayment(true);
+
+    try {
+        // 1. Update Transaction Paid Amount
+        const currentPaid = selectedTransaction.amountPaid || 0;
+        const updatedPaid = currentPaid + newPaymentAmount;
+        await updateTransactionPayment(selectedTransaction.id, updatedPaid);
+
+        // 2. Auto Record to Payment Log
+        await recordPaymentLog({
+            transaction_id: selectedTransaction.id,
+            amount: newPaymentAmount,
+            payment_method: newPaymentMethod,
+            type: 'IN',
+            description: `Pelunasan/Cicilan Sewa #${selectedTransaction.id.slice(0,6)}`,
+            category: 'Sewa'
+        });
+
+        // 3. Update Local State
+        setSelectedTransaction({ ...selectedTransaction, amountPaid: updatedPaid });
+        setNewPaymentAmount(0);
+        await onRefreshData();
+        alert(`Berhasil mencatat pembayaran Rp${newPaymentAmount.toLocaleString('id-ID')}`);
+    } catch (e) {
+        console.error("Payment Error", e);
+        alert("Gagal mencatat pembayaran.");
+    } finally {
+        setIsRecordingPayment(false);
     }
   };
 
@@ -262,6 +297,19 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
     }
   };
 
+  // NEW: UPLOAD IDENTITY PHOTO
+  const handleUploadIdentity = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!selectedTransaction || !e.target.files || e.target.files.length === 0) return;
+    const file = e.target.files[0];
+    setIsUploadingIdentity(true);
+    const url = await uploadIdentityProof(selectedTransaction.id, file);
+    if (url) {
+        setSelectedTransaction({ ...selectedTransaction, identityPhotoUrl: url });
+        await onRefreshData(); // Sync DB
+    }
+    setIsUploadingIdentity(false);
+  };
+
   const handleScanSuccess = (decodedText: string) => {
       setIsScannerOpen(false);
       const found = transactions.find(t => t.id === decodedText || t.id.includes(decodedText));
@@ -310,6 +358,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
     setIsCreating(true);
     const total = calculateNewTrxTotal();
     
+    // NOTE: createTransaction now handles auto-logging to payment_logs if initialPaid > 0
     const newTrx = await createTransaction(
         newTrxDetails, 
         newTrxItems, 
@@ -629,17 +678,38 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                         <>
                             <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 flex justify-between items-center shadow-sm">
                                 <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-white rounded-lg text-blue-600"><IdCard size={20}/></div>
+                                    <div className="relative group/id">
+                                        <div className="p-2 bg-white rounded-lg text-blue-600 overflow-hidden w-12 h-12 flex items-center justify-center border border-blue-200 cursor-pointer">
+                                            {selectedTransaction.identityPhotoUrl ? (
+                                                <img src={selectedTransaction.identityPhotoUrl} className="w-full h-full object-cover" alt="ID"/>
+                                            ) : (
+                                                <IdCard size={20}/>
+                                            )}
+                                        </div>
+                                        {/* Hover View Image */}
+                                        {selectedTransaction.identityPhotoUrl && (
+                                            <div className="absolute hidden group-hover/id:block top-full left-0 mt-2 z-50 p-1 bg-white border shadow-lg rounded-lg w-48">
+                                                <img src={selectedTransaction.identityPhotoUrl} className="w-full h-auto rounded" alt="ID Full"/>
+                                            </div>
+                                        )}
+                                    </div>
                                     <div>
                                         <p className="text-[10px] text-blue-600 uppercase font-bold tracking-wider">Jaminan / Identitas</p>
                                         <p className="text-sm font-bold text-blue-900">{selectedTransaction.customerIdentity || 'Belum dicatat'}</p>
                                     </div>
                                 </div>
-                                {!selectedTransaction.customerIdentity && (
-                                    <button onClick={() => setIsEditingData(true)} className="text-xs text-blue-600 underline hover:text-blue-800">
-                                        + Tambah
-                                    </button>
-                                )}
+                                <div className="flex items-center gap-2">
+                                    <label className="cursor-pointer text-xs text-white bg-blue-600 px-3 py-1.5 rounded-lg hover:bg-blue-700 flex items-center gap-1 shadow-sm">
+                                        {isUploadingIdentity ? <Loader2 size={12} className="animate-spin"/> : <Camera size={12}/>}
+                                        {selectedTransaction.identityPhotoUrl ? 'Ganti Foto' : 'Upload KTP'}
+                                        <input type="file" className="hidden" accept="image/*" onChange={handleUploadIdentity} disabled={isUploadingIdentity}/>
+                                    </label>
+                                    {!selectedTransaction.customerIdentity && (
+                                        <button onClick={() => setIsEditingData(true)} className="text-xs text-blue-600 underline hover:text-blue-800">
+                                            + Tulis No.
+                                        </button>
+                                    )}
+                                </div>
                             </div>
 
                             <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
@@ -676,6 +746,10 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                               <span className="text-gray-600">Sudah Bayar</span>
                               <span className="font-bold text-green-600">Rp{selectedTransaction.amountPaid.toLocaleString('id-ID')}</span>
                            </div>
+                           <div className="flex justify-between text-sm pt-2 border-t border-gray-100">
+                              <span className="text-gray-600">Sisa / Kurang</span>
+                              <span className="font-bold text-red-500">Rp{Math.max(0, selectedTransaction.totalPrice - selectedTransaction.amountPaid).toLocaleString('id-ID')}</span>
+                           </div>
                            
                            {(selectedTransaction.fineAmount || 0) > 0 && !isEditingData && (
                                <div className="flex justify-between text-sm bg-red-50 p-2 rounded text-red-700 border border-red-100">
@@ -684,20 +758,39 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                                </div>
                            )}
 
+                           {/* MANUAL PAYMENT ENTRY (AUTO LOG FINANCE) */}
                            <div className="pt-3 border-t border-gray-100">
-                              <label className="text-xs font-bold text-gray-500 mb-1 block">Update Nominal Bayar</label>
-                              <div className="flex gap-2">
-                                 <input 
-                                   type="number" 
-                                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
-                                   defaultValue={selectedTransaction.amountPaid}
-                                   onBlur={(e) => handlePaymentUpdate(Number(e.target.value))}
-                                 />
+                              <label className="text-xs font-bold text-gray-500 mb-2 block">Catat Pelunasan / Pembayaran</label>
+                              <div className="flex flex-col gap-2 bg-gray-50 p-2 rounded-lg border border-gray-100">
+                                 <div className="flex gap-2">
+                                    <input 
+                                        type="number" 
+                                        placeholder="Nominal..."
+                                        className="flex-1 border border-gray-200 rounded px-2 py-1 text-sm font-bold"
+                                        value={newPaymentAmount || ''}
+                                        onChange={(e) => setNewPaymentAmount(Number(e.target.value))}
+                                    />
+                                    <select 
+                                        className="border border-gray-200 rounded px-2 py-1 text-xs"
+                                        value={newPaymentMethod}
+                                        onChange={(e) => setNewPaymentMethod(e.target.value as any)}
+                                    >
+                                        <option value="cash">Cash</option>
+                                        <option value="transfer">TF</option>
+                                    </select>
+                                 </div>
+                                 <button 
+                                    onClick={handleAddPayment}
+                                    disabled={!newPaymentAmount || isRecordingPayment}
+                                    className="w-full bg-green-600 text-white text-xs font-bold py-2 rounded hover:bg-green-700 transition flex items-center justify-center gap-1"
+                                 >
+                                    {isRecordingPayment ? <Loader2 size={12} className="animate-spin"/> : <Save size={12}/>} Simpan & Catat Keuangan
+                                 </button>
                               </div>
                            </div>
 
                            <div className="pt-3 border-t border-gray-100">
-                              <label className="text-xs font-bold text-gray-500 mb-2 block">Bukti Transfer</label>
+                              <label className="text-xs font-bold text-gray-500 mb-2 block">Bukti Transfer (User)</label>
                               {selectedTransaction.paymentProofUrl ? (
                                  <div className="relative group">
                                     <img src={selectedTransaction.paymentProofUrl} alt="Bukti" className="w-full h-32 object-cover rounded-lg border border-gray-200" />
@@ -810,6 +903,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                                    <span className="absolute left-3 top-2 text-gray-400 text-sm">Rp</span>
                                    <input type="number" className="w-full border rounded p-2 pl-8 text-sm font-bold" value={newTrxPaid} onChange={e => setNewTrxPaid(parseInt(e.target.value)||0)} />
                                 </div>
+                                <p className="text-[10px] text-green-600 mt-1 italic font-medium">*Otomatis masuk Laporan Keuangan</p>
                              </div>
                           </div>
                        </div>
