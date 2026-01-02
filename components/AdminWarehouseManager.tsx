@@ -1,8 +1,9 @@
 
 import React, { useState } from 'react';
-import { Search, PlusCircle, MinusCircle, HeartCrack, Hammer, ArrowRightLeft, FileText, X, Save, AlertCircle, Package, Loader2, Printer, Camera } from 'lucide-react';
-import { Product, Category } from '../types';
+import { Search, PlusCircle, MinusCircle, HeartCrack, Hammer, ArrowRightLeft, FileText, X, Save, AlertCircle, Package, Loader2, Printer, Camera, History, ArrowRight } from 'lucide-react';
+import { Product, Category, StockLog } from '../types';
 import { getStoreConfig } from '../utils/storeConfig';
+import { logStockMutation, getStockLogs } from '../services/productService';
 import QRScannerModal from './QRScannerModal';
 
 interface AdminWarehouseManagerProps {
@@ -24,7 +25,13 @@ const AdminWarehouseManager: React.FC<AdminWarehouseManagerProps> = ({ products,
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [variantKey, setVariantKey] = useState('');
   const [qty, setQty] = useState(1);
+  const [actionNote, setActionNote] = useState(''); // NEW: Reason Note
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // History Modal State
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [stockLogs, setStockLogs] = useState<StockLog[]>([]);
+  const [isLoadingLogs, setIsLoadingLogs] = useState(false);
 
   // Scanner State
   const [isScannerOpen, setIsScannerOpen] = useState(false);
@@ -41,8 +48,17 @@ const AdminWarehouseManager: React.FC<AdminWarehouseManagerProps> = ({ products,
   });
 
   const handleScanSuccess = (decodedText: string) => {
-      setSearchTerm(decodedText); // Isi search bar dengan hasil scan
-      setIsScannerOpen(false); // Tutup kamera
+      setSearchTerm(decodedText); 
+      setIsScannerOpen(false); 
+  };
+
+  const handleViewHistory = async (product: Product) => {
+      setSelectedProduct(product);
+      setIsHistoryOpen(true);
+      setIsLoadingLogs(true);
+      const logs = await getStockLogs(product.id);
+      setStockLogs(logs);
+      setIsLoadingLogs(false);
   };
 
   const handlePrintStockOpname = () => {
@@ -64,7 +80,6 @@ const AdminWarehouseManager: React.FC<AdminWarehouseManagerProps> = ({ products,
     Object.keys(grouped).sort().forEach(cat => {
         tableContent += `<tr><td colspan="6" style="background:#eee; font-weight:bold; padding:5px;">KATEGORI: ${cat.toUpperCase()}</td></tr>`;
         grouped[cat].forEach((p, idx) => {
-            // Cek varian untuk detail
             let variantInfo = '';
             if (p.variants && p.variants.length > 0) {
                 variantInfo = '<br/><span style="font-size:10px; color:#666;">' + 
@@ -146,7 +161,8 @@ const AdminWarehouseManager: React.FC<AdminWarehouseManagerProps> = ({ products,
     setSelectedProduct(product);
     setActionType(type);
     setQty(1);
-    setVariantKey(''); // Reset variant choice
+    setVariantKey(''); 
+    setActionNote(''); // Reset Note
     setIsModalOpen(true);
   };
 
@@ -172,11 +188,9 @@ const AdminWarehouseManager: React.FC<AdminWarehouseManagerProps> = ({ products,
     }
   };
 
-  // Logic Validasi Stok Maksimal berdasarkan Action
   const getMaxQty = () => {
     if (!selectedProduct) return 9999;
     
-    // Helper untuk ambil stok varian spesifik atau global
     const getVariantStock = (key: 'stock' | 'rented' | 'damaged') => {
         if (variantKey) {
             if (selectedProduct.variants && selectedProduct.variants.length > 0) {
@@ -191,16 +205,13 @@ const AdminWarehouseManager: React.FC<AdminWarehouseManagerProps> = ({ products,
     };
 
     switch(actionType) {
-        case 'manual_rent': // Mengurangi Stock
-        case 'damage':      // Mengurangi Stock
+        case 'manual_rent': 
+        case 'damage':      
             return getVariantStock('stock');
-        
-        case 'return':      // Mengurangi Rented
-            return selectedProduct.rented || 0; // Global limit
-            
-        case 'repair':      // Mengurangi Damaged
-            return selectedProduct.damaged || 0; // Global limit
-            
+        case 'return':      
+            return selectedProduct.rented || 0; 
+        case 'repair':      
+            return selectedProduct.damaged || 0; 
         case 'restock': 
         default: 
             return 9999;
@@ -214,6 +225,7 @@ const AdminWarehouseManager: React.FC<AdminWarehouseManagerProps> = ({ products,
     setIsSubmitting(true);
     const updatedProduct = { ...selectedProduct };
     const isVariant = (updatedProduct.variants && updatedProduct.variants.length > 0) || (updatedProduct.sizes && Object.keys(updatedProduct.sizes).length > 0);
+    const prevStock = updatedProduct.stock;
 
     // 1. Update Global Counters
     if (actionType === 'restock') {
@@ -241,7 +253,6 @@ const AdminWarehouseManager: React.FC<AdminWarehouseManagerProps> = ({ products,
             
             if (idx !== -1) {
                 let vStock = vars[idx].stock;
-                // Logic perubahan stok varian
                 if (['restock', 'return', 'repair'].includes(actionType)) {
                     vStock += qty;
                 } else {
@@ -263,6 +274,17 @@ const AdminWarehouseManager: React.FC<AdminWarehouseManagerProps> = ({ products,
             updatedProduct.sizes = sz;
         }
     }
+
+    // 3. LOGGING (Kartu Stok)
+    await logStockMutation({
+       product_id: updatedProduct.id,
+       product_name: updatedProduct.name + (variantKey ? ` (${variantKey})` : ''),
+       type: actionType === 'restock' || actionType === 'return' || actionType === 'repair' ? 'IN' : 'OUT',
+       qty: qty,
+       previous_stock: prevStock,
+       current_stock: updatedProduct.stock,
+       reason: `Manual Action: ${actionType.toUpperCase()}${actionNote ? ' - ' + actionNote : ''}`
+    });
 
     await onUpdateProduct(updatedProduct);
     setIsSubmitting(false);
@@ -343,7 +365,16 @@ const AdminWarehouseManager: React.FC<AdminWarehouseManagerProps> = ({ products,
                 return (
                     <tr key={p.id} className="hover:bg-gray-50 transition group">
                     <td className="px-6 py-4">
-                        <div className="font-bold text-gray-800">{p.name}</div>
+                        <div className="font-bold text-gray-800 flex items-center gap-2">
+                            {p.name}
+                            <button 
+                                onClick={() => handleViewHistory(p)}
+                                className="text-gray-400 hover:text-nature-600 p-1 rounded-full hover:bg-nature-50 transition"
+                                title="Lihat Kartu Stok"
+                            >
+                                <History size={14}/>
+                            </button>
+                        </div>
                         {isComplex && (
                             <div className="flex flex-wrap gap-1 mt-1">
                                 {p.variants?.map((v, i) => (
@@ -437,7 +468,7 @@ const AdminWarehouseManager: React.FC<AdminWarehouseManagerProps> = ({ products,
                  )}
 
                  {/* Quantity Input */}
-                 <div className="mb-6">
+                 <div className="mb-4">
                     <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Jumlah Unit</label>
                     <div className="flex items-center gap-3">
                         <button type="button" onClick={() => setQty(Math.max(1, qty-1))} className="p-3 bg-gray-100 rounded-xl hover:bg-gray-200"><MinusCircle size={20}/></button>
@@ -458,6 +489,17 @@ const AdminWarehouseManager: React.FC<AdminWarehouseManagerProps> = ({ products,
                     )}
                  </div>
 
+                 <div className="mb-6">
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Catatan (Optional)</label>
+                    <input 
+                        type="text"
+                        placeholder="Contoh: Beli di Toko X, Rusak Frame, dll"
+                        className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-nature-500 outline-none"
+                        value={actionNote}
+                        onChange={(e) => setActionNote(e.target.value)}
+                    />
+                 </div>
+
                  {/* Action Buttons */}
                  <div className="flex gap-3 pt-4 border-t border-gray-100">
                     <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 font-bold text-gray-500 hover:bg-gray-50 rounded-xl transition">
@@ -475,6 +517,74 @@ const AdminWarehouseManager: React.FC<AdminWarehouseManagerProps> = ({ products,
               </form>
            </div>
         </div>
+      )}
+
+      {/* STOCK HISTORY MODAL */}
+      {isHistoryOpen && selectedProduct && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsHistoryOpen(false)}></div>
+             <div className="relative bg-white rounded-2xl w-full max-w-2xl h-[80vh] flex flex-col shadow-2xl overflow-hidden animate-slide-in-right">
+                <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                   <div>
+                      <h3 className="font-bold text-lg text-gray-800 flex items-center gap-2">
+                         <History size={20} className="text-nature-600"/> Kartu Stok
+                      </h3>
+                      <p className="text-sm font-bold text-gray-600">{selectedProduct.name}</p>
+                   </div>
+                   <button onClick={() => setIsHistoryOpen(false)} className="p-2 hover:bg-gray-200 rounded-full"><X size={20}/></button>
+                </div>
+                
+                <div className="flex-1 overflow-y-auto p-0">
+                   {isLoadingLogs ? (
+                      <div className="flex justify-center items-center h-40">
+                         <Loader2 className="animate-spin text-nature-600" size={32}/>
+                      </div>
+                   ) : stockLogs.length === 0 ? (
+                      <div className="p-10 text-center text-gray-400 italic">Belum ada riwayat mutasi stok.</div>
+                   ) : (
+                      <table className="w-full text-sm text-left">
+                         <thead className="bg-gray-100 text-gray-600 font-bold text-xs sticky top-0">
+                            <tr>
+                               <th className="px-6 py-3">Tanggal</th>
+                               <th className="px-6 py-3">Tipe</th>
+                               <th className="px-6 py-3">Ket</th>
+                               <th className="px-6 py-3 text-right">Jumlah</th>
+                               <th className="px-6 py-3 text-right">Saldo Akhir</th>
+                            </tr>
+                         </thead>
+                         <tbody className="divide-y divide-gray-100">
+                            {stockLogs.map((log) => (
+                               <tr key={log.id} className="hover:bg-gray-50">
+                                  <td className="px-6 py-3 text-xs text-gray-500 font-mono">
+                                     {new Date(log.created_at).toLocaleString('id-ID')}
+                                  </td>
+                                  <td className="px-6 py-3">
+                                     <span className={`text-[10px] font-bold px-2 py-1 rounded border ${
+                                        log.type === 'IN' ? 'bg-green-50 text-green-700 border-green-200' :
+                                        log.type === 'OUT' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                        log.type === 'DAMAGE' ? 'bg-red-50 text-red-700 border-red-200' :
+                                        'bg-gray-100 text-gray-700'
+                                     }`}>
+                                        {log.type}
+                                     </span>
+                                  </td>
+                                  <td className="px-6 py-3 text-gray-700 max-w-xs truncate" title={log.reason}>
+                                     {log.reason}
+                                  </td>
+                                  <td className={`px-6 py-3 text-right font-bold ${log.type === 'IN' ? 'text-green-600' : 'text-red-500'}`}>
+                                     {log.type === 'IN' ? '+' : '-'}{log.qty}
+                                  </td>
+                                  <td className="px-6 py-3 text-right font-mono font-bold text-gray-800">
+                                     {log.current_stock}
+                                  </td>
+                               </tr>
+                            ))}
+                         </tbody>
+                      </table>
+                   )}
+                </div>
+             </div>
+          </div>
       )}
     </div>
   );

@@ -1,7 +1,7 @@
 
 import { supabase } from './supabase';
 import { PRODUCTS } from '../constants';
-import { Product, CartItem, ProductVariant } from '../types';
+import { Product, CartItem, ProductVariant, StockLog } from '../types';
 
 export const getProducts = async (): Promise<Product[]> => {
   // Jika Supabase belum dikonfigurasi, gunakan data mock
@@ -129,6 +129,17 @@ export const addProduct = async (product: Product): Promise<Product | null> => {
     return null;
   }
 
+  // Initial Stock Log
+  await logStockMutation({
+    product_id: data.id,
+    product_name: data.name,
+    type: 'IN',
+    qty: data.stock,
+    previous_stock: 0,
+    current_stock: data.stock,
+    reason: 'Initial Stock (New Product)'
+  });
+
   return {
     ...data,
     isSale: data.is_sale,
@@ -197,6 +208,41 @@ export const deleteProduct = async (id: string): Promise<boolean> => {
   return true;
 };
 
+// --- STOCK LOGGING SYSTEM ---
+
+export const logStockMutation = async (log: Omit<StockLog, 'id' | 'created_at'>): Promise<boolean> => {
+  if (!supabase) return false;
+  
+  try {
+    const { error } = await supabase.from('stock_logs').insert([log]);
+    if (error) {
+      console.warn("Failed to log stock mutation:", error.message);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    return false;
+  }
+};
+
+export const getStockLogs = async (productId: string): Promise<StockLog[]> => {
+  if (!supabase) return [];
+  
+  try {
+    const { data, error } = await supabase
+      .from('stock_logs')
+      .select('*')
+      .eq('product_id', productId)
+      .order('created_at', { ascending: false })
+      .limit(50); // Limit to last 50 entries per product
+
+    if (error) return [];
+    return data as StockLog[];
+  } catch (e) {
+    return [];
+  }
+};
+
 // --- FUNGSI PENGURANGAN STOK SAAT CHECKOUT ---
 
 export const processStockReduction = async (cartItems: CartItem[]): Promise<boolean> => {
@@ -209,7 +255,7 @@ export const processStockReduction = async (cartItems: CartItem[]): Promise<bool
     // 1. Ambil data produk terbaru dari DB untuk menghindari race condition
     const { data: allProducts, error } = await supabase
       .from('products')
-      .select('id, stock, rented, package_items, sizes, variants, is_sale');
+      .select('id, name, stock, rented, package_items, sizes, variants, is_sale');
 
     if (error) {
        console.error("Database Error (Fetch Stock):", error.message);
@@ -247,12 +293,20 @@ export const processStockReduction = async (cartItems: CartItem[]): Promise<bool
         rented: newRented
       }).eq('id', item.id);
 
-      if (updateError) {
-        console.error(`Gagal update stok produk ${item.name}:`, updateError.message);
+      if (!updateError) {
+         // LOG STOCK MOVEMENT (Automatic)
+         await logStockMutation({
+            product_id: item.id,
+            product_name: item.name,
+            type: 'OUT',
+            qty: quantityToTake,
+            previous_stock: currentStock,
+            current_stock: newStock,
+            reason: isSaleItem ? 'Terjual Online' : 'Sewa Online (Checkout)'
+         });
       }
 
-      // Handle Sub-item jika ini adalah Paket (Hanya berlaku jika Paket Sewa)
-      // Asumsi: Paket Jual (Hampers) mengurangi stok komponen secara permanen juga
+      // Handle Sub-item jika ini adalah Paket
       if (dbProduct.package_items && Array.isArray(dbProduct.package_items)) {
         for (const subItem of dbProduct.package_items) {
           const childProduct = productMap.get(subItem.productId);
@@ -263,14 +317,23 @@ export const processStockReduction = async (cartItems: CartItem[]): Promise<bool
             const childCurrentRented = Number(childProduct.rented) || 0;
             
             const newChildStock = Math.max(0, childCurrentStock - deductionAmount);
-            // Logika sama: Jika Induk dijual, anak dianggap terjual (rented tetap)
-            // Jika Induk disewa, anak dianggap disewa (rented tambah)
             const newChildRented = isSaleItem ? childCurrentRented : (childCurrentRented + deductionAmount);
             
             await supabase.from('products').update({ 
               stock: newChildStock,
               rented: newChildRented
             }).eq('id', subItem.productId);
+            
+            // Log Child Movement
+            await logStockMutation({
+                product_id: subItem.productId,
+                product_name: childProduct.name + ' (In Packet)',
+                type: 'OUT',
+                qty: deductionAmount,
+                previous_stock: childCurrentStock,
+                current_stock: newChildStock,
+                reason: `Paket ${item.name} Tersewa`
+             });
           }
         }
       }
@@ -312,7 +375,7 @@ export const processStockRestoration = async (cartItems: CartItem[]): Promise<bo
   try {
     const { data: allProducts, error } = await supabase
       .from('products')
-      .select('id, stock, rented, package_items, sizes, variants, is_sale');
+      .select('id, name, stock, rented, package_items, sizes, variants, is_sale');
 
     if (error) return false;
     if (!allProducts) return true;
@@ -333,10 +396,22 @@ export const processStockRestoration = async (cartItems: CartItem[]): Promise<bo
           const newStock = currentStock + quantityToRestore;
           const newRented = Math.max(0, currentRented - quantityToRestore);
 
-          await supabase.from('products').update({ 
+          const {error: err} = await supabase.from('products').update({ 
             stock: newStock,
             rented: newRented
           }).eq('id', item.id);
+          
+          if(!err) {
+             await logStockMutation({
+                product_id: item.id,
+                product_name: item.name,
+                type: 'IN',
+                qty: quantityToRestore,
+                previous_stock: currentStock,
+                current_stock: newStock,
+                reason: 'Sewa Selesai / Batal'
+             });
+          }
       }
 
       // Restore Paket
@@ -353,6 +428,16 @@ export const processStockRestoration = async (cartItems: CartItem[]): Promise<bo
                   stock: childStock + restoreAmount,
                   rented: Math.max(0, childRented - restoreAmount)
                 }).eq('id', subItem.productId);
+                
+                await logStockMutation({
+                    product_id: subItem.productId,
+                    product_name: childProduct.name,
+                    type: 'IN',
+                    qty: restoreAmount,
+                    previous_stock: childStock,
+                    current_stock: childStock + restoreAmount,
+                    reason: `Paket ${item.name} Kembali`
+                 });
             }
           }
         }

@@ -111,6 +111,20 @@ export interface PaymentLog {
   category?: string; // Operasional, Sewa, Lain-lain
 }
 
+// NEW: Interface Stock Mutation Log (Kartu Stok)
+export interface StockLog {
+  id: string;
+  created_at: string;
+  product_id: string;
+  product_name: string;
+  type: 'IN' | 'OUT' | 'ADJUSTMENT' | 'DAMAGE' | 'REPAIR';
+  qty: number;
+  previous_stock: number;
+  current_stock: number;
+  reason: string; // e.g., "Restock Supplier", "Barang Hilang", "Sewa #TRX123"
+  actor?: string; // Siapa yang mengubah (Admin email)
+}
+
 export enum GeminiModel {
   FLASH = 'gemini-3-flash-preview',
 }

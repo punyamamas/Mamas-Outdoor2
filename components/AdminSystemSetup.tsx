@@ -29,25 +29,24 @@ const AdminSystemSetup: React.FC = () => {
     setTimeout(() => setCopiedSection(null), 2000);
   };
 
-  // SQL KHUSUS FIX REVIEW
-  const fixReviewSQL = `-- FIX: Pastikan Publik bisa membaca Transaksi untuk memfilter Review
--- Jalankan ini jika Review tidak muncul di detail produk
+  // SQL Stock Logs
+  const stockLogSQL = `-- BAGIAN 4: Stock Logs (Kartu Stok)
+create table if not exists public.stock_logs (
+  id uuid default gen_random_uuid() primary key,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  product_id text,
+  product_name text,
+  type text, -- 'IN', 'OUT', 'DAMAGE', 'REPAIR'
+  qty numeric,
+  previous_stock numeric,
+  current_stock numeric,
+  reason text,
+  actor text
+);
 
--- 1. Reset Policy Transaksi
-alter table public.transactions enable row level security;
-drop policy if exists "Enable all access transactions" on public.transactions;
-drop policy if exists "Public Read Transactions" on public.transactions;
-
--- 2. Buat Policy Baru (Buka Akses Baca/Tulis untuk Semua)
-create policy "Enable all access transactions" on public.transactions 
-for all using (true) with check (true);
-
--- 3. Reset Policy Reviews
-alter table public.reviews enable row level security;
-drop policy if exists "Enable all access reviews" on public.reviews;
-
-create policy "Enable all access reviews" on public.reviews 
-for all using (true) with check (true);`;
+alter table public.stock_logs enable row level security;
+drop policy if exists "Enable all access stock_logs" on public.stock_logs;
+create policy "Enable all access stock_logs" on public.stock_logs for all using (true) with check (true);`;
 
   // BAGIAN 1: TABEL UTAMA
   const coreSQL = `-- BAGIAN 1: Core Tables & Policies
@@ -67,6 +66,7 @@ create table if not exists public.transactions (
   amount_paid numeric default 0,
   payment_method text,
   payment_proof_url text,
+  identity_photo_url text,
   status text default 'pending'
 );
 
@@ -286,41 +286,14 @@ create policy "Public Insert" on storage.objects for insert with check (
       {activeSubTab === 'database' && (
         <div className="space-y-8 animate-slide-in-right">
           
-          {/* ALERT BOX KHUSUS FIX REVIEW */}
-          <div className="bg-yellow-50 border-l-4 border-yellow-500 p-6 rounded-r-xl shadow-sm">
-             <div className="flex items-start gap-4">
-                <div className="p-3 bg-yellow-100 text-yellow-700 rounded-full">
-                   <RefreshCw size={24} />
-                </div>
-                <div className="flex-1">
-                   <h3 className="text-lg font-bold text-yellow-800">Review Tidak Muncul?</h3>
-                   <p className="text-sm text-yellow-700 mt-1 mb-3">
-                      Jika ulasan pelanggan tidak tampil di produk, kemungkinan besar akses database (RLS) ke tabel Transaksi masih tertutup. Jalankan script perbaikan ini:
-                   </p>
-                   <div className="relative group">
-                      <pre className="bg-yellow-900/10 text-yellow-900 p-3 rounded-lg text-xs font-mono overflow-x-auto border border-yellow-200">
-                         {fixReviewSQL}
-                      </pre>
-                      <button 
-                         onClick={() => copyToClipboard(fixReviewSQL, 'fix')}
-                         className="absolute top-2 right-2 p-2 bg-white hover:bg-yellow-100 rounded text-yellow-700 transition flex items-center gap-2 text-xs font-bold border border-yellow-200"
-                      >
-                         {copiedSection === 'fix' ? <Check size={14}/> : <Copy size={14}/>} 
-                         {copiedSection === 'fix' ? 'Disalin!' : 'Copy Fix SQL'}
-                      </button>
-                   </div>
-                </div>
-             </div>
-          </div>
-
           <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6 flex gap-4 items-start">
              <div className="p-3 bg-blue-100 text-blue-600 rounded-xl">
                 <Terminal size={24} />
              </div>
              <div>
-                <h3 className="text-lg font-bold text-blue-900">Setup Database Awal (Full)</h3>
+                <h3 className="text-lg font-bold text-blue-900">Setup Database</h3>
                 <p className="text-sm text-blue-700 mt-1 leading-relaxed">
-                   Jalankan script di bawah ini berurutan jika Anda baru pertama kali setup database.
+                   Jalankan script di bawah ini berurutan di Supabase SQL Editor.
                 </p>
              </div>
           </div>
@@ -372,11 +345,35 @@ create policy "Public Insert" on storage.objects for insert with check (
                 </div>
              </div>
 
-             {/* STEP 3: STORAGE */}
+             {/* STEP 3: STOCK LOGS (NEW) */}
+             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden border-l-4 border-l-green-500">
+                <div className="px-6 py-4 bg-gray-50 border-b border-gray-100">
+                   <h4 className="font-bold text-gray-800 flex items-center gap-2">
+                      <RefreshCw size={18} className="text-green-600"/> Bagian 3: Kartu Stok (Stock Logs)
+                   </h4>
+                   <p className="text-xs text-gray-500 mt-1">Jalankan ini agar fitur riwayat stok berfungsi.</p>
+                </div>
+                <div className="p-6">
+                   <div className="relative group">
+                      <pre className="bg-gray-900 text-gray-100 p-4 rounded-xl text-xs font-mono overflow-x-auto whitespace-pre-wrap border border-gray-700 max-h-64">
+                         {stockLogSQL}
+                      </pre>
+                      <button 
+                         onClick={() => copyToClipboard(stockLogSQL, 'stock')}
+                         className="absolute top-2 right-2 p-2 bg-white/10 hover:bg-white/20 rounded-lg text-white transition flex items-center gap-2 text-xs font-bold backdrop-blur-sm"
+                      >
+                         {copiedSection === 'stock' ? <Check size={14}/> : <Copy size={14}/>} 
+                         {copiedSection === 'stock' ? 'Disalin!' : 'Copy SQL'}
+                      </button>
+                   </div>
+                </div>
+             </div>
+
+             {/* STEP 4: STORAGE */}
              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
                 <div className="px-6 py-4 bg-gray-50 border-b border-gray-100">
                    <h4 className="font-bold text-gray-800 flex items-center gap-2">
-                      <HardDrive size={18} className="text-orange-600"/> Bagian 3: Storage (Produk & Bukti)
+                      <HardDrive size={18} className="text-orange-600"/> Bagian 4: Storage
                    </h4>
                 </div>
                 <div className="p-6">

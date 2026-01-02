@@ -3,12 +3,7 @@ import { supabase } from './supabase';
 
 export const signIn = async (email: string, password: string) => {
   if (!supabase) {
-    // Fallback JIKA Supabase belum dikonfigurasi sama sekali (Dev Mode Only)
-    // Hapus blok ini di production untuk keamanan maksimal
-    if (email === 'admin@demo.com' && password === 'admin123') {
-        return { data: { user: { email } }, error: null };
-    }
-    return { data: null, error: { message: "Koneksi Supabase tidak ditemukan." } };
+    return { data: null, error: { message: "Koneksi Supabase tidak ditemukan. Pastikan Environment Variable sudah diset." } };
   }
   
   const { data, error } = await supabase.auth.signInWithPassword({
