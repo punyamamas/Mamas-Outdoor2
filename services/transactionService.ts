@@ -368,9 +368,9 @@ export const sendImageInvoiceToWhatsapp = async (trx: Transaction) => {
   const logoUrl = "https://imgur.com/iC8ycHT.png";
   const fmt = (val: number) => val.toLocaleString('id-ID');
 
-  // Create hidden container matching Print Styles
+  // Create hidden container matching Print Styles (Thermal 80mm mimic)
   const container = document.createElement('div');
-  container.style.width = '350px'; // Simulating ~80mm width
+  container.style.width = '350px'; // Approx 80mm with padding
   container.style.padding = '15px';
   container.style.backgroundColor = 'white';
   container.style.color = 'black';
@@ -416,6 +416,7 @@ export const sendImageInvoiceToWhatsapp = async (trx: Transaction) => {
     </div>
   ` : '';
 
+  // HTML Structure Identical to printInvoice
   container.innerHTML = `
     <style>
       @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700;900&display=swap');
@@ -471,36 +472,36 @@ export const sendImageInvoiceToWhatsapp = async (trx: Transaction) => {
 
   document.body.appendChild(container);
 
-  // Helper to load image
+  // Helper to ensure image loads
   const waitForImage = (src: string) => new Promise<void>((resolve) => {
       const img = new Image();
       img.onload = () => resolve();
-      img.onerror = () => resolve(); // Proceed even if error
+      img.onerror = () => resolve(); 
       img.src = src;
   });
 
   try {
-      // Ensure logo loads before capture
       await waitForImage(logoUrl);
 
+      // Use higher scale for better text resolution (mimic 203dpi thermal)
       const canvas = await html2canvas(container, { 
           scale: 2, 
           useCORS: true,
           backgroundColor: '#ffffff'
       });
       
-      // Convert to Blob for Clipboard
       canvas.toBlob(async (blob) => {
           if (!blob) throw new Error("Canvas is empty");
 
           let isCopied = false;
           try {
+              // Copy to Clipboard (primary goal)
               await navigator.clipboard.write([
                   new ClipboardItem({ 'image/png': blob })
               ]);
               isCopied = true;
           } catch (err) {
-              console.warn("Clipboard write failed (likely browser restriction), falling back to download", err);
+              console.warn("Clipboard write failed (browser block), falling back to download", err);
               // Fallback: Download file
               const imgData = canvas.toDataURL('image/png');
               const link = document.createElement('a');
