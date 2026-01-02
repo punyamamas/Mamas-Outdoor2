@@ -1,4 +1,5 @@
 
+// ... existing imports ...
 import React, { useState, useEffect, useMemo } from 'react';
 import { DollarSign, Wallet, CreditCard, ArrowUpRight, ArrowDownLeft, Plus, Calendar, Loader2, Save, Database, AlertTriangle, Copy, Check, BarChart3, PieChart, TrendingUp, HandCoins, Trash2, Download } from 'lucide-react';
 import { PaymentLog } from '../types';
@@ -33,7 +34,9 @@ const AdminFinanceManager: React.FC = () => {
   const [manualAmount, setManualAmount] = useState<number>(0);
   const [manualDesc, setManualDesc] = useState('');
   const [manualType, setManualType] = useState<'IN' | 'OUT'>('OUT');
+  const [manualDate, setManualDate] = useState<string>(new Date().toISOString().split('T')[0]); // NEW: Date for manual entry
 
+  // ... (Effect and fetchData remains same) ...
   // --- EFFECT: FETCH DATA ---
   useEffect(() => {
     fetchData();
@@ -80,12 +83,17 @@ const AdminFinanceManager: React.FC = () => {
     e.preventDefault();
     if (manualAmount <= 0 || !manualDesc) return;
 
+    // Use selected manualDate and append current time for precise ordering
+    const now = new Date();
+    const dateTime = `${manualDate}T${now.toTimeString().split(' ')[0]}Z`;
+
     await recordPaymentLog({
       amount: manualAmount,
       payment_method: 'cash',
       type: manualType,
       description: manualDesc,
-      category: manualType === 'OUT' ? 'Operasional' : 'Lain-lain'
+      category: manualType === 'OUT' ? 'Operasional' : 'Lain-lain',
+      created_at: dateTime // Send explicit date
     });
 
     setManualAmount(0);
@@ -94,6 +102,7 @@ const AdminFinanceManager: React.FC = () => {
     fetchData();
   };
 
+  // ... (handleDeleteLog, handleExportCSV, copySQL, Calculations, etc remain same) ...
   const handleDeleteLog = async (id: string) => {
     if (window.confirm("Yakin hapus catatan ini? Saldo akan dikalkulasi ulang.")) {
         const success = await deletePaymentLog(id);
@@ -204,9 +213,8 @@ for all using (true) with check (true);`;
 
   const maxChartValue = Math.max(...dailyAggregates.map(d => d.in), 100000);
 
-  // --- RENDER HELPERS ---
-  
   if (dbError === 'missing_table') {
+    // ... Error Render (Same as before) ...
     return (
       <div className="bg-white rounded-2xl shadow-sm border border-orange-200 p-8 flex flex-col items-center text-center max-w-2xl mx-auto mt-10">
          <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 mb-4 animate-bounce">
@@ -247,7 +255,7 @@ for all using (true) with check (true);`}
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden min-h-[600px] flex flex-col">
-      {/* Header & Controls */}
+      {/* Header & Controls (Same as before) */}
       <div className="p-6 border-b border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4 bg-nature-50">
         <div>
           <h3 className="font-bold text-lg text-nature-800 flex items-center gap-2">
@@ -305,10 +313,8 @@ for all using (true) with check (true);`}
       </div>
 
       <div className="p-6 flex-1 overflow-y-auto">
-        {/* SUMMARY CARDS */}
+        {/* SUMMARY CARDS (Same) */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          
-          {/* CARD 1: PENDAPATAN SEWA (RENTAL) */}
           <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-2">
                 <TrendingUp size={16} className="text-blue-500"/> Pendapatan Sewa
@@ -316,8 +322,6 @@ for all using (true) with check (true);`}
              <h4 className="text-2xl font-black text-gray-800">Rp{summary.rentalIncome.toLocaleString('id-ID')}</h4>
              <p className="text-xs text-gray-400 mt-1">Uang masuk sewa alat murni</p>
           </div>
-
-          {/* CARD 2: PENDAPATAN DENDA (FINE) */}
           <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-2">
                 <AlertTriangle size={16} className="text-red-500"/> Pendapatan Denda
@@ -325,8 +329,6 @@ for all using (true) with check (true);`}
              <h4 className="text-2xl font-black text-gray-800">Rp{summary.fineIncome.toLocaleString('id-ID')}</h4>
              <p className="text-xs text-gray-400 mt-1">Uang masuk dari keterlambatan</p>
           </div>
-
-          {/* CARD 3: CASHFLOW NETTO */}
           <div className="bg-gradient-to-br from-nature-800 to-nature-900 p-5 rounded-2xl border border-nature-700 text-white shadow-lg">
              <p className="text-xs font-bold text-nature-200 uppercase tracking-wider mb-2 flex items-center gap-2">
                 <DollarSign size={16}/> Profit Bersih
@@ -334,8 +336,6 @@ for all using (true) with check (true);`}
              <h4 className="text-2xl font-black">Rp{summary.netTotal.toLocaleString('id-ID')}</h4>
              <p className="text-xs text-nature-200 mt-1">Total Masuk - Pengeluaran</p>
           </div>
-
-          {/* CARD 4: PENGELUARAN */}
           <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-2">
                 <ArrowDownLeft size={16} className="text-red-500"/> Pengeluaran
@@ -345,7 +345,7 @@ for all using (true) with check (true);`}
           </div>
         </div>
 
-        {/* DETAILS FOR DAILY VIEW */}
+        {/* ... (Details for Daily, Monthly Chart etc - Keep Same) ... */}
         {viewMode === 'daily' && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                 <div className="bg-green-50 p-5 rounded-2xl border border-green-100">
@@ -355,7 +355,6 @@ for all using (true) with check (true);`}
                     <h4 className="text-xl font-black text-green-700">Rp{summary.netCash.toLocaleString('id-ID')}</h4>
                     <p className="text-xs text-green-600 mt-1 opacity-80">Uang tunai di tangan saat ini</p>
                 </div>
-                
                 <div className="bg-blue-50 p-5 rounded-2xl border border-blue-100">
                     <p className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-2 flex items-center gap-2">
                     <CreditCard size={16}/> Transfer Masuk
@@ -366,7 +365,6 @@ for all using (true) with check (true);`}
             </div>
         )}
 
-        {/* MONTHLY CHART & TABLE */}
         {viewMode === 'monthly' && (
             <div className="mb-8 space-y-6">
                 {/* CHART */}
@@ -380,7 +378,6 @@ for all using (true) with check (true);`}
                             const barHeight = d.in > 0 ? `${Math.max(heightPercent, 5)}%` : '2px';
                             return (
                                 <div key={i} className="flex flex-col justify-end items-center flex-1 min-w-[20px] group relative h-full">
-                                    {/* Tooltip */}
                                     <div className="opacity-0 group-hover:opacity-100 absolute bottom-full mb-2 bg-gray-900 text-white text-[10px] p-2 rounded z-10 w-28 text-center pointer-events-none transition-opacity">
                                         <div className="font-bold mb-1">{new Date(d.date).toLocaleDateString('id-ID', {day:'numeric', month:'short'})}</div>
                                         <div className="text-green-300">In: {d.in.toLocaleString('id-ID')}</div>
@@ -393,8 +390,7 @@ for all using (true) with check (true);`}
                         })}
                     </div>
                 </div>
-
-                {/* AGGREGATE TABLE */}
+                {/* TABLE MONTHLY */}
                 <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                     <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
                         <h4 className="font-bold text-gray-700 text-sm">Rincian Per Tanggal</h4>
@@ -447,8 +443,18 @@ for all using (true) with check (true);`}
                         </button>
                     ) : (
                         <form onSubmit={handleManualSubmit} className="bg-gray-50 p-4 rounded-xl border border-gray-200 animate-slide-in-right">
-                            <h4 className="text-sm font-bold text-gray-800 mb-3">Input Transaksi Manual ({new Date(selectedDate).toLocaleDateString('id-ID')})</h4>
+                            <h4 className="text-sm font-bold text-gray-800 mb-3">Input Transaksi Manual</h4>
                             <div className="flex flex-col md:flex-row gap-3 items-end">
+                                <div className="w-full md:w-40">
+                                    <label className="text-xs font-bold text-gray-500 mb-1 block">Tanggal</label>
+                                    <input 
+                                        type="date" 
+                                        className="w-full px-3 py-2 border rounded-lg text-sm"
+                                        value={manualDate}
+                                        onChange={e => setManualDate(e.target.value)}
+                                        required
+                                    />
+                                </div>
                                 <div className="flex-1 w-full">
                                     <label className="text-xs font-bold text-gray-500 mb-1 block">Keterangan</label>
                                     <input 
@@ -458,15 +464,17 @@ for all using (true) with check (true);`}
                                         value={manualDesc}
                                         onChange={e => setManualDesc(e.target.value)}
                                         autoFocus
+                                        required
                                     />
                                 </div>
-                                <div className="w-full md:w-40">
+                                <div className="w-full md:w-32">
                                     <label className="text-xs font-bold text-gray-500 mb-1 block">Nominal</label>
                                     <input 
                                         type="number" 
                                         className="w-full px-3 py-2 border rounded-lg text-sm"
                                         value={manualAmount === 0 ? '' : manualAmount}
                                         onChange={e => setManualAmount(Number(e.target.value))}
+                                        required
                                     />
                                 </div>
                                 <div className="w-full md:w-32">
@@ -510,7 +518,7 @@ for all using (true) with check (true);`}
                             {isLoading ? (
                                 <tr><td colSpan={6} className="p-8 text-center"><Loader2 className="animate-spin mx-auto text-gray-400"/></td></tr>
                             ) : logs.length === 0 ? (
-                                <tr><td colSpan={6} className="p-8 text-center text-gray-400 italic">Belum ada transaksi hari ini.</td></tr>
+                                <tr><td colSpan={6} className="p-8 text-center text-gray-400 italic">Belum ada transaksi pada tanggal ini.</td></tr>
                             ) : (
                                 logs.map(log => (
                                 <tr key={log.id} className="hover:bg-gray-50 transition group">

@@ -1,8 +1,11 @@
 
+// ... existing imports ...
 import React, { useState, useRef } from 'react';
 import { Plus, Search, Edit, Trash2, X, Layers, Scissors, Palette, Image as ImageIcon, Save, Loader2, ShoppingBag, Upload } from 'lucide-react';
 import { Product, Category, ProductVariant, ColorImage, PackageItem } from '../types';
 import { uploadProductImage } from '../services/productService';
+
+// ... (Interface AdminProductManagerProps remains same) ...
 
 interface AdminProductManagerProps {
   products: Product[];
@@ -33,9 +36,12 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
   const [isUploading, setIsUploading] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   
-  // File Input Ref
+  // File Input Refs
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const variantFileInputRef = useRef<HTMLInputElement>(null); // NEW REF for variant upload
+  const [uploadingVariantId, setUploadingVariantId] = useState<string | null>(null); // Track which variant is uploading
 
+  // ... (States formData, useAdvancedVariants, tempVariantGroups, simpleSizes, etc remain same) ...
   // Form States
   const [formData, setFormData] = useState<Partial<Product>>({
     name: '', category: '', price2Days: 0, salePrice: 0, isSale: false, stock: 0, description: '', image: '', packageItems: []
@@ -53,6 +59,7 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
   // Constants
   const AVAILABLE_SIZES = ['S', 'M', 'L', 'XL', 'XXL', '36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46', '47', '48'];
 
+  // ... (openModal function remains same) ...
   const openModal = (product?: Product) => {
     if (product) {
       setEditingProduct(product);
@@ -94,6 +101,7 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
     setIsModalOpen(true);
   };
 
+  // ... (handleSubmit remains same) ...
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -141,32 +149,49 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
     finally { setIsSubmitting(false); }
   };
 
-  // Image Upload Logic
+  // MAIN Image Upload Logic (Keep as is)
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
     const file = e.target.files[0];
-    
-    // Max 2MB
-    if (file.size > 2 * 1024 * 1024) {
-      return alert("Ukuran gambar maksimal 2MB agar loading cepat.");
+    if (file.size > 2 * 1024 * 1024) return alert("Ukuran gambar maksimal 2MB agar loading cepat.");
+
+    setIsUploading(true);
+    try {
+      const url = await uploadProductImage(file);
+      if (url) setFormData({ ...formData, image: url });
+    } catch (error) { console.error(error); alert("Gagal upload gambar."); } 
+    finally { 
+        setIsUploading(false);
+        if (fileInputRef.current) fileInputRef.current.value = '';
     }
+  };
+
+  // NEW: Variant Image Upload Logic
+  const handleVariantImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0 || !uploadingVariantId) return;
+    const file = e.target.files[0];
+    if (file.size > 2 * 1024 * 1024) return alert("Ukuran gambar maksimal 2MB.");
 
     setIsUploading(true);
     try {
       const url = await uploadProductImage(file);
       if (url) {
-        setFormData({ ...formData, image: url });
+        setTempVariantGroups(prev => prev.map(g => g.id === uploadingVariantId ? { ...g, imageUrl: url } : g));
       }
-    } catch (error) {
-      console.error(error);
-      alert("Gagal upload gambar.");
-    } finally {
-      setIsUploading(false);
-      // Reset input agar bisa upload file yang sama jika perlu
-      if (fileInputRef.current) fileInputRef.current.value = '';
+    } catch (error) { console.error(error); alert("Gagal upload gambar varian."); }
+    finally { 
+        setIsUploading(false); 
+        setUploadingVariantId(null);
+        if (variantFileInputRef.current) variantFileInputRef.current.value = '';
     }
   };
 
+  const triggerVariantUpload = (groupId: string) => {
+      setUploadingVariantId(groupId);
+      variantFileInputRef.current?.click();
+  };
+
+  // ... (Package Logic, Variant Logic Add/Remove helpers remain same) ...
   // Package Logic
   const addToPackage = (item: Product) => {
     if (formData.packageItems?.find(p => p.productId === item.id)) return;
@@ -209,6 +234,7 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+      {/* ... (Table render remains same) ... */}
       <div className="p-5 border-b border-gray-100 flex flex-col md:flex-row justify-between gap-4">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-3 text-gray-400" size={18} />
@@ -303,7 +329,7 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
                  </div>
                </div>
 
-               {/* Sale vs Rent Toggle */}
+               {/* Sale vs Rent Toggle (Same) */}
                <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                      <div className={`p-2 rounded-lg ${formData.isSale ? 'bg-blue-500 text-white' : 'bg-white text-blue-500'}`}>
@@ -320,7 +346,7 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
                   </label>
                </div>
                
-               {/* Pricing */}
+               {/* Pricing (Same) */}
                {formData.isSale ? (
                    <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
                       <label className="block text-sm font-bold text-blue-800 mb-1">Harga Jual (Satuan)</label>
@@ -344,15 +370,41 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
                  </label>
                </div>
 
-               {/* Variant Logic Area */}
+               {/* Variant Logic Area - UPDATED WITH UPLOAD */}
                {useAdvancedVariants ? (
                  <div className="space-y-4 border p-4 rounded-lg">
+                    {/* HIDDEN VARIANT UPLOAD INPUT */}
+                    <input 
+                      type="file" 
+                      ref={variantFileInputRef} 
+                      className="hidden" 
+                      accept="image/*" 
+                      onChange={handleVariantImageUpload} 
+                    />
+
                     {tempVariantGroups.map((group) => (
                       <div key={group.id} className="bg-gray-50 p-4 rounded-lg border relative">
                          <button type="button" onClick={() => removeVariantGroup(group.id)} className="absolute top-2 right-2 text-red-500"><Trash2 size={16}/></button>
                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
-                           <input placeholder="Nama Warna (mis: Merah)" className="border p-2 rounded" value={group.colorName} onChange={e => updateVariantGroup(group.id, 'colorName', e.target.value)} />
-                           <input placeholder="URL Gambar Varian" className="border p-2 rounded" value={group.imageUrl} onChange={e => updateVariantGroup(group.id, 'imageUrl', e.target.value)} />
+                           <div>
+                              <label className="text-xs font-bold block mb-1">Nama Warna</label>
+                              <input placeholder="Contoh: Merah" className="border p-2 rounded w-full" value={group.colorName} onChange={e => updateVariantGroup(group.id, 'colorName', e.target.value)} />
+                           </div>
+                           <div>
+                              <label className="text-xs font-bold block mb-1">URL Gambar (Manual / Upload)</label>
+                              <div className="flex gap-2">
+                                <input placeholder="https://..." className="border p-2 rounded flex-1 text-sm" value={group.imageUrl} onChange={e => updateVariantGroup(group.id, 'imageUrl', e.target.value)} />
+                                <button 
+                                  type="button" 
+                                  onClick={() => triggerVariantUpload(group.id)}
+                                  disabled={isUploading}
+                                  className="p-2 border rounded bg-white hover:bg-gray-100 flex items-center justify-center text-gray-600"
+                                  title="Upload Gambar Varian"
+                                >
+                                  {isUploading && uploadingVariantId === group.id ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16}/>}
+                                </button>
+                              </div>
+                           </div>
                          </div>
                          <div className="flex flex-wrap gap-2">
                             {AVAILABLE_SIZES.map(sz => (
@@ -389,7 +441,7 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
                  </div>
                )}
                
-               {/* Image & Desc */}
+               {/* Image & Desc (Same) */}
                <div>
                   <label className="block text-sm font-bold mb-1">URL Gambar Utama</label>
                   <div className="flex gap-2">
@@ -412,7 +464,7 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
                       className="p-2 border rounded hover:bg-gray-50 flex items-center justify-center text-gray-600 w-12"
                       title="Upload Gambar dari Device"
                     >
-                      {isUploading ? <Loader2 size={20} className="animate-spin" /> : <Upload size={20}/>}
+                      {isUploading && !uploadingVariantId ? <Loader2 size={20} className="animate-spin" /> : <Upload size={20}/>}
                     </button>
                   </div>
                </div>
@@ -421,7 +473,7 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
                   <textarea rows={3} className="w-full border rounded p-2" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
                </div>
 
-               {/* Package Builder (Conditional) */}
+               {/* Package Builder (Same) */}
                {isPackageMode && (
                  <div className="border border-purple-200 bg-purple-50 p-4 rounded-lg">
                     <h4 className="font-bold text-purple-800 flex items-center gap-2 mb-3"><Layers size={16}/> Isi Paket Hemat</h4>
