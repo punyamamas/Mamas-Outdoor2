@@ -2,9 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import { X, Trash2, Calendar, Phone, User, ArrowRight, AlertCircle, Loader2, Clock, CreditCard, Banknote, MapPin, LocateFixed, Layers, Upload, Image as ImageIcon, CheckCircle } from 'lucide-react';
 import { CartItem, UserDetails, Transaction, Product } from '../types';
-import { WA_NUMBER } from '../constants';
 import { processStockReduction } from '../services/productService';
 import { createTransaction, uploadPaymentProof } from '../services/transactionService';
+import { getStoreConfig } from '../utils/storeConfig'; // Import Config
 import ImageLoader from './ImageLoader';
 
 interface CartDrawerProps {
@@ -43,6 +43,9 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
     duration: 2,
     paymentMethod: 'cash' 
   });
+
+  // STORE CONFIG
+  const storeConfig = getStoreConfig();
 
   // Reset form saat ditutup
   useEffect(() => {
@@ -226,12 +229,12 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
       history.push(createdTrx);
       localStorage.setItem('mamasHistory', JSON.stringify(history));
 
-      // 6. Construct WhatsApp Message
+      // 6. Construct WhatsApp Message (DYNAMIC FROM CONFIG)
       const dpAmount = Math.ceil(total * 0.5); // DP 50%
       const remainingAmount = total - dpAmount;
       const trxIdShort = createdTrx.id.slice(0, 8); 
 
-      const header = `*Halo Mamas Outdoor! Saya mau sewa/beli dong.*\n*(Order ID: #${trxIdShort})*\n\n`;
+      const header = `*Halo ${storeConfig.storeName}! Saya mau sewa/beli dong.*\n*(Order ID: #${trxIdShort})*\n\n`;
       const buyerInfo = `*Data Pelanggan:*\nNama: ${userDetails.name}\nWA: ${userDetails.whatsapp}\nDomisili: ${userDetails.location || '-'}\n\n*Detail Order:*\nAmbil: ${userDetails.rentalDate}\nDurasi Sewa: ${userDetails.duration} Hari\nKembali (Utk Sewa): ${returnDateFormatted}\n\n`;
       
       const itemsList = cartItems.map((item, idx) => {
@@ -249,7 +252,7 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
       if (userDetails.paymentMethod === 'transfer') {
         footer += `\n*Metode Bayar: Transfer (DP 50%)*`;
         footer += `\n---------------------------`;
-        footer += `\n*Rekening DP: BSI 7279048215 (Umar Abdulloh)*`;
+        footer += `\n*Rekening DP: ${storeConfig.bankName} ${storeConfig.bankAccount} (${storeConfig.bankHolder})*`;
         footer += `\n*Wajib DP: Rp${dpAmount.toLocaleString('id-ID')}*`;
         footer += `\n*Pelunasan: Rp${remainingAmount.toLocaleString('id-ID')} (Saat Ambil)*`;
         
@@ -266,9 +269,9 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
       
       const fullMessage = encodeURIComponent(header + buyerInfo + "*List Barang:*\n" + itemsList + footer);
       
-      // 7. Open WhatsApp 
+      // 7. Open WhatsApp (DYNAMIC NUMBER)
       setTimeout(() => {
-        window.open(`https://wa.me/${WA_NUMBER}?text=${fullMessage}`, '_blank');
+        window.open(`https://wa.me/${storeConfig.adminWhatsapp}?text=${fullMessage}`, '_blank');
         
         // 8. Reset & Close
         onClearCart();
@@ -550,7 +553,7 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
                     <div className="mt-3 bg-blue-50 p-3 rounded-lg border border-blue-100 text-sm text-blue-800 animate-slide-in-right">
                        <p className="font-bold mb-1">Rekening Pembayaran DP:</p>
                        <ul className="list-disc pl-4 space-y-1 text-xs">
-                         <li><strong>BSI:</strong> 7279048215 (a.n Umar Abdulloh)</li>
+                         <li><strong>{storeConfig.bankName}:</strong> {storeConfig.bankAccount} ({storeConfig.bankHolder})</li>
                          <li className="mt-2 pt-2 border-t border-blue-200 font-bold">
                             Total Tagihan: Rp{total.toLocaleString('id-ID')}
                          </li>

@@ -118,3 +118,14 @@ export interface AiRecommendation {
   reason: string;
   suggestedItems: string[]; 
 }
+
+// NEW: Store Configuration Interface
+export interface StoreConfig {
+  storeName: string;
+  storeAddress: string;
+  adminWhatsapp: string;
+  bankName: string;
+  bankAccount: string;
+  bankHolder: string;
+  footerMessage: string;
+}

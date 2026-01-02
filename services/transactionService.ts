@@ -5,6 +5,7 @@ import { Transaction, CartItem, UserDetails, PaymentLog } from '../types';
 import { processStockReduction, processStockRestoration } from './productService';
 import html2canvas from 'html2canvas';
 import QRCode from 'qrcode'; // Import QRCode Library
+import { getStoreConfig } from '../utils/storeConfig'; // Import Config
 
 // ... (Keep existing functions: createTransaction, getTransactions, getTransactionsByDateRange, refreshTransactions, getTransactionsByPhone, recordPaymentLog, getPaymentLogs, updateTransactionPayment, uploadPaymentProof, applyTransactionFine, updateTransactionStatus, calculateItemPriceForDuration, calculateOverdueFine, updateTransactionDetails, updateTransactionItems, deleteTransaction) ...
 
@@ -568,7 +569,8 @@ export const copyInvoiceToClipboard = async (
   trx: Transaction, 
   invoiceType: 'full' | 'rental' | 'fine' = 'full'
 ) => {
-  // ... (Keep existing implementation) ...
+  const storeConfig = getStoreConfig(); // GET CONFIG
+
   const dateObj = new Date(trx.created_at || new Date());
   const dateStr = dateObj.toLocaleDateString('id-ID'); 
   const timeStr = dateObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }); 
@@ -660,6 +662,7 @@ export const copyInvoiceToClipboard = async (
   tempDiv.style.color = '#000';
   tempDiv.style.boxSizing = 'border-box';
   
+  // DYNAMIC HEADER
   tempDiv.innerHTML = `
     <div style="position:relative; overflow:hidden;">
         <div style="position:absolute; top:40%; left:50%; transform:translate(-50%, -50%) rotate(-15deg); border:4px solid ${stampColor}; color:${stampColor}; padding:5px 15px; font-size:24px; font-weight:900; text-transform:uppercase; border-radius:8px; opacity:0.25; pointer-events:none;">
@@ -667,9 +670,9 @@ export const copyInvoiceToClipboard = async (
         </div>
         <div style="text-align:center; margin-bottom:10px;">
           <img src="${logoUrl}" style="width:60px; display:block; margin:0 auto 5px; filter:grayscale(100%);" crossorigin="anonymous" />
-          <div style="font-size:16px; font-weight:900; margin-bottom:2px; text-transform:uppercase;">MAMAS OUTDOOR</div>
-          <div style="font-size:10px;">Jl. Cenderawasih, Grendeng, Purwokerto</div>
-          <div style="font-size:10px; font-weight:bold;">WA: 085137411145</div>
+          <div style="font-size:16px; font-weight:900; margin-bottom:2px; text-transform:uppercase;">${storeConfig.storeName}</div>
+          <div style="font-size:10px; white-space: pre-wrap;">${storeConfig.storeAddress}</div>
+          <div style="font-size:10px; font-weight:bold;">WA: ${storeConfig.adminWhatsapp}</div>
         </div>
         <div style="border-bottom:1px dashed #000; margin:10px 0;"></div>
         <table style="width:100%; font-size:11px;">
@@ -699,7 +702,7 @@ export const copyInvoiceToClipboard = async (
 
         <div style="border-bottom:1px dashed #000; margin:10px 0;"></div>
         <div style="text-align:center; font-size:10px; font-style:italic; margin-top:10px;">
-           Terima kasih telah menyewa di Mamas Outdoor.
+           ${storeConfig.footerMessage}
         </div>
     </div>
   `;
@@ -746,6 +749,8 @@ export const printInvoice = async (
   mode: 'print' | 'view' = 'print',
   invoiceType: 'full' | 'rental' | 'fine' = 'full'
 ) => {
+  const storeConfig = getStoreConfig(); // GET CONFIG
+
   const printWindow = window.open('', '', 'width=800,height=800');
   if (!printWindow) return alert('Izinkan pop-up untuk mencetak nota');
 
@@ -854,7 +859,7 @@ export const printInvoice = async (
           .header { text-align: center; margin-bottom: 10px; }
           .logo-img { width: 70px; height: auto; margin: 15px auto 5px; display: block; filter: grayscale(100%) contrast(150%); }
           .brand-name { font-size: 18px; font-weight: 900; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px;}
-          .address { font-size: 11px; color: #000; margin-bottom: 2px; }
+          .address { font-size: 11px; color: #000; margin-bottom: 2px; white-space: pre-wrap; }
           .wa { font-size: 11px; font-weight: bold; margin-top: 4px;}
           .dashed-line { border-bottom: 1px dashed #000; margin: 10px 0; width: 100%; }
           .meta-table { width: 100%; font-size: 11px; }
@@ -886,11 +891,9 @@ export const printInvoice = async (
         <div class="stamp-container"><div class="stamp">${statusLabel}</div></div>
         <div class="header">
           <img src="${logoUrl}" alt="Mamas Outdoor Logo" class="logo-img" id="invoiceLogo" />
-          <div class="brand-name">MAMAS OUTDOOR</div>
-          <div class="address">Jalan Cenderawasih, RT 3/RW 7, Dukuhbandong,</div>
-          <div class="address">Grendeng, Kec. Purwokerto Utara, Banyumas</div>
-          <div class="address">Jawa Tengah, Indonesia 53122</div>
-          <div class="wa">No. WhatsApp 085137411145</div>
+          <div class="brand-name">${storeConfig.storeName}</div>
+          <div class="address">${storeConfig.storeAddress}</div>
+          <div class="wa">WA: ${storeConfig.adminWhatsapp}</div>
         </div>
         <div class="dashed-line"></div>
         <table class="meta-table">
@@ -900,7 +903,7 @@ export const printInvoice = async (
           <tr><td class="meta-label">Jaminan</td><td class="meta-val">${trx.customerIdentity || '-'}</td></tr>
           <tr><td class="meta-label">Tanggal</td><td class="meta-val">${dateStr} - ${timeStr}</td></tr>
           <tr><td colspan="2" style="padding-top:4px; font-style:italic;">Periode: ${rentalPeriodStr}</td></tr>
-          <tr><td class="meta-label">Kasir</td><td class="meta-val">Admin Mamas Outdoor</td></tr>
+          <tr><td class="meta-label">Kasir</td><td class="meta-val">Admin</td></tr>
         </table>
         <div class="dashed-line"></div>
         <div class="items-container">
@@ -920,7 +923,7 @@ export const printInvoice = async (
 
         <div class="dashed-line"></div>
         <div class="footer-text">
-           Terima kasih atas kepercayaan Anda telah memilih kami sebagai mitra petualangan outdoor Anda. 
+           ${storeConfig.footerMessage}
         </div>
         ${manualPrintButton}
         <script>

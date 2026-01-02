@@ -1,9 +1,27 @@
 
-import React, { useState } from 'react';
-import { Database, HardDrive, Check, Copy, Terminal, Shield, AlertTriangle, RefreshCw } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Database, HardDrive, Check, Copy, Terminal, Shield, AlertTriangle, RefreshCw, Settings, Save } from 'lucide-react';
+import { getStoreConfig, saveStoreConfig, DEFAULT_CONFIG } from '../utils/storeConfig';
+import { StoreConfig } from '../types';
 
 const AdminSystemSetup: React.FC = () => {
+  const [activeSubTab, setActiveSubTab] = useState<'config' | 'database'>('config');
   const [copiedSection, setCopiedSection] = useState<string | null>(null);
+  
+  // Config Form State
+  const [config, setConfig] = useState<StoreConfig>(DEFAULT_CONFIG);
+  const [isSaved, setIsSaved] = useState(false);
+
+  useEffect(() => {
+    setConfig(getStoreConfig());
+  }, []);
+
+  const handleSaveConfig = (e: React.FormEvent) => {
+    e.preventDefault();
+    saveStoreConfig(config);
+    setIsSaved(true);
+    setTimeout(() => setIsSaved(false), 2000);
+  };
 
   const copyToClipboard = (text: string, section: string) => {
     navigator.clipboard.writeText(text);
@@ -151,118 +169,235 @@ create policy "Public Insert" on storage.objects for insert with check (
 );`;
 
   return (
-    <div className="space-y-8 animate-slide-in-right pb-10">
+    <div className="space-y-6 pb-10">
       
-      {/* ALERT BOX KHUSUS FIX REVIEW */}
-      <div className="bg-yellow-50 border-l-4 border-yellow-500 p-6 rounded-r-xl shadow-sm">
-         <div className="flex items-start gap-4">
-            <div className="p-3 bg-yellow-100 text-yellow-700 rounded-full">
-               <RefreshCw size={24} />
-            </div>
-            <div className="flex-1">
-               <h3 className="text-lg font-bold text-yellow-800">Review Tidak Muncul?</h3>
-               <p className="text-sm text-yellow-700 mt-1 mb-3">
-                  Jika ulasan pelanggan tidak tampil di produk, kemungkinan besar akses database (RLS) ke tabel Transaksi masih tertutup. Jalankan script perbaikan ini:
-               </p>
-               <div className="relative group">
-                  <pre className="bg-yellow-900/10 text-yellow-900 p-3 rounded-lg text-xs font-mono overflow-x-auto border border-yellow-200">
-                     {fixReviewSQL}
-                  </pre>
-                  <button 
-                     onClick={() => copyToClipboard(fixReviewSQL, 'fix')}
-                     className="absolute top-2 right-2 p-2 bg-white hover:bg-yellow-100 rounded text-yellow-700 transition flex items-center gap-2 text-xs font-bold border border-yellow-200"
-                  >
-                     {copiedSection === 'fix' ? <Check size={14}/> : <Copy size={14}/>} 
-                     {copiedSection === 'fix' ? 'Disalin!' : 'Copy Fix SQL'}
-                  </button>
-               </div>
-            </div>
-         </div>
+      {/* Sub Tabs */}
+      <div className="flex bg-white p-1 rounded-xl border border-gray-200 w-fit">
+        <button 
+          onClick={() => setActiveSubTab('config')}
+          className={`px-4 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 ${activeSubTab === 'config' ? 'bg-nature-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}
+        >
+          <Settings size={16} /> Pengaturan Toko
+        </button>
+        <button 
+          onClick={() => setActiveSubTab('database')}
+          className={`px-4 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 ${activeSubTab === 'database' ? 'bg-nature-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}
+        >
+          <Database size={16} /> Database & SQL
+        </button>
       </div>
 
-      <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6 flex gap-4 items-start">
-         <div className="p-3 bg-blue-100 text-blue-600 rounded-xl">
-            <Terminal size={24} />
-         </div>
-         <div>
-            <h3 className="text-lg font-bold text-blue-900">Setup Database Awal (Full)</h3>
-            <p className="text-sm text-blue-700 mt-1 leading-relaxed">
-               Jalankan script di bawah ini berurutan jika Anda baru pertama kali setup database.
-            </p>
-         </div>
-      </div>
+      {activeSubTab === 'config' && (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 max-w-3xl animate-slide-in-right">
+           <h3 className="text-lg font-bold text-gray-800 mb-1">Informasi Bisnis</h3>
+           <p className="text-sm text-gray-500 mb-6">Data ini akan muncul otomatis di Kop Nota, Pesan WhatsApp, dan Footer web.</p>
+           
+           <form onSubmit={handleSaveConfig} className="space-y-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                 <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nama Toko / Brand</label>
+                    <input 
+                      type="text" 
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-nature-500 outline-none font-medium"
+                      value={config.storeName}
+                      onChange={e => setConfig({...config, storeName: e.target.value})}
+                    />
+                 </div>
+                 <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nomor WhatsApp Admin</label>
+                    <input 
+                      type="text" 
+                      placeholder="628..."
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-nature-500 outline-none font-medium"
+                      value={config.adminWhatsapp}
+                      onChange={e => setConfig({...config, adminWhatsapp: e.target.value.replace(/\D/g,'')})}
+                    />
+                    <p className="text-[10px] text-gray-400 mt-1">Gunakan format 628... (tanpa + atau 0 di depan)</p>
+                 </div>
+              </div>
 
-      <div className="grid grid-cols-1 gap-8">
-         {/* STEP 1: CORE */}
-         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-            <div className="px-6 py-4 bg-gray-50 border-b border-gray-100 flex justify-between items-center">
-               <h4 className="font-bold text-gray-800 flex items-center gap-2">
-                  <Database size={18} className="text-nature-600"/> Bagian 1: Core Tables & Policies
-               </h4>
-            </div>
-            <div className="p-6">
-               <div className="relative group">
-                  <pre className="bg-gray-900 text-gray-100 p-4 rounded-xl text-xs font-mono overflow-x-auto whitespace-pre-wrap border border-gray-700 max-h-64">
-                     {coreSQL}
-                  </pre>
-                  <button 
-                     onClick={() => copyToClipboard(coreSQL, 'core')}
-                     className="absolute top-2 right-2 p-2 bg-white/10 hover:bg-white/20 rounded-lg text-white transition flex items-center gap-2 text-xs font-bold backdrop-blur-sm"
-                  >
-                     {copiedSection === 'core' ? <Check size={14}/> : <Copy size={14}/>} 
-                     {copiedSection === 'core' ? 'Disalin!' : 'Copy SQL'}
-                  </button>
-               </div>
-            </div>
-         </div>
+              <div>
+                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Alamat Lengkap (Muncul di Nota)</label>
+                 <textarea 
+                    rows={2}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-nature-500 outline-none font-medium resize-none"
+                    value={config.storeAddress}
+                    onChange={e => setConfig({...config, storeAddress: e.target.value})}
+                 />
+              </div>
 
-         {/* STEP 2: FEATURES */}
-         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-            <div className="px-6 py-4 bg-gray-50 border-b border-gray-100">
-               <h4 className="font-bold text-gray-800 flex items-center gap-2">
-                  <Shield size={18} className="text-blue-600"/> Bagian 2: Fitur Tambahan (Review & Logs)
-               </h4>
-            </div>
-            <div className="p-6">
-               <div className="relative group">
-                  <pre className="bg-gray-900 text-gray-100 p-4 rounded-xl text-xs font-mono overflow-x-auto whitespace-pre-wrap border border-gray-700 max-h-64">
-                     {featuresSQL}
-                  </pre>
-                  <button 
-                     onClick={() => copyToClipboard(featuresSQL, 'features')}
-                     className="absolute top-2 right-2 p-2 bg-white/10 hover:bg-white/20 rounded-lg text-white transition flex items-center gap-2 text-xs font-bold backdrop-blur-sm"
-                  >
-                     {copiedSection === 'features' ? <Check size={14}/> : <Copy size={14}/>} 
-                     {copiedSection === 'features' ? 'Disalin!' : 'Copy SQL'}
-                  </button>
-               </div>
-            </div>
-         </div>
+              <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                 <h4 className="text-sm font-bold text-blue-800 mb-3 flex items-center gap-2"><Settings size={14}/> Rekening Pembayaran DP</h4>
+                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label className="block text-xs font-bold text-blue-600 mb-1">Nama Bank</label>
+                        <input 
+                          type="text" 
+                          placeholder="BCA / BRI / BSI"
+                          className="w-full border border-blue-200 rounded px-2 py-1.5 text-sm"
+                          value={config.bankName}
+                          onChange={e => setConfig({...config, bankName: e.target.value})}
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-blue-600 mb-1">Nomor Rekening</label>
+                        <input 
+                          type="text" 
+                          className="w-full border border-blue-200 rounded px-2 py-1.5 text-sm font-mono"
+                          value={config.bankAccount}
+                          onChange={e => setConfig({...config, bankAccount: e.target.value})}
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-blue-600 mb-1">Atas Nama</label>
+                        <input 
+                          type="text" 
+                          className="w-full border border-blue-200 rounded px-2 py-1.5 text-sm"
+                          value={config.bankHolder}
+                          onChange={e => setConfig({...config, bankHolder: e.target.value})}
+                        />
+                    </div>
+                 </div>
+              </div>
 
-         {/* STEP 3: STORAGE */}
-         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-            <div className="px-6 py-4 bg-gray-50 border-b border-gray-100">
-               <h4 className="font-bold text-gray-800 flex items-center gap-2">
-                  <HardDrive size={18} className="text-orange-600"/> Bagian 3: Storage (Produk & Bukti)
-               </h4>
-            </div>
-            <div className="p-6">
-               <div className="relative group">
-                  <pre className="bg-gray-900 text-gray-100 p-4 rounded-xl text-xs font-mono overflow-x-auto whitespace-pre-wrap border border-gray-700 max-h-64">
-                     {storageSQL}
-                  </pre>
-                  <button 
-                     onClick={() => copyToClipboard(storageSQL, 'storage')}
-                     className="absolute top-2 right-2 p-2 bg-white/10 hover:bg-white/20 rounded-lg text-white transition flex items-center gap-2 text-xs font-bold backdrop-blur-sm"
-                  >
-                     {copiedSection === 'storage' ? <Check size={14}/> : <Copy size={14}/>} 
-                     {copiedSection === 'storage' ? 'Disalin!' : 'Copy SQL'}
-                  </button>
-               </div>
-            </div>
-         </div>
+              <div>
+                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Pesan Footer Nota</label>
+                 <input 
+                    type="text"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-nature-500 outline-none"
+                    value={config.footerMessage}
+                    onChange={e => setConfig({...config, footerMessage: e.target.value})}
+                 />
+              </div>
 
-      </div>
+              <div className="pt-4 border-t border-gray-100 flex justify-end">
+                 <button 
+                   type="submit"
+                   className={`px-6 py-2.5 rounded-xl font-bold text-white transition flex items-center gap-2 ${isSaved ? 'bg-green-600' : 'bg-nature-600 hover:bg-nature-700'}`}
+                 >
+                    {isSaved ? <Check size={18}/> : <Save size={18}/>}
+                    {isSaved ? 'Tersimpan!' : 'Simpan Perubahan'}
+                 </button>
+              </div>
+           </form>
+        </div>
+      )}
+
+      {activeSubTab === 'database' && (
+        <div className="space-y-8 animate-slide-in-right">
+          
+          {/* ALERT BOX KHUSUS FIX REVIEW */}
+          <div className="bg-yellow-50 border-l-4 border-yellow-500 p-6 rounded-r-xl shadow-sm">
+             <div className="flex items-start gap-4">
+                <div className="p-3 bg-yellow-100 text-yellow-700 rounded-full">
+                   <RefreshCw size={24} />
+                </div>
+                <div className="flex-1">
+                   <h3 className="text-lg font-bold text-yellow-800">Review Tidak Muncul?</h3>
+                   <p className="text-sm text-yellow-700 mt-1 mb-3">
+                      Jika ulasan pelanggan tidak tampil di produk, kemungkinan besar akses database (RLS) ke tabel Transaksi masih tertutup. Jalankan script perbaikan ini:
+                   </p>
+                   <div className="relative group">
+                      <pre className="bg-yellow-900/10 text-yellow-900 p-3 rounded-lg text-xs font-mono overflow-x-auto border border-yellow-200">
+                         {fixReviewSQL}
+                      </pre>
+                      <button 
+                         onClick={() => copyToClipboard(fixReviewSQL, 'fix')}
+                         className="absolute top-2 right-2 p-2 bg-white hover:bg-yellow-100 rounded text-yellow-700 transition flex items-center gap-2 text-xs font-bold border border-yellow-200"
+                      >
+                         {copiedSection === 'fix' ? <Check size={14}/> : <Copy size={14}/>} 
+                         {copiedSection === 'fix' ? 'Disalin!' : 'Copy Fix SQL'}
+                      </button>
+                   </div>
+                </div>
+             </div>
+          </div>
+
+          <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6 flex gap-4 items-start">
+             <div className="p-3 bg-blue-100 text-blue-600 rounded-xl">
+                <Terminal size={24} />
+             </div>
+             <div>
+                <h3 className="text-lg font-bold text-blue-900">Setup Database Awal (Full)</h3>
+                <p className="text-sm text-blue-700 mt-1 leading-relaxed">
+                   Jalankan script di bawah ini berurutan jika Anda baru pertama kali setup database.
+                </p>
+             </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-8">
+             {/* STEP 1: CORE */}
+             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                <div className="px-6 py-4 bg-gray-50 border-b border-gray-100 flex justify-between items-center">
+                   <h4 className="font-bold text-gray-800 flex items-center gap-2">
+                      <Database size={18} className="text-nature-600"/> Bagian 1: Core Tables & Policies
+                   </h4>
+                </div>
+                <div className="p-6">
+                   <div className="relative group">
+                      <pre className="bg-gray-900 text-gray-100 p-4 rounded-xl text-xs font-mono overflow-x-auto whitespace-pre-wrap border border-gray-700 max-h-64">
+                         {coreSQL}
+                      </pre>
+                      <button 
+                         onClick={() => copyToClipboard(coreSQL, 'core')}
+                         className="absolute top-2 right-2 p-2 bg-white/10 hover:bg-white/20 rounded-lg text-white transition flex items-center gap-2 text-xs font-bold backdrop-blur-sm"
+                      >
+                         {copiedSection === 'core' ? <Check size={14}/> : <Copy size={14}/>} 
+                         {copiedSection === 'core' ? 'Disalin!' : 'Copy SQL'}
+                      </button>
+                   </div>
+                </div>
+             </div>
+
+             {/* STEP 2: FEATURES */}
+             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                <div className="px-6 py-4 bg-gray-50 border-b border-gray-100">
+                   <h4 className="font-bold text-gray-800 flex items-center gap-2">
+                      <Shield size={18} className="text-blue-600"/> Bagian 2: Fitur Tambahan (Review & Logs)
+                   </h4>
+                </div>
+                <div className="p-6">
+                   <div className="relative group">
+                      <pre className="bg-gray-900 text-gray-100 p-4 rounded-xl text-xs font-mono overflow-x-auto whitespace-pre-wrap border border-gray-700 max-h-64">
+                         {featuresSQL}
+                      </pre>
+                      <button 
+                         onClick={() => copyToClipboard(featuresSQL, 'features')}
+                         className="absolute top-2 right-2 p-2 bg-white/10 hover:bg-white/20 rounded-lg text-white transition flex items-center gap-2 text-xs font-bold backdrop-blur-sm"
+                      >
+                         {copiedSection === 'features' ? <Check size={14}/> : <Copy size={14}/>} 
+                         {copiedSection === 'features' ? 'Disalin!' : 'Copy SQL'}
+                      </button>
+                   </div>
+                </div>
+             </div>
+
+             {/* STEP 3: STORAGE */}
+             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                <div className="px-6 py-4 bg-gray-50 border-b border-gray-100">
+                   <h4 className="font-bold text-gray-800 flex items-center gap-2">
+                      <HardDrive size={18} className="text-orange-600"/> Bagian 3: Storage (Produk & Bukti)
+                   </h4>
+                </div>
+                <div className="p-6">
+                   <div className="relative group">
+                      <pre className="bg-gray-900 text-gray-100 p-4 rounded-xl text-xs font-mono overflow-x-auto whitespace-pre-wrap border border-gray-700 max-h-64">
+                         {storageSQL}
+                      </pre>
+                      <button 
+                         onClick={() => copyToClipboard(storageSQL, 'storage')}
+                         className="absolute top-2 right-2 p-2 bg-white/10 hover:bg-white/20 rounded-lg text-white transition flex items-center gap-2 text-xs font-bold backdrop-blur-sm"
+                      >
+                         {copiedSection === 'storage' ? <Check size={14}/> : <Copy size={14}/>} 
+                         {copiedSection === 'storage' ? 'Disalin!' : 'Copy SQL'}
+                      </button>
+                   </div>
+                </div>
+             </div>
+
+          </div>
+        </div>
+      )}
     </div>
   );
 };
