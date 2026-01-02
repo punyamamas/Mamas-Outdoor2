@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { ClipboardList, Loader2, Calendar, Eye, Trash2, X, User, CreditCard, Banknote, ArrowRightLeft, Save, Calculator, CheckCircle, RotateCcw, Wallet, Edit, Plus, Minus, Search, ShoppingBag, Printer, Filter, DollarSign, Receipt, BarChart3, TrendingUp, Lightbulb, AlertTriangle, ArrowUpRight, Share2, Image as ImageIcon, CreditCard as CardIcon, ExternalLink, QrCode, FileText, Clock, ShieldCheck, ChevronDown, ChevronUp, Upload, LogIn, LogOut, FileCheck, PackagePlus } from 'lucide-react';
+import { ClipboardList, Loader2, Calendar, Eye, Trash2, X, User, CreditCard, Banknote, ArrowRightLeft, Save, Calculator, CheckCircle, RotateCcw, Wallet, Edit, Plus, Minus, Search, ShoppingBag, Printer, Filter, DollarSign, Receipt, BarChart3, TrendingUp, Lightbulb, AlertTriangle, ArrowUpRight, Share2, Image as ImageIcon, CreditCard as CardIcon, ExternalLink, QrCode, FileText, Clock, ShieldCheck, ChevronDown, ChevronUp, Upload, LogIn, LogOut, FileCheck, PackagePlus, Camera } from 'lucide-react';
 import { Transaction, Product, CartItem, UserDetails } from '../types';
 import { updateTransactionPayment, updateTransactionItems, updateTransactionDetails, printInvoice, applyTransactionFine, calculateOverdueFine, copyInvoiceToClipboard, uploadPaymentProof, createTransaction, calculateItemPriceForDuration } from '../services/transactionService';
 import { processStockReduction } from '../services/productService';
@@ -28,6 +28,9 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   
+  // Scanner State
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
+
   // POS (Create Transaction) States
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newTrxDetails, setNewTrxDetails] = useState<UserDetails>({
@@ -39,7 +42,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
   const [newTrxPaid, setNewTrxPaid] = useState<number>(0);
   const [isCreating, setIsCreating] = useState(false);
 
-  // ... (Filter Logic and other existing handlers remain same) ...
+  // --- Filter Logic ---
   const filteredTransactions = useMemo(() => {
     return transactions.filter(t => {
       const matchesStatus = filterStatus === 'all' || t.status === filterStatus;
@@ -52,6 +55,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
     });
   }, [transactions, filterStatus, searchTerm]);
 
+  // --- Handlers ---
   const openEditModal = (trx: Transaction) => {
     setSelectedTransaction(trx);
     setIsEditModalOpen(true);
@@ -62,7 +66,38 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
     setIsEditModalOpen(false);
   };
 
+  // SMART RETURN LOGIC (Auto Detect Fine)
   const handleStatusChange = async (id: string, status: string) => {
+    if (!selectedTransaction) return;
+
+    // Logic Cek Denda Otomatis saat klik 'Completed'
+    if (status === 'completed' && selectedTransaction.status === 'rented') {
+        const potentialFine = calculateOverdueFine(selectedTransaction);
+        
+        // Jika ada potensi denda DAN belum ada denda tercatat di DB
+        if (potentialFine > 0 && (selectedTransaction.fineAmount || 0) === 0) {
+            const confirmFine = window.confirm(
+                `⚠️ PERINGATAN KETERLAMBATAN!\n\n` +
+                `Sistem mendeteksi keterlambatan pengembalian.\n` +
+                `Estimasi Denda: Rp${potentialFine.toLocaleString('id-ID')}\n\n` +
+                `Klik OK untuk MENERAPKAN denda otomatis & selesaikan.\n` +
+                `Klik Cancel untuk mengabaikan denda (hanya selesaikan).`
+            );
+
+            if (confirmFine) {
+                // Terapkan denda dulu
+                await applyTransactionFine(id, potentialFine);
+                // Update local state agar UI sync
+                setSelectedTransaction(prev => prev ? { 
+                    ...prev, 
+                    fineAmount: potentialFine, 
+                    totalPrice: prev.totalPrice + potentialFine 
+                } : null);
+            }
+        }
+    }
+
+    // Lanjut update status
     await onStatusUpdate(id, status);
     if (selectedTransaction && selectedTransaction.id === id) {
         setSelectedTransaction({ ...selectedTransaction, status: status as any });
@@ -86,6 +121,21 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
       setSelectedTransaction({ ...selectedTransaction, paymentProofUrl: url });
       onRefreshData();
     }
+  };
+
+  // --- SCANNER HANDLER ---
+  const handleScanSuccess = (decodedText: string) => {
+      setIsScannerOpen(false);
+      // Cari transaksi berdasarkan ID (Exact Match)
+      const found = transactions.find(t => t.id === decodedText || t.id.includes(decodedText));
+      
+      if (found) {
+          openEditModal(found);
+          // Optional: Filter list juga
+          setSearchTerm(found.id);
+      } else {
+          alert(`Transaksi dengan ID: ${decodedText} tidak ditemukan.`);
+      }
   };
 
   // --- POS FUNCTIONS ---
@@ -138,7 +188,6 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
 
     if (newTrx) {
         // 2. Reduce Stock (Important for POS)
-        // Only reduce if status implies items are booked or rented
         if (newTrxStatus !== 'cancelled' && newTrxStatus !== 'completed') {
             await processStockReduction(newTrxItems);
         }
@@ -161,12 +210,29 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col h-[calc(100vh-150px)]">
+      
+      {/* SCANNER MODAL */}
+      <QRScannerModal 
+         isOpen={isScannerOpen} 
+         onClose={() => setIsScannerOpen(false)} 
+         onScanSuccess={handleScanSuccess} 
+      />
+
       {/* Header */}
       <div className="p-5 border-b border-gray-100 bg-nature-50 flex flex-col md:flex-row gap-4 justify-between items-center">
         <h3 className="font-bold text-lg text-nature-800 flex items-center gap-2">
           <ClipboardList size={20} /> Manajemen Transaksi
         </h3>
         <div className="flex flex-wrap gap-2 items-center">
+           {/* SCAN BUTTON (NEW) */}
+           <button 
+             onClick={() => setIsScannerOpen(true)}
+             className="p-2 bg-gray-900 text-white rounded-lg hover:bg-black transition flex items-center gap-2 shadow-sm"
+             title="Scan QR Pelanggan"
+           >
+             <Camera size={18} /> <span className="hidden sm:inline text-xs font-bold">Scan QR</span>
+           </button>
+
            {/* SEARCH */}
            <div className="relative">
               <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
@@ -206,7 +272,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
         </div>
       </div>
 
-      {/* List (Existing code) */}
+      {/* List */}
       <div className="flex-1 overflow-auto">
         <table className="w-full text-sm text-left text-gray-600">
           <thead className="bg-white text-gray-700 font-bold uppercase text-xs border-b border-gray-200 sticky top-0 z-10 shadow-sm">
@@ -261,7 +327,141 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
         </table>
       </div>
 
-      {/* MODAL: POS / CREATE TRANSACTION */}
+      {/* DETAIL MODAL */}
+      {isEditModalOpen && selectedTransaction && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={closeEditModal}></div>
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col overflow-hidden animate-slide-in-right">
+            
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+               <div>
+                  <h3 className="font-bold text-xl text-gray-900 flex items-center gap-2">
+                     <ClipboardList className="text-nature-600"/> Detail Transaksi #{selectedTransaction.id.slice(0,8)}
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-1">Dibuat: {new Date(selectedTransaction.created_at || '').toLocaleString('id-ID')}</p>
+               </div>
+               <button onClick={closeEditModal} className="p-2 hover:bg-gray-200 rounded-full transition"><X size={20}/></button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 bg-gray-50/50">
+               <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                  
+                  {/* LEFT: STATUS & ITEMS */}
+                  <div className="xl:col-span-2 space-y-6">
+                     
+                     {/* Status Card */}
+                     <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
+                        <h4 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2"><CheckCircle size={16}/> Update Status</h4>
+                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                           {['pending', 'booked', 'rented', 'completed', 'cancelled'].map(s => (
+                              <button 
+                                key={s}
+                                onClick={() => handleStatusChange(selectedTransaction.id, s)}
+                                className={`px-3 py-2 rounded-xl text-xs font-bold uppercase transition border ${
+                                   selectedTransaction.status === s 
+                                   ? 'bg-nature-600 text-white border-nature-600 shadow-md' 
+                                   : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+                                }`}
+                              >
+                                 {s}
+                              </button>
+                           ))}
+                        </div>
+                     </div>
+
+                     {/* Items Card */}
+                     <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
+                        <h4 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2"><ShoppingBag size={16}/> Barang Sewaan</h4>
+                        <div className="space-y-3">
+                           {selectedTransaction.items.map((item, idx) => (
+                              <div key={idx} className="flex justify-between items-center p-3 bg-gray-50 rounded-xl border border-gray-100">
+                                 <div>
+                                    <div className="font-bold text-gray-800 text-sm">{item.name}</div>
+                                    <div className="text-xs text-gray-500">
+                                       Size: {item.selectedSize || '-'} | Warna: {item.selectedColor || '-'}
+                                    </div>
+                                 </div>
+                                 <div className="font-bold text-nature-600">x{item.quantity}</div>
+                              </div>
+                           ))}
+                        </div>
+                     </div>
+
+                  </div>
+
+                  {/* RIGHT: PAYMENT & ACTIONS */}
+                  <div className="space-y-6">
+                     <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
+                        <h4 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2"><Wallet size={16}/> Pembayaran</h4>
+                        
+                        <div className="space-y-4">
+                           <div className="flex justify-between text-sm">
+                              <span className="text-gray-600">Total Tagihan</span>
+                              <span className="font-bold text-gray-900">Rp{selectedTransaction.totalPrice.toLocaleString('id-ID')}</span>
+                           </div>
+                           <div className="flex justify-between text-sm">
+                              <span className="text-gray-600">Sudah Bayar</span>
+                              <span className="font-bold text-green-600">Rp{selectedTransaction.amountPaid.toLocaleString('id-ID')}</span>
+                           </div>
+                           
+                           {/* INFO DENDA */}
+                           {(selectedTransaction.fineAmount || 0) > 0 && (
+                               <div className="flex justify-between text-sm bg-red-50 p-2 rounded text-red-700 border border-red-100">
+                                  <span>Denda (Masuk Total)</span>
+                                  <span className="font-bold">Rp{selectedTransaction.fineAmount?.toLocaleString('id-ID')}</span>
+                               </div>
+                           )}
+
+                           <div className="pt-3 border-t border-gray-100">
+                              <label className="text-xs font-bold text-gray-500 mb-1 block">Update Nominal Bayar</label>
+                              <div className="flex gap-2">
+                                 <input 
+                                   type="number" 
+                                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                                   defaultValue={selectedTransaction.amountPaid}
+                                   onBlur={(e) => handlePaymentUpdate(Number(e.target.value))}
+                                 />
+                              </div>
+                           </div>
+
+                           <div className="pt-3 border-t border-gray-100">
+                              <label className="text-xs font-bold text-gray-500 mb-2 block">Bukti Transfer</label>
+                              {selectedTransaction.paymentProofUrl ? (
+                                 <div className="relative group">
+                                    <img src={selectedTransaction.paymentProofUrl} alt="Bukti" className="w-full h-32 object-cover rounded-lg border border-gray-200" />
+                                    <a href={selectedTransaction.paymentProofUrl} target="_blank" rel="noreferrer" className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 text-white font-bold text-xs rounded-lg transition">Lihat Full</a>
+                                 </div>
+                              ) : (
+                                 <div className="flex items-center gap-2">
+                                    <label className="cursor-pointer bg-blue-50 text-blue-600 px-4 py-2 rounded-lg text-xs font-bold hover:bg-blue-100 transition flex-1 text-center">
+                                       Upload Bukti
+                                       <input type="file" className="hidden" accept="image/*" onChange={handleUploadProof}/>
+                                    </label>
+                                 </div>
+                              )}
+                           </div>
+                        </div>
+                     </div>
+
+                     <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
+                        <h4 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2"><Printer size={16}/> Cetak Dokumen</h4>
+                        <div className="grid grid-cols-2 gap-3">
+                           <button onClick={() => printInvoice(selectedTransaction, 'view', 'full')} className="bg-nature-600 text-white py-2 rounded-lg text-xs font-bold hover:bg-nature-700">Nota Lengkap</button>
+                           <button onClick={() => printInvoice(selectedTransaction, 'view', 'delivery')} className="bg-white border border-gray-200 text-gray-600 py-2 rounded-lg text-xs font-bold hover:bg-gray-50">Surat Jalan</button>
+                           <button onClick={() => printInvoice(selectedTransaction, 'view', 'rental')} className="bg-white border border-gray-200 text-gray-600 py-2 rounded-lg text-xs font-bold hover:bg-gray-100">Nota Sewa</button>
+                           <button onClick={() => printInvoice(selectedTransaction, 'view', 'fine')} className="bg-red-50 text-red-600 border border-red-100 py-2 rounded-lg text-xs font-bold hover:bg-red-100">Nota Denda</button>
+                        </div>
+                     </div>
+                  </div>
+
+               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* POS MODAL: CREATE TRANSACTION */}
       {isCreateModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsCreateModalOpen(false)}></div>
@@ -388,132 +588,6 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                  </div>
               </div>
            </div>
-        </div>
-      )}
-
-      {/* DETAIL MODAL (Existing Code) */}
-      {isEditModalOpen && selectedTransaction && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={closeEditModal}></div>
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col overflow-hidden animate-slide-in-right">
-            
-            {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-               <div>
-                  <h3 className="font-bold text-xl text-gray-900 flex items-center gap-2">
-                     <ClipboardList className="text-nature-600"/> Detail Transaksi #{selectedTransaction.id.slice(0,8)}
-                  </h3>
-                  <p className="text-xs text-gray-500 mt-1">Dibuat: {new Date(selectedTransaction.created_at || '').toLocaleString('id-ID')}</p>
-               </div>
-               <button onClick={closeEditModal} className="p-2 hover:bg-gray-200 rounded-full transition"><X size={20}/></button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-6 bg-gray-50/50">
-               <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-                  
-                  {/* LEFT: STATUS & ITEMS */}
-                  <div className="xl:col-span-2 space-y-6">
-                     
-                     {/* Status Card */}
-                     <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
-                        <h4 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2"><CheckCircle size={16}/> Update Status</h4>
-                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                           {['pending', 'booked', 'rented', 'completed', 'cancelled'].map(s => (
-                              <button 
-                                key={s}
-                                onClick={() => handleStatusChange(selectedTransaction.id, s)}
-                                className={`px-3 py-2 rounded-xl text-xs font-bold uppercase transition border ${
-                                   selectedTransaction.status === s 
-                                   ? 'bg-nature-600 text-white border-nature-600 shadow-md' 
-                                   : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
-                                }`}
-                              >
-                                 {s}
-                              </button>
-                           ))}
-                        </div>
-                     </div>
-
-                     {/* Items Card */}
-                     <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
-                        <h4 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2"><ShoppingBag size={16}/> Barang Sewaan</h4>
-                        <div className="space-y-3">
-                           {selectedTransaction.items.map((item, idx) => (
-                              <div key={idx} className="flex justify-between items-center p-3 bg-gray-50 rounded-xl border border-gray-100">
-                                 <div>
-                                    <div className="font-bold text-gray-800 text-sm">{item.name}</div>
-                                    <div className="text-xs text-gray-500">
-                                       Size: {item.selectedSize || '-'} | Warna: {item.selectedColor || '-'}
-                                    </div>
-                                 </div>
-                                 <div className="font-bold text-nature-600">x{item.quantity}</div>
-                              </div>
-                           ))}
-                        </div>
-                     </div>
-
-                  </div>
-
-                  {/* RIGHT: PAYMENT & ACTIONS */}
-                  <div className="space-y-6">
-                     <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
-                        <h4 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2"><Wallet size={16}/> Pembayaran</h4>
-                        
-                        <div className="space-y-4">
-                           <div className="flex justify-between text-sm">
-                              <span className="text-gray-600">Total Tagihan</span>
-                              <span className="font-bold text-gray-900">Rp{selectedTransaction.totalPrice.toLocaleString('id-ID')}</span>
-                           </div>
-                           <div className="flex justify-between text-sm">
-                              <span className="text-gray-600">Sudah Bayar</span>
-                              <span className="font-bold text-green-600">Rp{selectedTransaction.amountPaid.toLocaleString('id-ID')}</span>
-                           </div>
-                           
-                           <div className="pt-3 border-t border-gray-100">
-                              <label className="text-xs font-bold text-gray-500 mb-1 block">Update Nominal Bayar</label>
-                              <div className="flex gap-2">
-                                 <input 
-                                   type="number" 
-                                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
-                                   defaultValue={selectedTransaction.amountPaid}
-                                   onBlur={(e) => handlePaymentUpdate(Number(e.target.value))}
-                                 />
-                              </div>
-                           </div>
-
-                           <div className="pt-3 border-t border-gray-100">
-                              <label className="text-xs font-bold text-gray-500 mb-2 block">Bukti Transfer</label>
-                              {selectedTransaction.paymentProofUrl ? (
-                                 <div className="relative group">
-                                    <img src={selectedTransaction.paymentProofUrl} alt="Bukti" className="w-full h-32 object-cover rounded-lg border border-gray-200" />
-                                    <a href={selectedTransaction.paymentProofUrl} target="_blank" rel="noreferrer" className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 text-white font-bold text-xs rounded-lg transition">Lihat Full</a>
-                                 </div>
-                              ) : (
-                                 <div className="flex items-center gap-2">
-                                    <label className="cursor-pointer bg-blue-50 text-blue-600 px-4 py-2 rounded-lg text-xs font-bold hover:bg-blue-100 transition flex-1 text-center">
-                                       Upload Bukti
-                                       <input type="file" className="hidden" accept="image/*" onChange={handleUploadProof}/>
-                                    </label>
-                                 </div>
-                              )}
-                           </div>
-                        </div>
-                     </div>
-
-                     <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
-                        <h4 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2"><Printer size={16}/> Cetak Dokumen</h4>
-                        <div className="grid grid-cols-2 gap-3">
-                           <button onClick={() => printInvoice(selectedTransaction, 'view', 'full')} className="bg-nature-600 text-white py-2 rounded-lg text-xs font-bold hover:bg-nature-700">Nota Lengkap</button>
-                           <button onClick={() => printInvoice(selectedTransaction, 'view', 'delivery')} className="bg-white border border-gray-200 text-gray-600 py-2 rounded-lg text-xs font-bold hover:bg-gray-50">Surat Jalan</button>
-                           <button onClick={() => printInvoice(selectedTransaction, 'view', 'rental')} className="bg-white border border-gray-200 text-gray-600 py-2 rounded-lg text-xs font-bold hover:bg-gray-100">Nota Sewa</button>
-                           <button onClick={() => printInvoice(selectedTransaction, 'view', 'fine')} className="bg-red-50 text-red-600 border border-red-100 py-2 rounded-lg text-xs font-bold hover:bg-red-100">Nota Denda</button>
-                        </div>
-                     </div>
-                  </div>
-
-               </div>
-            </div>
-          </div>
         </div>
       )}
     </div>
