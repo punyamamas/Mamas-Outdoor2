@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { ClipboardList, Loader2, Calendar, Eye, Trash2, X, User, CreditCard, Banknote, ArrowRightLeft, Save, Calculator, CheckCircle, RotateCcw, Wallet, Edit, Plus, Minus, Search, ShoppingBag, Printer, Filter, DollarSign, Receipt, BarChart3, TrendingUp, Lightbulb, AlertTriangle, ArrowUpRight, Share2, Image as ImageIcon, CreditCard as CardIcon, ExternalLink, QrCode, FileText, Clock, ShieldCheck, ChevronDown, ChevronUp, Upload, LogIn, LogOut, FileCheck, PackagePlus, Camera, RefreshCw } from 'lucide-react';
+import { ClipboardList, Loader2, Calendar, Eye, Trash2, X, User, CreditCard, Banknote, ArrowRightLeft, Save, Calculator, CheckCircle, RotateCcw, Wallet, Edit, Plus, Minus, Search, ShoppingBag, Printer, Filter, DollarSign, Receipt, BarChart3, TrendingUp, Lightbulb, AlertTriangle, ArrowUpRight, Share2, Image as ImageIcon, CreditCard as CardIcon, ExternalLink, QrCode, FileText, Clock, ShieldCheck, ChevronDown, ChevronUp, Upload, LogIn, LogOut, FileCheck, PackagePlus, Camera, RefreshCw, MessageCircle } from 'lucide-react';
 import { Transaction, Product, CartItem, UserDetails } from '../types';
 import { updateTransactionPayment, updateTransactionItems, updateTransactionDetails, printInvoice, applyTransactionFine, calculateOverdueFine, copyInvoiceToClipboard, uploadPaymentProof, createTransaction, calculateItemPriceForDuration } from '../services/transactionService';
-import { processStockReduction } from '../services/productService';
+import { processStockReduction, processStockRestoration } from '../services/productService';
 import QRScannerModal from './QRScannerModal'; 
 
 interface AdminTransactionManagerProps {
@@ -36,7 +36,10 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
     rentalDate: string;
     duration: number;
     fineAmount: number;
-  }>({ customerName: '', customerWhatsapp: '', rentalDate: '', duration: 0, fineAmount: 0 });
+    items: CartItem[]; // NEW: Manage items in edit mode
+  }>({ customerName: '', customerWhatsapp: '', rentalDate: '', duration: 0, fineAmount: 0, items: [] });
+  
+  const [editItemSearch, setEditItemSearch] = useState(''); // Search bar inside edit mode
 
   // Scanner State
   const [isScannerOpen, setIsScannerOpen] = useState(false);
@@ -75,7 +78,8 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
         customerWhatsapp: trx.customerWhatsapp,
         rentalDate: trx.rentalDate.split('T')[0],
         duration: trx.duration,
-        fineAmount: trx.fineAmount || 0
+        fineAmount: trx.fineAmount || 0,
+        items: JSON.parse(JSON.stringify(trx.items)) // Deep copy items
     });
     setIsEditModalOpen(true);
   };
@@ -132,53 +136,89 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
     }
   };
 
-  // NEW: Save Detail Changes
+  // --- EDIT ITEMS HANDLERS ---
+  const handleAddEditItem = (product: Product) => {
+    setEditForm(prev => {
+        const existing = prev.items.find(i => i.id === product.id);
+        let newItems;
+        if (existing) {
+            newItems = prev.items.map(i => i.id === product.id ? { ...i, quantity: i.quantity + 1 } : i);
+        } else {
+            newItems = [...prev.items, { ...product, quantity: 1 }];
+        }
+        return { ...prev, items: newItems };
+    });
+    setEditItemSearch('');
+  };
+
+  const handleUpdateEditItemQty = (idx: number, delta: number) => {
+    setEditForm(prev => {
+        const newItems = prev.items.map((item, i) => {
+            if (i === idx) {
+                return { ...item, quantity: Math.max(1, item.quantity + delta) };
+            }
+            return item;
+        });
+        return { ...prev, items: newItems };
+    });
+  };
+
+  const handleRemoveEditItem = (idx: number) => {
+    setEditForm(prev => ({
+        ...prev,
+        items: prev.items.filter((_, i) => i !== idx)
+    }));
+  };
+
+  const calculateEditTotal = () => {
+      const itemsTotal = editForm.items.reduce((acc, item) => {
+          const price = calculateItemPriceForDuration(item, editForm.duration);
+          return acc + (price * item.quantity);
+      }, 0);
+      return itemsTotal + editForm.fineAmount;
+  };
+
+  // NEW: Save Detail Changes WITH STOCK RECONCILIATION
   const handleSaveDetails = async () => {
     if (!selectedTransaction) return;
-
-    // 1. Cek apakah durasi berubah? Jika ya, recalculate harga
-    let newTotalPrice = selectedTransaction.totalPrice;
     
-    if (editForm.duration !== selectedTransaction.duration) {
-        const newItemsPrice = selectedTransaction.items.reduce((acc, item) => {
-            const price = calculateItemPriceForDuration(item, editForm.duration);
-            return acc + (price * item.quantity);
-        }, 0);
-        // Total baru = Harga Barang Baru + Denda (jika ada)
-        // Note: fineAmount di DB terpisah atau include? di createTransaction servicenya: total_price = item_price. Fine ditambah manual.
-        // Jadi kita reset total price based on duration, lalu tambah fine yang diinput.
-        newTotalPrice = newItemsPrice + editForm.fineAmount;
-    } else {
-        // Jika durasi sama, cuma update fine amount adjustment
-        // Total Lama - Fine Lama + Fine Baru
-        const oldFine = selectedTransaction.fineAmount || 0;
-        newTotalPrice = (selectedTransaction.totalPrice - oldFine) + editForm.fineAmount;
+    // Validasi
+    if (editForm.items.length === 0) return alert("Transaksi tidak boleh kosong (tanpa barang).");
+
+    const newTotalPrice = calculateEditTotal();
+    
+    // 1. STOCK RECONCILIATION (Penting!)
+    // Jika status transaksi mempengaruhi stok (booked/rented/pending), kita harus update stok fisik.
+    // Caranya: Restore Stok Lama -> Kurangi Stok Baru
+    const shouldUpdateStock = ['booked', 'rented', 'pending', 'partial_payment'].includes(selectedTransaction.status);
+    
+    if (shouldUpdateStock) {
+        // Kembalikan stok item lama
+        await processStockRestoration(selectedTransaction.items);
+        // Kurangi stok item baru
+        await processStockReduction(editForm.items);
     }
 
-    // 2. Call Service Update Details
-    // Kita perlu update 'fine_amount' dan 'total_price' manual di service updateTransactionDetails?
-    // Service updateTransactionDetails saat ini hanya update customer info. Kita perlu update manual via applyTransactionFine untuk fine.
-    
-    // Update Info Dasar
+    // 2. Update Data Transaksi di DB
     await updateTransactionDetails(selectedTransaction.id, {
         customerName: editForm.customerName,
         customerWhatsapp: editForm.customerWhatsapp,
         rentalDate: editForm.rentalDate,
         duration: editForm.duration,
-        // Hack: kirim properti lain jika service mendukung, atau panggil multiple service
     });
 
-    // Update Denda & Total Price (Khusus)
-    await applyTransactionFine(selectedTransaction.id, editForm.fineAmount);
+    // 3. Update Items & Total & Fine
+    // Note: applyTransactionFine logic agak beda, kita override manual via updateTransactionItems yang lebih general
+    // Kita update items jsonb dan total_price sekaligus.
+    // Kita juga update fine_amount
     
-    // Update Total Price jika durasi berubah (Harus update items price juga sebenarnya di DB, tapi karena struktur JSONB items menyimpan harga statis atau dinamis?
-    // Di sistem ini harga dihitung on-the-fly display, tapi total_price disimpan di kolom terpisah.
-    // Jadi kita harus update kolom total_price di tabel transactions.
-    // Mari gunakan applyTransactionFine karena dia update total_price juga. 
-    // Tapi applyTransactionFine logikanya: total = (total - old_fine) + new_fine.
-    // Jika durasi berubah, base price berubah. Jadi kita butuh update total_price manual.
-    // Workaround: Panggil updateTransactionItems dengan items yang sama tapi total baru.
-    await updateTransactionItems(selectedTransaction.id, selectedTransaction.items, newTotalPrice);
+    // Hack: Panggil update khusus untuk items dan total
+    await updateTransactionItems(selectedTransaction.id, editForm.items, newTotalPrice);
+    
+    // Update fine manual via query terpisah agar bersih (atau gabung jika backend support)
+    // Di services saat ini: applyTransactionFine hanya update fine dan total.
+    // Kita panggil applyTransactionFine terakhir untuk memastikan kolom fine_amount terupdate
+    await applyTransactionFine(selectedTransaction.id, editForm.fineAmount);
 
     // Refresh UI
     setSelectedTransaction({
@@ -188,12 +228,13 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
         rentalDate: editForm.rentalDate,
         duration: editForm.duration,
         fineAmount: editForm.fineAmount,
-        totalPrice: newTotalPrice
+        totalPrice: newTotalPrice,
+        items: editForm.items
     });
     
     setIsEditingData(false);
     onRefreshData();
-    alert("Data berhasil diperbarui!");
+    alert("Data transaksi dan stok berhasil diperbarui!");
   };
 
   const handleUploadProof = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -280,6 +321,13 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
         alert("Gagal membuat transaksi.");
     }
     setIsCreating(false);
+  };
+
+  const openWhatsApp = (phone: string, name: string) => {
+      let p = phone.replace(/\D/g, '');
+      if (p.startsWith('0')) p = '62' + p.slice(1);
+      const url = `https://wa.me/${p}?text=Halo Kak ${name}, kami dari Mamas Outdoor...`;
+      window.open(url, '_blank');
   };
 
   return (
@@ -415,12 +463,17 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                </div>
                <div className="flex items-center gap-2">
                    {!isEditingData ? (
-                       <button onClick={() => setIsEditingData(true)} className="flex items-center gap-1 bg-white border border-gray-200 text-gray-600 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-gray-50">
-                           <Edit size={14}/> Edit Data
-                       </button>
+                       <>
+                         <button onClick={() => openWhatsApp(selectedTransaction.customerWhatsapp, selectedTransaction.customerName)} className="flex items-center gap-1 bg-green-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-green-600 transition shadow-sm">
+                             <MessageCircle size={14}/> Chat WA
+                         </button>
+                         <button onClick={() => setIsEditingData(true)} className="flex items-center gap-1 bg-white border border-gray-200 text-gray-600 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-gray-50">
+                             <Edit size={14}/> Edit / Ubah
+                         </button>
+                       </>
                    ) : (
                        <button onClick={() => setIsEditingData(false)} className="flex items-center gap-1 bg-gray-100 text-gray-600 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-gray-200">
-                           <X size={14}/> Batal
+                           <X size={14}/> Batal Edit
                        </button>
                    )}
                    <button onClick={closeEditModal} className="p-2 hover:bg-gray-200 rounded-full transition"><X size={20}/></button>
@@ -436,8 +489,8 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                      {/* EDIT FORM (Conditionally Rendered) */}
                      {isEditingData ? (
                          <div className="bg-white p-5 rounded-2xl border border-blue-200 shadow-sm animate-slide-in-right">
-                             <h4 className="text-sm font-bold text-blue-800 mb-4 flex items-center gap-2"><Edit size={16}/> Form Edit Data</h4>
-                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                             <h4 className="text-sm font-bold text-blue-800 mb-4 flex items-center gap-2"><Edit size={16}/> Edit Data Pelanggan & Barang</h4>
+                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                                  <div>
                                      <label className="text-xs font-bold text-gray-500 block mb-1">Nama Pelanggan</label>
                                      <input className="w-full border rounded p-2 text-sm" value={editForm.customerName} onChange={e => setEditForm({...editForm, customerName: e.target.value})} />
@@ -454,24 +507,70 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                                      <label className="text-xs font-bold text-gray-500 block mb-1">Durasi (Hari)</label>
                                      <div className="flex items-center gap-2">
                                         <input type="number" min="1" className="w-20 border rounded p-2 text-sm text-center font-bold" value={editForm.duration} onChange={e => setEditForm({...editForm, duration: parseInt(e.target.value) || 1})} />
-                                        <span className="text-xs text-gray-400 italic">Total harga akan dihitung ulang otomatis</span>
+                                        <span className="text-xs text-gray-400 italic">Harga otomatis berubah</span>
                                      </div>
                                  </div>
-                                 <div className="md:col-span-2 bg-red-50 p-3 rounded-lg border border-red-100">
-                                     <label className="text-xs font-bold text-red-700 block mb-1 flex items-center gap-1"><AlertTriangle size={12}/> Biaya Tambahan / Denda Manual (Rp)</label>
-                                     <input 
-                                        type="number" 
-                                        className="w-full border border-red-200 rounded p-2 text-sm font-bold text-red-600" 
-                                        value={editForm.fineAmount} 
-                                        onChange={e => setEditForm({...editForm, fineAmount: parseInt(e.target.value) || 0})} 
-                                        placeholder="0"
-                                     />
-                                     <p className="text-[10px] text-red-500 mt-1">Isi jika ada biaya kerusakan, cuci, atau keterlambatan manual.</p>
-                                 </div>
                              </div>
-                             <div className="mt-4 pt-4 border-t border-gray-100 flex justify-end">
+
+                             {/* EDIT ITEMS SECTION */}
+                             <div className="mb-4 pt-4 border-t border-gray-100">
+                                <h5 className="text-xs font-bold text-gray-600 mb-2 flex items-center gap-2"><ShoppingBag size={12}/> Edit Barang Sewaan</h5>
+                                
+                                {/* Search to Add */}
+                                <div className="relative mb-3">
+                                    <input 
+                                        className="w-full border border-gray-200 rounded-lg pl-3 pr-8 py-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none" 
+                                        placeholder="Cari & Tambah Barang Baru..."
+                                        value={editItemSearch}
+                                        onChange={e => setEditItemSearch(e.target.value)}
+                                    />
+                                    {editItemSearch && (
+                                        <div className="absolute w-full bg-white border shadow-lg max-h-40 overflow-y-auto z-10 rounded-b-lg mt-1">
+                                            {products.filter(p => p.name.toLowerCase().includes(editItemSearch.toLowerCase())).slice(0,10).map(p => (
+                                                <button key={p.id} onClick={() => handleAddEditItem(p)} className="w-full text-left p-2 hover:bg-gray-100 text-sm flex justify-between">
+                                                    <span>{p.name}</span>
+                                                    <span className="text-xs text-blue-600 font-bold">Stok: {p.stock}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* List Items */}
+                                <div className="space-y-2 bg-gray-50 p-3 rounded-lg border border-gray-100 max-h-60 overflow-y-auto">
+                                    {editForm.items.map((item, idx) => (
+                                        <div key={idx} className="flex justify-between items-center bg-white p-2 rounded border border-gray-200">
+                                            <div className="text-xs font-bold text-gray-700 truncate flex-1">{item.name}</div>
+                                            <div className="flex items-center gap-2">
+                                                <button onClick={() => handleUpdateEditItemQty(idx, -1)} className="p-1 bg-gray-100 rounded hover:bg-gray-200"><Minus size={10}/></button>
+                                                <span className="text-xs w-6 text-center font-bold">{item.quantity}</span>
+                                                <button onClick={() => handleUpdateEditItemQty(idx, 1)} className="p-1 bg-gray-100 rounded hover:bg-gray-200"><Plus size={10}/></button>
+                                                <button onClick={() => handleRemoveEditItem(idx)} className="text-red-500 ml-1 hover:bg-red-50 p-1 rounded"><Trash2 size={12}/></button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {editForm.items.length === 0 && <p className="text-center text-xs text-red-400 italic">List barang kosong!</p>}
+                                </div>
+                                <div className="mt-2 text-right">
+                                    <span className="text-xs text-gray-500">Total Estimasi Baru: </span>
+                                    <span className="font-bold text-blue-800">Rp{calculateEditTotal().toLocaleString('id-ID')}</span>
+                                </div>
+                             </div>
+
+                             <div className="bg-red-50 p-3 rounded-lg border border-red-100 mb-4">
+                                 <label className="text-xs font-bold text-red-700 block mb-1 flex items-center gap-1"><AlertTriangle size={12}/> Biaya Tambahan / Denda Manual (Rp)</label>
+                                 <input 
+                                    type="number" 
+                                    className="w-full border border-red-200 rounded p-2 text-sm font-bold text-red-600" 
+                                    value={editForm.fineAmount} 
+                                    onChange={e => setEditForm({...editForm, fineAmount: parseInt(e.target.value) || 0})} 
+                                    placeholder="0"
+                                 />
+                             </div>
+
+                             <div className="flex justify-end pt-2 border-t border-gray-100">
                                  <button onClick={handleSaveDetails} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 shadow-sm">
-                                     <Save size={16}/> Simpan Perubahan
+                                     <Save size={16}/> Simpan & Update Stok
                                  </button>
                              </div>
                          </div>
@@ -497,23 +596,25 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                          </div>
                      )}
 
-                     {/* Items Card */}
-                     <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
-                        <h4 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2"><ShoppingBag size={16}/> Barang Sewaan</h4>
-                        <div className="space-y-3">
-                           {selectedTransaction.items.map((item, idx) => (
-                              <div key={idx} className="flex justify-between items-center p-3 bg-gray-50 rounded-xl border border-gray-100">
-                                 <div>
-                                    <div className="font-bold text-gray-800 text-sm">{item.name}</div>
-                                    <div className="text-xs text-gray-500">
-                                       Size: {item.selectedSize || '-'} | Warna: {item.selectedColor || '-'}
+                     {/* Items Card (Read Only View) */}
+                     {!isEditingData && (
+                        <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
+                            <h4 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2"><ShoppingBag size={16}/> Barang Sewaan</h4>
+                            <div className="space-y-3">
+                            {selectedTransaction.items.map((item, idx) => (
+                                <div key={idx} className="flex justify-between items-center p-3 bg-gray-50 rounded-xl border border-gray-100">
+                                    <div>
+                                        <div className="font-bold text-gray-800 text-sm">{item.name}</div>
+                                        <div className="text-xs text-gray-500">
+                                        Size: {item.selectedSize || '-'} | Warna: {item.selectedColor || '-'}
+                                        </div>
                                     </div>
-                                 </div>
-                                 <div className="font-bold text-nature-600">x{item.quantity}</div>
-                              </div>
-                           ))}
+                                    <div className="font-bold text-nature-600">x{item.quantity}</div>
+                                </div>
+                            ))}
+                            </div>
                         </div>
-                     </div>
+                     )}
 
                   </div>
 
