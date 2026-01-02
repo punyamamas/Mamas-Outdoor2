@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { ClipboardList, Loader2, Calendar, Eye, Trash2, X, User, CreditCard, Banknote, ArrowRightLeft, Save, Calculator, CheckCircle, RotateCcw, Wallet, Edit, Plus, Minus, Search, ShoppingBag, Printer, Filter, DollarSign, Receipt, BarChart3, TrendingUp, Lightbulb, AlertTriangle, ArrowUpRight, Share2, Image as ImageIcon, CreditCard as CardIcon, ExternalLink, QrCode, FileText, Clock, ShieldCheck, ChevronDown, ChevronUp, Upload, LogIn, LogOut, FileCheck, PackagePlus, Camera, RefreshCw, MessageCircle } from 'lucide-react';
+import { ClipboardList, Loader2, Calendar, Eye, Trash2, X, User, CreditCard, Banknote, ArrowRightLeft, Save, Calculator, CheckCircle, RotateCcw, Wallet, Edit, Plus, Minus, Search, ShoppingBag, Printer, Filter, DollarSign, Receipt, BarChart3, TrendingUp, Lightbulb, AlertTriangle, ArrowUpRight, Share2, Image as ImageIcon, CreditCard as CardIcon, ExternalLink, QrCode, FileText, Clock, ShieldCheck, ChevronDown, ChevronUp, Upload, LogIn, LogOut, FileCheck, PackagePlus, Camera, RefreshCw, MessageCircle, History } from 'lucide-react';
 import { Transaction, Product, CartItem, UserDetails } from '../types';
 import { updateTransactionPayment, updateTransactionItems, updateTransactionDetails, printInvoice, applyTransactionFine, calculateOverdueFine, copyInvoiceToClipboard, uploadPaymentProof, createTransaction, calculateItemPriceForDuration } from '../services/transactionService';
 import { processStockReduction, processStockRestoration } from '../services/productService';
@@ -36,10 +36,10 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
     rentalDate: string;
     duration: number;
     fineAmount: number;
-    items: CartItem[]; // NEW: Manage items in edit mode
+    items: CartItem[]; 
   }>({ customerName: '', customerWhatsapp: '', rentalDate: '', duration: 0, fineAmount: 0, items: [] });
   
-  const [editItemSearch, setEditItemSearch] = useState(''); // Search bar inside edit mode
+  const [editItemSearch, setEditItemSearch] = useState(''); 
 
   // Scanner State
   const [isScannerOpen, setIsScannerOpen] = useState(false);
@@ -54,6 +54,47 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
   const [newTrxStatus, setNewTrxStatus] = useState('booked');
   const [newTrxPaid, setNewTrxPaid] = useState<number>(0);
   const [isCreating, setIsCreating] = useState(false);
+
+  // --- CUSTOMER AUTOCOMPLETE LOGIC ---
+  const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false);
+  
+  // Extract unique customers from transaction history for autocomplete
+  const existingCustomers = useMemo(() => {
+    const map = new Map();
+    transactions.forEach(t => {
+        if (t.customerName && !map.has(t.customerName.toLowerCase())) {
+            map.set(t.customerName.toLowerCase(), {
+                name: t.customerName,
+                whatsapp: t.customerWhatsapp,
+                location: t.customerLocation || ''
+            });
+        }
+    });
+    return Array.from(map.values());
+  }, [transactions]);
+
+  const filteredCustomers = (query: string) => {
+      if (!query) return [];
+      return existingCustomers.filter(c => c.name.toLowerCase().includes(query.toLowerCase())).slice(0, 5);
+  };
+
+  const selectCustomer = (customer: { name: string, whatsapp: string, location: string }, mode: 'edit' | 'create') => {
+      if (mode === 'create') {
+          setNewTrxDetails(prev => ({
+              ...prev,
+              name: customer.name,
+              whatsapp: customer.whatsapp,
+              location: customer.location || prev.location
+          }));
+      } else {
+          setEditForm(prev => ({
+              ...prev,
+              customerName: customer.name,
+              customerWhatsapp: customer.whatsapp
+          }));
+      }
+      setShowCustomerSuggestions(false);
+  };
 
   // --- Filter Logic ---
   const filteredTransactions = useMemo(() => {
@@ -71,15 +112,14 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
   // --- Handlers ---
   const openEditModal = (trx: Transaction) => {
     setSelectedTransaction(trx);
-    setIsEditingData(false); // Reset edit mode
-    // Init form data
+    setIsEditingData(false); 
     setEditForm({
         customerName: trx.customerName,
         customerWhatsapp: trx.customerWhatsapp,
         rentalDate: trx.rentalDate.split('T')[0],
         duration: trx.duration,
         fineAmount: trx.fineAmount || 0,
-        items: JSON.parse(JSON.stringify(trx.items)) // Deep copy items
+        items: JSON.parse(JSON.stringify(trx.items)) 
     });
     setIsEditModalOpen(true);
   };
@@ -89,15 +129,12 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
     setIsEditModalOpen(false);
   };
 
-  // SMART RETURN LOGIC (Auto Detect Fine)
   const handleStatusChange = async (id: string, status: string) => {
     if (!selectedTransaction) return;
 
-    // Logic Cek Denda Otomatis saat klik 'Completed'
     if (status === 'completed' && selectedTransaction.status === 'rented') {
         const potentialFine = calculateOverdueFine(selectedTransaction);
         
-        // Jika ada potensi denda DAN belum ada denda tercatat di DB
         if (potentialFine > 0 && (selectedTransaction.fineAmount || 0) === 0) {
             const confirmFine = window.confirm(
                 `⚠️ PERINGATAN KETERLAMBATAN!\n\n` +
@@ -108,9 +145,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
             );
 
             if (confirmFine) {
-                // Terapkan denda dulu
                 await applyTransactionFine(id, potentialFine);
-                // Update local state agar UI sync
                 setSelectedTransaction(prev => prev ? { 
                     ...prev, 
                     fineAmount: potentialFine, 
@@ -120,7 +155,6 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
         }
     }
 
-    // Lanjut update status
     await onStatusUpdate(id, status);
     if (selectedTransaction && selectedTransaction.id === id) {
         setSelectedTransaction({ ...selectedTransaction, status: status as any });
@@ -136,7 +170,6 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
     }
   };
 
-  // --- EDIT ITEMS HANDLERS ---
   const handleAddEditItem = (product: Product) => {
     setEditForm(prev => {
         const existing = prev.items.find(i => i.id === product.id);
@@ -178,28 +211,19 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
       return itemsTotal + editForm.fineAmount;
   };
 
-  // NEW: Save Detail Changes WITH STOCK RECONCILIATION
   const handleSaveDetails = async () => {
     if (!selectedTransaction) return;
-    
-    // Validasi
     if (editForm.items.length === 0) return alert("Transaksi tidak boleh kosong (tanpa barang).");
 
     const newTotalPrice = calculateEditTotal();
     
-    // 1. STOCK RECONCILIATION (Penting!)
-    // Jika status transaksi mempengaruhi stok (booked/rented/pending), kita harus update stok fisik.
-    // Caranya: Restore Stok Lama -> Kurangi Stok Baru
     const shouldUpdateStock = ['booked', 'rented', 'pending', 'partial_payment'].includes(selectedTransaction.status);
     
     if (shouldUpdateStock) {
-        // Kembalikan stok item lama
         await processStockRestoration(selectedTransaction.items);
-        // Kurangi stok item baru
         await processStockReduction(editForm.items);
     }
 
-    // 2. Update Data Transaksi di DB
     await updateTransactionDetails(selectedTransaction.id, {
         customerName: editForm.customerName,
         customerWhatsapp: editForm.customerWhatsapp,
@@ -207,20 +231,9 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
         duration: editForm.duration,
     });
 
-    // 3. Update Items & Total & Fine
-    // Note: applyTransactionFine logic agak beda, kita override manual via updateTransactionItems yang lebih general
-    // Kita update items jsonb dan total_price sekaligus.
-    // Kita juga update fine_amount
-    
-    // Hack: Panggil update khusus untuk items dan total
     await updateTransactionItems(selectedTransaction.id, editForm.items, newTotalPrice);
-    
-    // Update fine manual via query terpisah agar bersih (atau gabung jika backend support)
-    // Di services saat ini: applyTransactionFine hanya update fine dan total.
-    // Kita panggil applyTransactionFine terakhir untuk memastikan kolom fine_amount terupdate
     await applyTransactionFine(selectedTransaction.id, editForm.fineAmount);
 
-    // Refresh UI
     setSelectedTransaction({
         ...selectedTransaction,
         customerName: editForm.customerName,
@@ -247,7 +260,6 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
     }
   };
 
-  // --- SCANNER HANDLER ---
   const handleScanSuccess = (decodedText: string) => {
       setIsScannerOpen(false);
       const found = transactions.find(t => t.id === decodedText || t.id.includes(decodedText));
@@ -259,7 +271,6 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
       }
   };
 
-  // --- POS FUNCTIONS ---
   const handleAddItemToNewTrx = (product: Product) => {
     const existing = newTrxItems.find(i => i.id === product.id);
     if (existing) {
@@ -333,7 +344,6 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col h-[calc(100vh-150px)]">
       
-      {/* SCANNER MODAL */}
       <QRScannerModal 
          isOpen={isScannerOpen} 
          onClose={() => setIsScannerOpen(false)} 
@@ -452,7 +462,6 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={closeEditModal}></div>
           <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col overflow-hidden animate-slide-in-right">
             
-            {/* Modal Header */}
             <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
                <div>
                   <h3 className="font-bold text-xl text-gray-900 flex items-center gap-2">
@@ -483,17 +492,33 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
             <div className="flex-1 overflow-y-auto p-6 bg-gray-50/50">
                <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
                   
-                  {/* LEFT: STATUS & ITEMS */}
                   <div className="xl:col-span-2 space-y-6">
                      
-                     {/* EDIT FORM (Conditionally Rendered) */}
                      {isEditingData ? (
                          <div className="bg-white p-5 rounded-2xl border border-blue-200 shadow-sm animate-slide-in-right">
                              <h4 className="text-sm font-bold text-blue-800 mb-4 flex items-center gap-2"><Edit size={16}/> Edit Data Pelanggan & Barang</h4>
                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                 <div>
+                                 <div className="relative">
                                      <label className="text-xs font-bold text-gray-500 block mb-1">Nama Pelanggan</label>
-                                     <input className="w-full border rounded p-2 text-sm" value={editForm.customerName} onChange={e => setEditForm({...editForm, customerName: e.target.value})} />
+                                     <input 
+                                        className="w-full border rounded p-2 text-sm" 
+                                        value={editForm.customerName} 
+                                        onChange={e => {
+                                            setEditForm({...editForm, customerName: e.target.value});
+                                            setShowCustomerSuggestions(true);
+                                        }}
+                                        placeholder="Ketik untuk cari..."
+                                     />
+                                     {showCustomerSuggestions && editForm.customerName.length > 2 && (
+                                        <div className="absolute z-10 w-full bg-white border shadow-lg rounded-b-lg max-h-40 overflow-y-auto top-full">
+                                            {filteredCustomers(editForm.customerName).map((c, i) => (
+                                                <button key={i} onClick={() => selectCustomer(c, 'edit')} className="w-full text-left p-2 text-xs hover:bg-gray-100 border-b flex justify-between">
+                                                    <span className="font-bold">{c.name}</span>
+                                                    <span className="text-gray-500">{c.whatsapp}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                     )}
                                  </div>
                                  <div>
                                      <label className="text-xs font-bold text-gray-500 block mb-1">WhatsApp</label>
@@ -512,11 +537,9 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                                  </div>
                              </div>
 
-                             {/* EDIT ITEMS SECTION */}
                              <div className="mb-4 pt-4 border-t border-gray-100">
                                 <h5 className="text-xs font-bold text-gray-600 mb-2 flex items-center gap-2"><ShoppingBag size={12}/> Edit Barang Sewaan</h5>
                                 
-                                {/* Search to Add */}
                                 <div className="relative mb-3">
                                     <input 
                                         className="w-full border border-gray-200 rounded-lg pl-3 pr-8 py-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none" 
@@ -536,7 +559,6 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                                     )}
                                 </div>
 
-                                {/* List Items */}
                                 <div className="space-y-2 bg-gray-50 p-3 rounded-lg border border-gray-100 max-h-60 overflow-y-auto">
                                     {editForm.items.map((item, idx) => (
                                         <div key={idx} className="flex justify-between items-center bg-white p-2 rounded border border-gray-200">
@@ -575,7 +597,6 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                              </div>
                          </div>
                      ) : (
-                         /* Status Card (Read Only) */
                          <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
                             <h4 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2"><CheckCircle size={16}/> Update Status</h4>
                             <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
@@ -596,7 +617,6 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                          </div>
                      )}
 
-                     {/* Items Card (Read Only View) */}
                      {!isEditingData && (
                         <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
                             <h4 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2"><ShoppingBag size={16}/> Barang Sewaan</h4>
@@ -618,7 +638,6 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
 
                   </div>
 
-                  {/* RIGHT: PAYMENT & ACTIONS */}
                   <div className="space-y-6">
                      <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
                         <h4 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2"><Wallet size={16}/> Pembayaran</h4>
@@ -633,7 +652,6 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                               <span className="font-bold text-green-600">Rp{selectedTransaction.amountPaid.toLocaleString('id-ID')}</span>
                            </div>
                            
-                           {/* INFO DENDA DISPLAY */}
                            {(selectedTransaction.fineAmount || 0) > 0 && !isEditingData && (
                                <div className="flex justify-between text-sm bg-red-50 p-2 rounded text-red-700 border border-red-100">
                                   <span>Denda / Charge</span>
@@ -703,12 +721,35 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
               
               <div className="flex-1 overflow-y-auto p-6 bg-gray-50/50">
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* LEFT: CUSTOMER & SETTINGS */}
                     <div className="space-y-4">
                        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
                           <h4 className="font-bold text-sm text-gray-700 mb-3 flex items-center gap-2"><User size={16}/> Data Pelanggan</h4>
-                          <div className="space-y-3">
-                             <input className="w-full border rounded p-2 text-sm" placeholder="Nama Lengkap" value={newTrxDetails.name} onChange={e => setNewTrxDetails({...newTrxDetails, name: e.target.value})} />
+                          <div className="space-y-3 relative">
+                             <div className="relative">
+                                 <input 
+                                    className="w-full border rounded p-2 text-sm" 
+                                    placeholder="Nama Lengkap (Ketik untuk cari)" 
+                                    value={newTrxDetails.name} 
+                                    onChange={e => {
+                                        setNewTrxDetails({...newTrxDetails, name: e.target.value});
+                                        setShowCustomerSuggestions(true);
+                                    }} 
+                                 />
+                                 {showCustomerSuggestions && newTrxDetails.name.length > 2 && (
+                                    <div className="absolute z-10 w-full bg-white border shadow-lg rounded-b-lg max-h-40 overflow-y-auto top-full">
+                                        {filteredCustomers(newTrxDetails.name).length > 0 ? (
+                                            filteredCustomers(newTrxDetails.name).map((c, i) => (
+                                                <button key={i} onClick={() => selectCustomer(c, 'create')} className="w-full text-left p-2 text-xs hover:bg-gray-100 border-b flex justify-between items-center group">
+                                                    <span className="font-bold group-hover:text-nature-600">{c.name}</span>
+                                                    <span className="text-[10px] text-gray-400 bg-gray-50 px-1 rounded flex items-center gap-1"><History size={10}/> Pelanggan Lama</span>
+                                                </button>
+                                            ))
+                                        ) : (
+                                            <div className="p-2 text-xs text-gray-400 italic">Pelanggan baru...</div>
+                                        )}
+                                    </div>
+                                 )}
+                             </div>
                              <input className="w-full border rounded p-2 text-sm" placeholder="No WhatsApp (08...)" value={newTrxDetails.whatsapp} onChange={e => setNewTrxDetails({...newTrxDetails, whatsapp: e.target.value})} />
                              <input className="w-full border rounded p-2 text-sm" placeholder="Domisili / Alamat" value={newTrxDetails.location} onChange={e => setNewTrxDetails({...newTrxDetails, location: e.target.value})} />
                           </div>
@@ -750,12 +791,10 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                        </div>
                     </div>
 
-                    {/* RIGHT: ITEMS & TOTAL */}
                     <div className="flex flex-col h-full">
                        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex-1 flex flex-col">
                           <h4 className="font-bold text-sm text-gray-700 mb-3 flex items-center gap-2"><ShoppingBag size={16}/> Daftar Barang</h4>
                           
-                          {/* Search Product */}
                           <div className="relative mb-3">
                              <Search className="absolute left-3 top-2.5 text-gray-400" size={14} />
                              <input 
@@ -780,7 +819,6 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                              )}
                           </div>
 
-                          {/* Item List */}
                           <div className="flex-1 overflow-y-auto space-y-2 mb-4 border rounded-lg p-2 bg-gray-50 min-h-[150px]">
                              {newTrxItems.length === 0 && <p className="text-center text-gray-400 text-xs mt-10">Belum ada barang dipilih</p>}
                              {newTrxItems.map((item, idx) => (
@@ -796,7 +834,6 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                              ))}
                           </div>
 
-                          {/* Total Summary */}
                           <div className="border-t pt-4">
                              <div className="flex justify-between items-center mb-2">
                                 <span className="text-gray-600 text-sm">Total Estimasi</span>
