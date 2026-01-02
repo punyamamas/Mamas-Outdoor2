@@ -1,19 +1,24 @@
 
 import React, { useState, useEffect } from 'react';
-import { Database, HardDrive, Check, Copy, Terminal, Shield, AlertTriangle, RefreshCw, Settings, Save, Clock } from 'lucide-react';
+import { Database, HardDrive, Check, Copy, Terminal, Shield, AlertTriangle, RefreshCw, Settings, Save, Clock, Printer, Bluetooth } from 'lucide-react';
 import { getStoreConfig, saveStoreConfig, DEFAULT_CONFIG } from '../utils/storeConfig';
 import { StoreConfig } from '../types';
+import { connectPrinter, printTestPage, getPrinterStatus, disconnectPrinter } from '../services/bluetoothPrinterService';
 
 const AdminSystemSetup: React.FC = () => {
-  const [activeSubTab, setActiveSubTab] = useState<'config' | 'database'>('config');
+  const [activeSubTab, setActiveSubTab] = useState<'config' | 'database' | 'hardware'>('config');
   const [copiedSection, setCopiedSection] = useState<string | null>(null);
   
   // Config Form State
   const [config, setConfig] = useState<StoreConfig>(DEFAULT_CONFIG);
   const [isSaved, setIsSaved] = useState(false);
 
+  // Printer State
+  const [isPrinterConnected, setIsPrinterConnected] = useState(false);
+
   useEffect(() => {
     setConfig(getStoreConfig());
+    setIsPrinterConnected(getPrinterStatus());
   }, []);
 
   const handleSaveConfig = (e: React.FormEvent) => {
@@ -27,6 +32,16 @@ const AdminSystemSetup: React.FC = () => {
     navigator.clipboard.writeText(text);
     setCopiedSection(section);
     setTimeout(() => setCopiedSection(null), 2000);
+  };
+
+  const handleConnectPrinter = async () => {
+      const success = await connectPrinter();
+      setIsPrinterConnected(success);
+  };
+
+  const handleDisconnectPrinter = () => {
+      disconnectPrinter();
+      setIsPrinterConnected(false);
   };
 
   // SQL Stock Logs
@@ -278,6 +293,12 @@ create policy "Public Insert" on storage.objects for insert with check (
           <Settings size={16} /> Pengaturan Toko
         </button>
         <button 
+          onClick={() => setActiveSubTab('hardware')}
+          className={`px-4 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 ${activeSubTab === 'hardware' ? 'bg-nature-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}
+        >
+          <Printer size={16} /> Hardware & Printer
+        </button>
+        <button 
           onClick={() => setActiveSubTab('database')}
           className={`px-4 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 ${activeSubTab === 'database' ? 'bg-nature-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'}`}
         >
@@ -379,6 +400,62 @@ create policy "Public Insert" on storage.objects for insert with check (
               </div>
            </form>
         </div>
+      )}
+
+      {activeSubTab === 'hardware' && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 max-w-3xl animate-slide-in-right">
+              <div className="flex items-center gap-4 mb-6">
+                  <div className="p-4 bg-blue-50 text-blue-600 rounded-full">
+                      <Printer size={32} />
+                  </div>
+                  <div>
+                      <h3 className="text-xl font-bold text-gray-900">Setup Printer Thermal (Bluetooth)</h3>
+                      <p className="text-sm text-gray-500">Hubungkan printer kasir 58mm/80mm tanpa kabel.</p>
+                  </div>
+              </div>
+
+              <div className="space-y-6">
+                  <div className={`p-4 rounded-xl border ${isPrinterConnected ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
+                      <div className="flex justify-between items-center">
+                          <div className="flex items-center gap-3">
+                              <Bluetooth size={24} className={isPrinterConnected ? 'text-green-600' : 'text-gray-400'} />
+                              <div>
+                                  <h4 className="font-bold text-gray-800">{isPrinterConnected ? 'Printer Terhubung' : 'Printer Belum Terhubung'}</h4>
+                                  <p className="text-xs text-gray-500">{isPrinterConnected ? 'Siap mencetak struk' : 'Pastikan Bluetooth perangkat nyala'}</p>
+                              </div>
+                          </div>
+                          {isPrinterConnected ? (
+                              <button onClick={handleDisconnectPrinter} className="text-xs bg-red-100 text-red-600 px-3 py-1.5 rounded font-bold hover:bg-red-200">
+                                  Putuskan
+                              </button>
+                          ) : (
+                              <button onClick={handleConnectPrinter} className="text-xs bg-blue-600 text-white px-4 py-2 rounded font-bold hover:bg-blue-700 shadow-sm flex items-center gap-2">
+                                  <Bluetooth size={14}/> Cari Printer
+                              </button>
+                          )}
+                      </div>
+                  </div>
+
+                  <div className="bg-orange-50 p-4 rounded-xl border border-orange-100">
+                      <h4 className="text-sm font-bold text-orange-800 mb-2 flex items-center gap-2"><AlertTriangle size={16}/> Catatan Penting</h4>
+                      <ul className="list-disc pl-4 text-xs text-orange-700 space-y-1">
+                          <li>Fitur ini menggunakan <strong>Web Bluetooth API</strong>.</li>
+                          <li>Hanya berjalan di <strong>Google Chrome</strong> (Android/Desktop) atau Edge.</li>
+                          <li>Tidak support di iPhone (iOS) karena pembatasan Apple.</li>
+                          <li>Pastikan printer sudah dipairing di setting Bluetooth HP/Laptop terlebih dahulu jika diminta PIN (biasanya 0000 atau 1234).</li>
+                      </ul>
+                  </div>
+
+                  <div className="pt-4 border-t border-gray-100">
+                      <button 
+                        onClick={printTestPage} 
+                        className="w-full py-3 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 font-bold hover:border-gray-400 hover:text-gray-700 transition flex items-center justify-center gap-2"
+                      >
+                          <Printer size={18}/> Test Print
+                      </button>
+                  </div>
+              </div>
+          </div>
       )}
 
       {activeSubTab === 'database' && (

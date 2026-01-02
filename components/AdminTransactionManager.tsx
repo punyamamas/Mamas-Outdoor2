@@ -1,9 +1,10 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { ClipboardList, Loader2, Calendar, Eye, Trash2, X, User, CreditCard, Banknote, ArrowRightLeft, Save, Calculator, CheckCircle, RotateCcw, Wallet, Edit, Plus, Minus, Search, ShoppingBag, Printer, Filter, DollarSign, Receipt, BarChart3, TrendingUp, Lightbulb, AlertTriangle, ArrowUpRight, Share2, Image as ImageIcon, CreditCard as CardIcon, ExternalLink, QrCode, FileText, Clock, ShieldCheck, ChevronDown, ChevronUp, Upload, LogIn, LogOut, FileCheck, PackagePlus, Camera, RefreshCw, MessageCircle, History, CreditCard as IdCard, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ClipboardList, Loader2, Calendar, Eye, Trash2, X, User, CreditCard, Banknote, ArrowRightLeft, Save, Calculator, CheckCircle, RotateCcw, Wallet, Edit, Plus, Minus, Search, ShoppingBag, Printer, Filter, DollarSign, Receipt, BarChart3, TrendingUp, Lightbulb, AlertTriangle, ArrowUpRight, Share2, Image as ImageIcon, CreditCard as CardIcon, ExternalLink, QrCode, FileText, Clock, ShieldCheck, ChevronDown, ChevronUp, Upload, LogIn, LogOut, FileCheck, PackagePlus, Camera, RefreshCw, MessageCircle, History, CreditCard as IdCard, ChevronLeft, ChevronRight, Bluetooth } from 'lucide-react';
 import { Transaction, Product, CartItem, UserDetails } from '../types';
 import { updateTransactionPayment, updateTransactionItems, updateTransactionDetails, printInvoice, applyTransactionFine, calculateOverdueFine, copyInvoiceToClipboard, uploadPaymentProof, createTransaction, calculateItemPriceForDuration, recordPaymentLog, uploadIdentityProof, sendWhatsAppInvoice, sendImageInvoiceToWhatsapp } from '../services/transactionService';
 import { processStockReduction, processStockRestoration } from '../services/productService';
+import { printTransactionReceipt } from '../services/bluetoothPrinterService';
 import QRScannerModal from './QRScannerModal'; 
 
 interface AdminTransactionManagerProps {
@@ -850,6 +851,13 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                            <button onClick={() => printInvoice(selectedTransaction, 'view', 'full')} className="bg-nature-600 text-white py-2 rounded-lg text-xs font-bold">Nota Lengkap</button>
                            <button onClick={() => printInvoice(selectedTransaction, 'view', 'rental')} className="bg-white border text-gray-600 py-2 rounded-lg text-xs font-bold">Nota Sewa</button>
                         </div>
+                        {/* BUTTON PRINT THERMAL BLUETOOTH */}
+                        <button 
+                            onClick={() => printTransactionReceipt(selectedTransaction)}
+                            className="w-full py-2 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 transition flex items-center justify-center gap-2 shadow-sm"
+                        >
+                            <Bluetooth size={14}/> 🖨️ Cetak Thermal
+                        </button>
                      </div>
                   </div>
 
