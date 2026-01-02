@@ -65,9 +65,12 @@ export const createTransaction = async (
   initialPaid?: number // NEW: Untuk Admin POS
 ): Promise<Transaction | null> => {
   
-  // LOGIKA KEUANGAN: Cap initialPaid agar tidak melebihi total tagihan
-  // Jika total 20rb, bayar 50rb -> Database catat 20rb. (30rb kembalian fisik)
-  const realIncome = initialPaid ? Math.min(initialPaid, total) : 0;
+  // LOGIKA KEUANGAN (CRUCIAL FIX): 
+  // Cap initialPaid agar tidak melebihi total tagihan.
+  // Contoh: Tagihan 20rb, Bayar 50rb -> Database MURNI catat 20rb sebagai income. 
+  // 30rb sisanya adalah kembalian fisik dan tidak boleh masuk record keuangan.
+  // Math.max(0, ...) untuk mencegah nilai negatif jika ada kesalahan kalkulasi.
+  const realIncome = initialPaid ? Math.max(0, Math.min(initialPaid, total)) : 0;
 
   const newTrx: any = {
     customer_name: userDetails.name,
@@ -99,7 +102,7 @@ export const createTransaction = async (
   if (data && realIncome > 0) {
       await recordPaymentLog({
           transaction_id: data.id,
-          amount: realIncome, // Catat yang benar-benar masuk kas (20rb)
+          amount: realIncome, // Catat yang benar-benar masuk kas (netto)
           payment_method: userDetails.paymentMethod || 'cash',
           type: 'IN',
           description: `Pembayaran Awal / DP Sewa atas nama ${userDetails.name}`,

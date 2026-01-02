@@ -178,11 +178,12 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
     setIsRecordingPayment(true);
 
     try {
-        // LOGIC KEMBALIAN: Hitung berapa yang harus dibayar
-        const remainingBill = selectedTransaction.totalPrice - selectedTransaction.amountPaid;
+        // LOGIC KEMBALIAN KETAT: 
+        // 1. Hitung sisa tagihan. Math.max(0, ...) untuk memastikan tidak negatif jika ada anomali data.
+        const remainingBill = Math.max(0, selectedTransaction.totalPrice - selectedTransaction.amountPaid);
         
-        // Income real adalah minimal dari (uang masuk vs sisa hutang)
-        // Contoh: Hutang 20rb, Bayar 50rb -> Income 20rb. 
+        // 2. Real income adalah Uang Masuk yang 'diakui' (tidak boleh > sisa tagihan)
+        // Contoh: Hutang 20rb, Bayar 50rb -> Income tercatat 20rb. 
         const realIncome = Math.min(newPaymentAmount, remainingBill);
 
         // 1. Update Transaction Paid Amount
@@ -192,23 +193,26 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
         // Update ke database transaksi (amount_paid = lunas/cicil)
         await updateTransactionPayment(selectedTransaction.id, updatedPaid);
 
-        // 2. Auto Record to Payment Log (Hanya mencatat realIncome)
-        await recordPaymentLog({
-            transaction_id: selectedTransaction.id,
-            amount: realIncome,
-            payment_method: newPaymentMethod,
-            type: 'IN',
-            description: `Pelunasan/Cicilan Sewa #${selectedTransaction.id.slice(0,6)}`,
-            category: 'Sewa'
-        });
+        // 2. Auto Record to Payment Log (Hanya mencatat realIncome/Netto)
+        // Jika realIncome 0 (misal sudah lunas tapi admin input lagi), tidak dicatat ke log agar saldo tidak double.
+        if (realIncome > 0) {
+            await recordPaymentLog({
+                transaction_id: selectedTransaction.id,
+                amount: realIncome,
+                payment_method: newPaymentMethod,
+                type: 'IN',
+                description: `Pelunasan/Cicilan Sewa #${selectedTransaction.id.slice(0,6)}`,
+                category: 'Sewa'
+            });
+        }
 
         // 3. Update Local State
         setSelectedTransaction({ ...selectedTransaction, amountPaid: updatedPaid });
         
-        // Hitung Kembalian untuk Alert
+        // Hitung Kembalian untuk Alert User
         const change = newPaymentAmount - realIncome;
         if (change > 0) {
-            alert(`✅ Pembayaran Berhasil!\n\n💰 KEMBALIAN: Rp${change.toLocaleString('id-ID')}`);
+            alert(`✅ Pembayaran Berhasil!\n\n💰 KEMBALIAN: Rp${change.toLocaleString('id-ID')}\n(Uang masuk ke Kas: Rp${realIncome.toLocaleString('id-ID')})`);
         } else {
             alert(`✅ Pembayaran Rp${realIncome.toLocaleString('id-ID')} Berhasil Dicatat.`);
         }
@@ -463,7 +467,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
         // Show Change Alert if necessary
         const change = newTrxPaid - total;
         if (change > 0) {
-            alert(`✅ Transaksi Berhasil!\n\n💰 KEMBALIAN: Rp${change.toLocaleString('id-ID')}\n(Uang masuk tercatat: Rp${total.toLocaleString('id-ID')})`);
+            alert(`✅ Transaksi Berhasil!\n\n💰 KEMBALIAN: Rp${change.toLocaleString('id-ID')}\n(Uang masuk ke Kas: Rp${total.toLocaleString('id-ID')})`);
         } else {
             alert("Transaksi Berhasil!");
         }
@@ -570,13 +574,14 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
 
   const getAddPaymentChangeDisplay = () => {
       if (!selectedTransaction) return null;
+      // Gunakan Math.max agar tidak negatif jika error data
       const remaining = Math.max(0, selectedTransaction.totalPrice - selectedTransaction.amountPaid);
       const change = newPaymentAmount - remaining;
       
       if (change > 0 && newPaymentAmount > 0) {
           return (
               <div className="mt-2 text-right">
-                  <span className="text-xs text-green-600 font-bold">Kembalian: Rp{change.toLocaleString('id-ID')}</span>
+                  <span className="text-xs text-green-600 font-bold bg-green-50 px-2 py-1 rounded">Kembalian: Rp{change.toLocaleString('id-ID')}</span>
               </div>
           )
       }
