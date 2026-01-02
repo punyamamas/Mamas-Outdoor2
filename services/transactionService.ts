@@ -120,6 +120,55 @@ export const getTransactions = async (): Promise<Transaction[]> => {
   return data.map(mapDbToTransaction);
 };
 
+// NEW: Optimized for App Availability Check (Only Active Transactions)
+export const getActiveTransactions = async (): Promise<Transaction[]> => {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from('transactions')
+    .select('*')
+    .in('status', ['booked', 'rented', 'pending', 'partial_payment']); // Exclude completed/cancelled to save bandwidth
+  
+  if (error) return [];
+  return data.map(mapDbToTransaction);
+};
+
+// NEW: Server-side Pagination for Admin
+export const getPaginatedTransactions = async (
+  page: number, 
+  limit: number, 
+  search: string = '', 
+  status: string = 'all'
+): Promise<{ data: Transaction[], count: number }> => {
+  if (!supabase) return { data: [], count: 0 };
+
+  let query = supabase.from('transactions')
+    .select('*', { count: 'exact' })
+    .order('created_at', { ascending: false });
+
+  if (status !== 'all') {
+    query = query.eq('status', status);
+  }
+
+  if (search) {
+    query = query.or(`customer_name.ilike.%${search}%,customer_whatsapp.ilike.%${search}%,id.ilike.%${search}%`);
+  }
+
+  const from = (page - 1) * limit;
+  const to = from + limit - 1;
+
+  const { data, error, count } = await query.range(from, to);
+
+  if (error) {
+    console.error("Pagination Error", error);
+    return { data: [], count: 0 };
+  }
+
+  return { 
+    data: data.map(mapDbToTransaction), 
+    count: count || 0 
+  };
+};
+
 export const refreshTransactions = async (ids: string[]): Promise<{success: boolean, data: Transaction[]}> => {
   if (!supabase || ids.length === 0) return { success: false, data: [] };
   const { data, error } = await supabase.from('transactions').select('*').in('id', ids);

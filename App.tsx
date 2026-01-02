@@ -13,7 +13,7 @@ import { PRODUCTS, CATEGORIES as CONSTANT_CATEGORIES } from './constants';
 import { CartItem, Product, Category, Transaction } from './types';
 import { getProducts, addProduct, updateProduct, deleteProduct } from './services/productService';
 import { getCategories, addCategory, updateCategory, deleteCategory } from './services/categoryService';
-import { getTransactions } from './services/transactionService'; 
+import { getActiveTransactions } from './services/transactionService'; 
 import { MapPin, Star, Plus, Check, School, Github, Loader2, Flame, Lock, Calendar, Users, ArrowRight as ArrowIcon, ChevronDown, ShieldCheck, Zap, ShoppingCart, Info, Weight, Tent, Wind, ArrowUpDown, Search, XCircle, ShoppingBag, ClipboardList, MessageCircle, Truck, CalendarCheck, CalendarDays, Clock } from 'lucide-react';
 
 function App() {
@@ -44,7 +44,7 @@ function App() {
       const [productsData, categoriesData, transactionsData] = await Promise.all([
         getProducts(),
         getCategories(),
-        getTransactions()
+        getActiveTransactions() // Fetch only active for lightweight initial load
       ]);
       setProducts(productsData);
       setCategories(categoriesData);
@@ -371,7 +371,7 @@ function App() {
               Partner resmi penakluk <span className="text-yellow-400 font-bold border-b-2 border-yellow-400/30 hover:bg-yellow-400/10 transition-colors px-1">Slamet, Prau, & Sindoro</span>.
             </p>
 
-            {/* --- BOOKING ENGINE WIDGET (MOVED HERE) --- */}
+            {/* --- BOOKING ENGINE WIDGET --- */}
             <div className="bg-white p-2 rounded-3xl shadow-2xl border border-gray-200 w-full max-w-4xl mx-auto transform translate-y-8 animate-slide-in-right">
                 <div className="flex flex-col md:flex-row items-center p-2 gap-2">
                     {/* Date Input */}
@@ -742,33 +742,6 @@ function App() {
                 </a>
               </div>
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Features Section */}
-      <section className="bg-gray-50 border-t border-gray-200 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div className="flex flex-col items-center text-center p-8 bg-white rounded-2xl shadow-sm border border-gray-100 hover:border-nature-200 transition group">
-            <div className="w-16 h-16 bg-nature-50 text-nature-600 rounded-2xl rotate-3 group-hover:rotate-6 transition duration-300 flex items-center justify-center mb-6">
-              <Star className="fill-current" size={28} />
-            </div>
-            <h3 className="text-xl font-bold text-gray-900 mb-2">Gear Sultan</h3>
-            <p className="text-gray-500">Alat branded, bersih, dan wangi. Gak ada cerita tenda bocor pas badai.</p>
-          </div>
-          <div className="flex flex-col items-center text-center p-8 bg-white rounded-2xl shadow-sm border border-gray-100 hover:border-nature-200 transition group">
-             <div className="w-16 h-16 bg-adventure-50 text-adventure-600 rounded-2xl -rotate-3 group-hover:-rotate-6 transition duration-300 flex items-center justify-center mb-6">
-              <MapPin className="fill-current" size={28} />
-            </div>
-            <h3 className="text-xl font-bold text-gray-900 mb-2">Lokasi UNSOED</h3>
-            <p className="text-gray-500">Basecamp strategis di Grendeng. Gas ambil alat sambil berangkat kuliah.</p>
-          </div>
-          <div className="flex flex-col items-center text-center p-8 bg-white rounded-2xl shadow-sm border border-gray-100 hover:border-nature-200 transition group">
-             <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl rotate-3 group-hover:rotate-6 transition duration-300 flex items-center justify-center mb-6">
-              <School className="fill-current" size={28} />
-            </div>
-            <h3 className="text-xl font-bold text-gray-900 mb-2">Harga Mahasiswa</h3>
-            <p className="text-gray-500">Tunjukkan KTM sakti mu, dapatkan harga spesial kawan.</p>
           </div>
         </div>
       </section>

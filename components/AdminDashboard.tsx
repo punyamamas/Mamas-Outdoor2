@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { RotateCcw, Lock, LogOut, Mail, Key, BellRing, X } from 'lucide-react';
 import { Product, Category, Transaction } from '../types';
-import { getTransactions, updateTransactionStatus, deleteTransaction } from '../services/transactionService';
+import { getPaginatedTransactions, updateTransactionStatus, deleteTransaction, getTransactions } from '../services/transactionService';
 import { signIn, signOut, getCurrentUser } from '../services/authService';
 import { supabase } from '../services/supabase'; // Import Supabase Client
 
@@ -23,7 +23,7 @@ import AdminCalendarManager from './AdminCalendarManager'; // Import Baru
 interface AdminDashboardProps {
   products: Product[];
   categories: Category[];
-  transactions: Transaction[]; // NEW PROP
+  transactions: Transaction[]; // Legacy prop (initial data)
   onBackToHome: () => void;
   onAddProduct: (product: Product) => Promise<void>;
   onUpdateProduct: (product: Product) => Promise<void>;
@@ -37,7 +37,7 @@ interface AdminDashboardProps {
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ 
   products, 
   categories,
-  transactions: propTransactions, // Rename prop to avoid conflict
+  transactions: propTransactions, // Initial full load (if available)
   onBackToHome,
   onAddProduct,
   onUpdateProduct,
@@ -58,16 +58,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'warehouse' | 'categories' | 'transactions' | 'finance' | 'reports' | 'customers' | 'system' | 'reviews' | 'calendar'>('dashboard');
   const [isRefreshing, setIsRefreshing] = useState(false);
   
-  // Transaction State (Use prop if available, otherwise fallback to local)
-  const [transactions, setTransactions] = useState<Transaction[]>(propTransactions);
+  // Transaction State (Paginated for Table)
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoadingTransactions, setIsLoadingTransactions] = useState(false);
+  
+  // Pagination & Filter State
+  const [trxPage, setTrxPage] = useState(1);
+  const [trxTotal, setTrxTotal] = useState(0);
+  const [trxSearch, setTrxSearch] = useState('');
+  const [trxStatusFilter, setTrxStatusFilter] = useState('all');
+  const itemsPerPage = 20;
+
+  // Full Transactions for Other Tabs (Calendar/Stats/Customers) - Loaded on demand
+  const [allTransactions, setAllTransactions] = useState<Transaction[]>(propTransactions);
 
   // NOTIFICATION STATE
   const [newOrderAlert, setNewOrderAlert] = useState<any | null>(null);
 
   // Sync prop changes to local state
   useEffect(() => {
-    setTransactions(propTransactions);
+    setAllTransactions(propTransactions);
   }, [propTransactions]);
 
   // Check Session on Mount
@@ -151,25 +161,43 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     onBackToHome();
   };
 
-  // Fetch Transactions when tab changes (Legacy: kept for manual refresh behavior)
+  // Fetch Paginated Transactions (Only when Transactions tab is active or triggered)
   useEffect(() => {
-    if (isAuthenticated && (activeTab === 'transactions' || activeTab === 'customers' || activeTab === 'reports' || activeTab === 'calendar')) {
-      fetchTransactions();
+    if (isAuthenticated && activeTab === 'transactions') {
+      fetchPaginatedTransactions();
+    }
+  }, [isAuthenticated, activeTab, trxPage, trxSearch, trxStatusFilter]);
+
+  // Fetch Full Transactions (For Analytics/Calendar tabs)
+  useEffect(() => {
+    if (isAuthenticated && (activeTab === 'dashboard' || activeTab === 'calendar' || activeTab === 'customers' || activeTab === 'reports')) {
+       // Only fetch if we suspect data is stale or initial prop was empty
+       // Simple approach: Always fetch full list when entering these tabs to ensure accuracy
+       fetchFullTransactions();
     }
   }, [isAuthenticated, activeTab]);
 
-  const fetchTransactions = async () => {
+  const fetchPaginatedTransactions = async () => {
     setIsLoadingTransactions(true);
-    const data = await getTransactions();
+    const { data, count } = await getPaginatedTransactions(trxPage, itemsPerPage, trxSearch, trxStatusFilter);
     setTransactions(data);
+    setTrxTotal(count);
     setIsLoadingTransactions(false);
+  };
+
+  const fetchFullTransactions = async () => {
+      const data = await getTransactions(); // Legacy fetches all
+      setAllTransactions(data);
   };
 
   const handleTransactionStatusUpdate = async (id: string, newStatus: string) => {
     const success = await updateTransactionStatus(id, newStatus);
     if (success) {
       setTransactions(prev => prev.map(t => t.id === id ? { ...t, status: newStatus as any } : t));
-      if (newStatus === 'completed' || newStatus === 'cancelled') onRefresh(); 
+      // Refresh paginated data if status filter affects visibility
+      if (trxStatusFilter !== 'all') fetchPaginatedTransactions();
+      // Refresh full data in background
+      fetchFullTransactions();
     } else {
       alert("Gagal update status transaksi.");
     }
@@ -180,23 +208,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const success = await deleteTransaction(id);
     if (success) {
       setTransactions(prev => prev.filter(t => t.id !== id));
-      onRefresh();
+      fetchPaginatedTransactions();
+      fetchFullTransactions();
     } else {
-      const sqlCommand = `create policy "Enable delete for anon" on "public"."transactions" for delete using (true);`;
-      const tryCancel = window.confirm(`GAGAL MENGHAPUS (Database Policy).\nUbah ke status 'BATAL' saja? (Stok akan kembali).`);
-      
-      if (tryCancel) {
-        await handleTransactionStatusUpdate(id, 'cancelled');
-      } else {
-        prompt("Copy SQL ini untuk mengaktifkan delete:", sqlCommand);
-      }
+      alert("Gagal menghapus transaksi.");
     }
   };
 
   const handleRefreshData = async () => {
     setIsRefreshing(true);
     await onRefresh();
-    await fetchTransactions(); // Force fresh fetch
+    if (activeTab === 'transactions') await fetchPaginatedTransactions();
+    else await fetchFullTransactions();
     setTimeout(() => setIsRefreshing(false), 500);
   };
 
@@ -332,7 +355,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </header>
 
         <div className="p-8">
-          {activeTab === 'dashboard' && <AdminStats products={products} transactions={transactions} />}
+          {activeTab === 'dashboard' && <AdminStats products={products} transactions={allTransactions} />}
           
           {activeTab === 'categories' && (
              <AdminCategoryManager 
@@ -364,24 +387,33 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           {activeTab === 'calendar' && (
              <AdminCalendarManager 
                 products={products}
-                transactions={transactions}
+                transactions={allTransactions}
              />
           )}
 
           {activeTab === 'transactions' && (
              <AdminTransactionManager 
-                transactions={transactions} 
+                transactions={transactions} // Passed paginated data
                 isLoading={isLoadingTransactions} 
                 products={products}
                 onStatusUpdate={handleTransactionStatusUpdate}
                 onDeleteTransaction={handleDeleteTransaction}
-                onRefreshData={fetchTransactions}
+                onRefreshData={fetchPaginatedTransactions}
+                // Pagination & Filter Props
+                totalCount={trxTotal}
+                currentPage={trxPage}
+                itemsPerPage={itemsPerPage}
+                onPageChange={setTrxPage}
+                searchTerm={trxSearch}
+                onSearchChange={(val) => { setTrxSearch(val); setTrxPage(1); }}
+                filterStatus={trxStatusFilter}
+                onFilterChange={(val) => { setTrxStatusFilter(val); setTrxPage(1); }}
              />
           )}
 
           {activeTab === 'customers' && (
              <AdminCustomerManager 
-                transactions={transactions} 
+                transactions={allTransactions} 
              />
           )}
 
