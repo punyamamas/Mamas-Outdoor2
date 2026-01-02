@@ -291,7 +291,7 @@ export const deletePaymentLog = async (id: string): Promise<boolean> => {
   return !error;
 };
 
-// NEW FUNCTION: Send Invoice to WhatsApp
+// NEW FUNCTION: Send Text Invoice to WhatsApp
 export const sendWhatsAppInvoice = (trx: Transaction) => {
   const config = getStoreConfig();
   
@@ -345,6 +345,128 @@ Simpan struk ini sebagai bukti.`;
 
   const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
   window.open(url, '_blank');
+};
+
+// NEW FUNCTION: Generate, Download, and Send IMAGE Invoice to WhatsApp
+export const sendImageInvoiceToWhatsapp = async (trx: Transaction) => {
+  const storeConfig = getStoreConfig();
+  const dateObj = new Date(trx.created_at || new Date());
+  
+  // Create hidden container
+  const container = document.createElement('div');
+  container.style.width = '400px';
+  container.style.padding = '20px';
+  container.style.backgroundColor = 'white';
+  container.style.color = 'black';
+  container.style.fontFamily = "'Roboto Mono', monospace";
+  container.style.position = 'fixed';
+  container.style.top = '-10000px';
+  container.style.left = '0';
+  container.style.zIndex = '-1000';
+  
+  const fine = trx.fineAmount || 0;
+  const rentalTotal = trx.totalPrice - fine;
+  const paidGlobal = trx.amountPaid || 0;
+  const isPaid = paidGlobal >= trx.totalPrice;
+  const statusLabel = isPaid ? 'LUNAS' : 'BELUM LUNAS';
+  const stampColor = isPaid ? '#22c55e' : '#ef4444'; 
+  
+  const itemsHtml = trx.items.map(item => {
+      const unitPrice = calculateItemPriceForDuration(item, trx.duration);
+      const total = unitPrice * item.quantity;
+      return `
+        <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:12px;">
+            <div style="flex:1;">
+                <div style="font-weight:bold;">${item.name}</div>
+                <div style="font-size:10px; color:#666;">${item.quantity} x Rp${unitPrice.toLocaleString('id-ID')}</div>
+            </div>
+            <div style="font-weight:bold;">Rp${total.toLocaleString('id-ID')}</div>
+        </div>
+      `;
+  }).join('');
+
+  const fineHtml = fine > 0 ? `
+    <div style="display:flex; justify-content:space-between; margin-top:8px; border-top:1px dashed #ccc; padding-top:8px; font-size:12px; color:red;">
+        <div>Denda Keterlambatan</div>
+        <div>Rp${fine.toLocaleString('id-ID')}</div>
+    </div>
+  ` : '';
+
+  container.innerHTML = `
+    <div style="text-align:center; border-bottom:2px dashed #000; padding-bottom:15px; margin-bottom:15px;">
+        <h2 style="margin:0; font-size:20px; font-weight:900; text-transform:uppercase;">${storeConfig.storeName}</h2>
+        <p style="margin:5px 0 0; font-size:11px;">${storeConfig.storeAddress}</p>
+        <p style="margin:2px 0 0; font-size:11px;">WA: ${storeConfig.adminWhatsapp}</p>
+    </div>
+    
+    <div style="margin-bottom:15px; font-size:12px;">
+        <div style="display:flex; justify-content:space-between;"><span>Nota:</span> <strong>#${trx.id.slice(0,8)}</strong></div>
+        <div style="display:flex; justify-content:space-between;"><span>Tgl:</span> <span>${dateObj.toLocaleDateString('id-ID')}</span></div>
+        <div style="display:flex; justify-content:space-between;"><span>Plg:</span> <span>${trx.customerName.slice(0,15)}</span></div>
+    </div>
+
+    <div style="border-top:2px solid #000; border-bottom:2px solid #000; padding:10px 0; margin-bottom:15px;">
+        ${itemsHtml}
+        ${fineHtml}
+    </div>
+
+    <div style="margin-bottom:20px;">
+        <div style="display:flex; justify-content:space-between; font-size:14px; font-weight:bold; margin-bottom:5px;">
+            <span>TOTAL TAGIHAN</span>
+            <span>Rp${trx.totalPrice.toLocaleString('id-ID')}</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; font-size:12px; color:#444;">
+            <span>Sudah Bayar</span>
+            <span>Rp${paidGlobal.toLocaleString('id-ID')}</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; font-size:12px; color:${paidGlobal >= trx.totalPrice ? 'green' : 'red'}; font-weight:bold; margin-top:5px;">
+            <span>Sisa Kekurangan</span>
+            <span>Rp${Math.max(0, trx.totalPrice - paidGlobal).toLocaleString('id-ID')}</span>
+        </div>
+    </div>
+
+    <div style="text-align:center; margin-bottom:20px;">
+        <div style="display:inline-block; border:2px solid ${stampColor}; color:${stampColor}; padding:5px 15px; font-size:20px; font-weight:900; border-radius:5px; transform:rotate(-5deg);">
+            ${statusLabel}
+        </div>
+    </div>
+
+    <div style="text-align:center; font-size:10px; color:#666; font-style:italic;">
+        ${storeConfig.footerMessage}
+    </div>
+  `;
+
+  document.body.appendChild(container);
+
+  try {
+      const canvas = await html2canvas(container, { scale: 2, useCORS: true });
+      const imgData = canvas.toDataURL('image/png');
+      
+      // Download
+      const link = document.createElement('a');
+      link.href = imgData;
+      link.download = `Nota_${trx.customerName.replace(/\s+/g,'_')}_${trx.id.slice(0,6)}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      // Open WhatsApp
+      let phone = trx.customerWhatsapp.replace(/\D/g, '');
+      if (phone.startsWith('0')) phone = '62' + phone.slice(1);
+      
+      const caption = `Halo Kak *${trx.customerName}*,\n\nTerlampir nota digital (gambar) untuk transaksi #${trx.id.slice(0,6)}.\n\nTotal: Rp${trx.totalPrice.toLocaleString('id-ID')}\nStatus: ${statusLabel}\n\nTerima kasih!`;
+      
+      setTimeout(() => {
+          window.open(`https://wa.me/${phone}?text=${encodeURIComponent(caption)}`, '_blank');
+          alert("✅ Gambar Nota berhasil didownload!\n\nSilakan lampirkan (Attach) gambar tersebut ke chat WhatsApp yang baru terbuka.");
+      }, 500);
+
+  } catch (error) {
+      console.error("Error generating invoice image:", error);
+      alert("Gagal membuat gambar nota.");
+  } finally {
+      document.body.removeChild(container);
+  }
 };
 
 export const printInvoice = async (

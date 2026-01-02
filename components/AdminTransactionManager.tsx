@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { ClipboardList, Loader2, Calendar, Eye, Trash2, X, User, CreditCard, Banknote, ArrowRightLeft, Save, Calculator, CheckCircle, RotateCcw, Wallet, Edit, Plus, Minus, Search, ShoppingBag, Printer, Filter, DollarSign, Receipt, BarChart3, TrendingUp, Lightbulb, AlertTriangle, ArrowUpRight, Share2, Image as ImageIcon, CreditCard as CardIcon, ExternalLink, QrCode, FileText, Clock, ShieldCheck, ChevronDown, ChevronUp, Upload, LogIn, LogOut, FileCheck, PackagePlus, Camera, RefreshCw, MessageCircle, History, CreditCard as IdCard } from 'lucide-react';
 import { Transaction, Product, CartItem, UserDetails } from '../types';
-import { updateTransactionPayment, updateTransactionItems, updateTransactionDetails, printInvoice, applyTransactionFine, calculateOverdueFine, copyInvoiceToClipboard, uploadPaymentProof, createTransaction, calculateItemPriceForDuration, recordPaymentLog, uploadIdentityProof, sendWhatsAppInvoice } from '../services/transactionService';
+import { updateTransactionPayment, updateTransactionItems, updateTransactionDetails, printInvoice, applyTransactionFine, calculateOverdueFine, copyInvoiceToClipboard, uploadPaymentProof, createTransaction, calculateItemPriceForDuration, recordPaymentLog, uploadIdentityProof, sendWhatsAppInvoice, sendImageInvoiceToWhatsapp } from '../services/transactionService';
 import { processStockReduction, processStockRestoration } from '../services/productService';
 import QRScannerModal from './QRScannerModal'; 
 
@@ -1022,13 +1022,21 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                            <button onClick={() => printInvoice(selectedTransaction, 'view', 'fine')} className="bg-red-50 text-red-600 border border-red-100 py-2 rounded-lg text-xs font-bold hover:bg-red-100">Nota Denda</button>
                         </div>
                         
-                        {/* TOMBOL BARU: KIRIM KE WA */}
-                        <button 
-                           onClick={() => sendWhatsAppInvoice(selectedTransaction)}
-                           className="w-full bg-green-500 hover:bg-green-600 text-white py-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-2 shadow-sm transition"
-                        >
-                           <MessageCircle size={16}/> Kirim Nota Digital ke WhatsApp
-                        </button>
+                        {/* TOMBOL WA GANDA */}
+                        <div className="grid grid-cols-2 gap-2">
+                            <button 
+                                onClick={() => sendWhatsAppInvoice(selectedTransaction)}
+                                className="bg-green-500 hover:bg-green-600 text-white py-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-2 shadow-sm transition"
+                            >
+                                <MessageCircle size={16}/> Kirim Teks
+                            </button>
+                            <button 
+                                onClick={() => sendImageInvoiceToWhatsapp(selectedTransaction)}
+                                className="bg-blue-500 hover:bg-blue-600 text-white py-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-2 shadow-sm transition"
+                            >
+                                <ImageIcon size={16}/> Kirim Gambar
+                            </button>
+                        </div>
                      </div>
                   </div>
 
