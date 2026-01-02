@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { ClipboardList, Loader2, Calendar, Eye, Trash2, X, User, CreditCard, Banknote, ArrowRightLeft, Save, Calculator, CheckCircle, RotateCcw, Wallet, Edit, Plus, Minus, Search, ShoppingBag, Printer, Filter, DollarSign, Receipt, BarChart3, TrendingUp, Lightbulb, AlertTriangle, ArrowUpRight, Share2, Image as ImageIcon, CreditCard as CardIcon, ExternalLink, QrCode, FileText, Clock, ShieldCheck, ChevronDown, ChevronUp, Upload, LogIn, LogOut, FileCheck, PackagePlus, Camera, RefreshCw, MessageCircle, History } from 'lucide-react';
+import { ClipboardList, Loader2, Calendar, Eye, Trash2, X, User, CreditCard, Banknote, ArrowRightLeft, Save, Calculator, CheckCircle, RotateCcw, Wallet, Edit, Plus, Minus, Search, ShoppingBag, Printer, Filter, DollarSign, Receipt, BarChart3, TrendingUp, Lightbulb, AlertTriangle, ArrowUpRight, Share2, Image as ImageIcon, CreditCard as CardIcon, ExternalLink, QrCode, FileText, Clock, ShieldCheck, ChevronDown, ChevronUp, Upload, LogIn, LogOut, FileCheck, PackagePlus, Camera, RefreshCw, MessageCircle, History, CreditCard as IdCard } from 'lucide-react';
 import { Transaction, Product, CartItem, UserDetails } from '../types';
 import { updateTransactionPayment, updateTransactionItems, updateTransactionDetails, printInvoice, applyTransactionFine, calculateOverdueFine, copyInvoiceToClipboard, uploadPaymentProof, createTransaction, calculateItemPriceForDuration } from '../services/transactionService';
 import { processStockReduction, processStockRestoration } from '../services/productService';
@@ -33,11 +32,12 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
   const [editForm, setEditForm] = useState<{
     customerName: string;
     customerWhatsapp: string;
+    customerIdentity: string; // NEW FIELD
     rentalDate: string;
     duration: number;
     fineAmount: number;
     items: CartItem[]; 
-  }>({ customerName: '', customerWhatsapp: '', rentalDate: '', duration: 0, fineAmount: 0, items: [] });
+  }>({ customerName: '', customerWhatsapp: '', customerIdentity: '', rentalDate: '', duration: 0, fineAmount: 0, items: [] });
   
   const [editItemSearch, setEditItemSearch] = useState(''); 
 
@@ -58,7 +58,6 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
   // --- CUSTOMER AUTOCOMPLETE LOGIC ---
   const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false);
   
-  // Extract unique customers from transaction history for autocomplete
   const existingCustomers = useMemo(() => {
     const map = new Map();
     transactions.forEach(t => {
@@ -116,6 +115,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
     setEditForm({
         customerName: trx.customerName,
         customerWhatsapp: trx.customerWhatsapp,
+        customerIdentity: trx.customerIdentity || '', // Load Identity
         rentalDate: trx.rentalDate.split('T')[0],
         duration: trx.duration,
         fineAmount: trx.fineAmount || 0,
@@ -227,6 +227,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
     await updateTransactionDetails(selectedTransaction.id, {
         customerName: editForm.customerName,
         customerWhatsapp: editForm.customerWhatsapp,
+        customerIdentity: editForm.customerIdentity, // Save Identity
         rentalDate: editForm.rentalDate,
         duration: editForm.duration,
     });
@@ -238,6 +239,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
         ...selectedTransaction,
         customerName: editForm.customerName,
         customerWhatsapp: editForm.customerWhatsapp,
+        customerIdentity: editForm.customerIdentity,
         rentalDate: editForm.rentalDate,
         duration: editForm.duration,
         fineAmount: editForm.fineAmount,
@@ -247,7 +249,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
     
     setIsEditingData(false);
     onRefreshData();
-    alert("Data transaksi dan stok berhasil diperbarui!");
+    alert("Data transaksi berhasil diperbarui!");
   };
 
   const handleUploadProof = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -350,7 +352,6 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
          onScanSuccess={handleScanSuccess} 
       />
 
-      {/* Header */}
       <div className="p-5 border-b border-gray-100 bg-nature-50 flex flex-col md:flex-row gap-4 justify-between items-center">
         <h3 className="font-bold text-lg text-nature-800 flex items-center gap-2">
           <ClipboardList size={20} /> Manajemen Transaksi
@@ -401,7 +402,6 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
         </div>
       </div>
 
-      {/* List */}
       <div className="flex-1 overflow-auto">
         <table className="w-full text-sm text-left text-gray-600">
           <thead className="bg-white text-gray-700 font-bold uppercase text-xs border-b border-gray-200 sticky top-0 z-10 shadow-sm">
@@ -456,7 +456,6 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
         </table>
       </div>
 
-      {/* DETAIL MODAL */}
       {isEditModalOpen && selectedTransaction && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={closeEditModal}></div>
@@ -534,6 +533,15 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                                         <input type="number" min="1" className="w-20 border rounded p-2 text-sm text-center font-bold" value={editForm.duration} onChange={e => setEditForm({...editForm, duration: parseInt(e.target.value) || 1})} />
                                         <span className="text-xs text-gray-400 italic">Harga otomatis berubah</span>
                                      </div>
+                                 </div>
+                                 <div className="md:col-span-2">
+                                     <label className="text-xs font-bold text-blue-600 block mb-1">Jaminan / Identitas (Penting!)</label>
+                                     <input 
+                                        className="w-full border border-blue-300 bg-blue-50 rounded p-2 text-sm font-bold" 
+                                        value={editForm.customerIdentity} 
+                                        onChange={e => setEditForm({...editForm, customerIdentity: e.target.value})}
+                                        placeholder="Contoh: E-KTP Asli a.n Budi / KTM UNSOED"
+                                     />
                                  </div>
                              </div>
 
@@ -618,22 +626,39 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                      )}
 
                      {!isEditingData && (
-                        <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
-                            <h4 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2"><ShoppingBag size={16}/> Barang Sewaan</h4>
-                            <div className="space-y-3">
-                            {selectedTransaction.items.map((item, idx) => (
-                                <div key={idx} className="flex justify-between items-center p-3 bg-gray-50 rounded-xl border border-gray-100">
+                        <>
+                            <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 flex justify-between items-center shadow-sm">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-white rounded-lg text-blue-600"><IdCard size={20}/></div>
                                     <div>
-                                        <div className="font-bold text-gray-800 text-sm">{item.name}</div>
-                                        <div className="text-xs text-gray-500">
-                                        Size: {item.selectedSize || '-'} | Warna: {item.selectedColor || '-'}
-                                        </div>
+                                        <p className="text-[10px] text-blue-600 uppercase font-bold tracking-wider">Jaminan / Identitas</p>
+                                        <p className="text-sm font-bold text-blue-900">{selectedTransaction.customerIdentity || 'Belum dicatat'}</p>
                                     </div>
-                                    <div className="font-bold text-nature-600">x{item.quantity}</div>
                                 </div>
-                            ))}
+                                {!selectedTransaction.customerIdentity && (
+                                    <button onClick={() => setIsEditingData(true)} className="text-xs text-blue-600 underline hover:text-blue-800">
+                                        + Tambah
+                                    </button>
+                                )}
                             </div>
-                        </div>
+
+                            <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
+                                <h4 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2"><ShoppingBag size={16}/> Barang Sewaan</h4>
+                                <div className="space-y-3">
+                                {selectedTransaction.items.map((item, idx) => (
+                                    <div key={idx} className="flex justify-between items-center p-3 bg-gray-50 rounded-xl border border-gray-100">
+                                        <div>
+                                            <div className="font-bold text-gray-800 text-sm">{item.name}</div>
+                                            <div className="text-xs text-gray-500">
+                                            Size: {item.selectedSize || '-'} | Warna: {item.selectedColor || '-'}
+                                            </div>
+                                        </div>
+                                        <div className="font-bold text-nature-600">x{item.quantity}</div>
+                                    </div>
+                                ))}
+                                </div>
+                            </div>
+                        </>
                      )}
 
                   </div>
@@ -707,7 +732,6 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
         </div>
       )}
 
-      {/* POS MODAL: CREATE TRANSACTION */}
       {isCreateModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsCreateModalOpen(false)}></div>

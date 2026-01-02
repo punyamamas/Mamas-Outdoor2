@@ -1,10 +1,8 @@
-
-// ... existing imports ...
 import React, { useState, useRef } from 'react';
-import { Plus, Search, Edit, Trash2, X, Layers, Scissors, Palette, Image as ImageIcon, Save, Loader2, ShoppingBag, Upload, QrCode } from 'lucide-react';
-import { Product, Category, ProductVariant, ColorImage, PackageItem } from '../types';
+import { Plus, Search, Edit, Trash2, X, Layers, Scissors, Palette, Save, Loader2, ShoppingBag, Upload, QrCode } from 'lucide-react';
+import { Product, Category, ProductVariant, ColorImage } from '../types';
 import { uploadProductImage } from '../services/productService';
-import QRCode from 'qrcode'; // Need to import this for generating label
+import QRCode from 'qrcode';
 
 interface AdminProductManagerProps {
   products: Product[];
@@ -14,7 +12,6 @@ interface AdminProductManagerProps {
   onDeleteProduct: (id: string) => Promise<void>;
 }
 
-// ... Helper structure interfaces ...
 interface TempVariantGroup {
   id: string; 
   colorName: string;
@@ -29,7 +26,6 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
   onUpdateProduct,
   onDeleteProduct
 }) => {
-  // ... existing states ...
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -53,9 +49,6 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
 
   const AVAILABLE_SIZES = ['S', 'M', 'L', 'XL', 'XXL', '36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46', '47', '48'];
 
-  // ... openModal, handleSubmit, handleImageUpload, handleVariantImageUpload, logic ...
-  // Re-declare these functions from the previous implementation
-  
   const openModal = (product?: Product) => {
     if (product) {
       setEditingProduct(product);
@@ -173,12 +166,9 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
       variantFileInputRef.current?.click();
   };
 
-  // --- NEW: PRINT LABEL QR ---
   const handlePrintLabel = async (product: Product) => {
     try {
-        // Generate QR Data URL
         const qrUrl = await QRCode.toDataURL(product.id, { width: 150, margin: 1 });
-        
         const printWindow = window.open('', '', 'width=400,height=400');
         if (!printWindow) return;
 
@@ -215,7 +205,6 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
     }
   };
 
-  // ... Package & Variant Helpers ...
   const addToPackage = (item: Product) => {
     if (formData.packageItems?.find(p => p.productId === item.id)) return;
     setFormData(prev => ({ ...prev, packageItems: [...(prev.packageItems || []), { productId: item.id, quantity: 1 }] }));
@@ -251,7 +240,7 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-      <div className="p-5 border-b border-gray-100 flex flex-col md:flex-row justify-between gap-4">
+      <div className="p-5 border-b border-gray-100 flex flex-col md:flex-row justify-between gap-4 bg-nature-50">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-3 text-gray-400" size={18} />
           <input 
@@ -272,7 +261,7 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
 
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm text-gray-600">
-          <thead className="bg-gray-50 text-gray-700 font-bold uppercase text-xs">
+          <thead className="bg-white text-gray-700 font-bold uppercase text-xs border-b border-gray-200">
             <tr>
               <th className="px-6 py-4">Produk</th>
               <th className="px-6 py-4">Kategori</th>
@@ -297,7 +286,7 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
                     </div>
                   </div>
                 </td>
-                <td className="px-6 py-4"><span className="bg-gray-100 px-2 py-1 rounded text-xs font-bold">{product.category}</span></td>
+                <td className="px-6 py-4"><span className="bg-gray-100 px-2 py-1 rounded text-xs font-bold text-gray-600">{product.category}</span></td>
                 <td className="px-6 py-4 font-bold text-nature-600">
                     {product.isSale ? (
                         <span>Rp{(product.salePrice||0).toLocaleString('id-ID')}</span>
@@ -319,25 +308,25 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
         </table>
       </div>
 
-      {/* MODAL FORM (Same as before) */}
+      {/* MODAL FORM */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}></div>
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto animate-slide-in-right">
             <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex justify-between items-center z-10">
-              <h3 className="font-bold text-xl">{editingProduct ? 'Edit Produk' : 'Tambah Produk Baru'}</h3>
-              <button onClick={() => setIsModalOpen(false)}><X/></button>
+              <h3 className="font-bold text-xl text-gray-800">{editingProduct ? 'Edit Produk' : 'Tambah Produk Baru'}</h3>
+              <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-gray-100 rounded-full"><X size={20}/></button>
             </div>
             
             <form onSubmit={handleSubmit} className="p-6 space-y-6">
                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                  <div>
-                    <label className="block text-sm font-bold mb-1">Nama Produk</label>
-                    <input required className="w-full border rounded-lg p-2" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                    <label className="block text-sm font-bold mb-1 text-gray-700">Nama Produk</label>
+                    <input required className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-nature-500 outline-none" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
                  </div>
                  <div>
-                    <label className="block text-sm font-bold mb-1">Kategori</label>
-                    <select className="w-full border rounded-lg p-2" value={formData.category} onChange={e => {
+                    <label className="block text-sm font-bold mb-1 text-gray-700">Kategori</label>
+                    <select className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-nature-500 outline-none" value={formData.category} onChange={e => {
                       setFormData({...formData, category: e.target.value});
                       setIsPackageMode(e.target.value === 'Paketan Sewa');
                     }}>
@@ -372,24 +361,24 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
                    </div>
                ) : (
                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <div><label className="text-xs font-bold">Harga 2 Hari</label><input type="number" className="w-full border rounded p-2" value={formData.price2Days} onChange={e=>setFormData({...formData, price2Days: Number(e.target.value)})}/></div>
-                      <div><label className="text-xs font-bold">Harga 3 Hari</label><input type="number" className="w-full border rounded p-2" value={formData.price3Days} onChange={e=>setFormData({...formData, price3Days: Number(e.target.value)})}/></div>
-                      <div><label className="text-xs font-bold">Harga 4 Hari</label><input type="number" className="w-full border rounded p-2" value={formData.price4Days} onChange={e=>setFormData({...formData, price4Days: Number(e.target.value)})}/></div>
-                      <div><label className="text-xs font-bold">Harga 5 Hari</label><input type="number" className="w-full border rounded p-2" value={formData.price5Days} onChange={e=>setFormData({...formData, price5Days: Number(e.target.value)})}/></div>
+                      <div><label className="text-xs font-bold text-gray-500 mb-1 block">Harga 2 Hari</label><input type="number" className="w-full border border-gray-300 rounded-lg p-2" value={formData.price2Days} onChange={e=>setFormData({...formData, price2Days: Number(e.target.value)})}/></div>
+                      <div><label className="text-xs font-bold text-gray-500 mb-1 block">Harga 3 Hari</label><input type="number" className="w-full border border-gray-300 rounded-lg p-2" value={formData.price3Days} onChange={e=>setFormData({...formData, price3Days: Number(e.target.value)})}/></div>
+                      <div><label className="text-xs font-bold text-gray-500 mb-1 block">Harga 4 Hari</label><input type="number" className="w-full border border-gray-300 rounded-lg p-2" value={formData.price4Days} onChange={e=>setFormData({...formData, price4Days: Number(e.target.value)})}/></div>
+                      <div><label className="text-xs font-bold text-gray-500 mb-1 block">Harga 5 Hari</label><input type="number" className="w-full border border-gray-300 rounded-lg p-2" value={formData.price5Days} onChange={e=>setFormData({...formData, price5Days: Number(e.target.value)})}/></div>
                    </div>
                )}
 
                {/* Advanced Variants Toggle */}
-               <div className="flex items-center gap-4 bg-gray-50 p-4 rounded-lg">
+               <div className="flex items-center gap-4 bg-gray-50 p-4 rounded-lg border border-gray-200">
                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={useAdvancedVariants} onChange={e => setUseAdvancedVariants(e.target.checked)} className="w-5 h-5 text-nature-600"/>
+                    <input type="checkbox" checked={useAdvancedVariants} onChange={e => setUseAdvancedVariants(e.target.checked)} className="w-5 h-5 text-nature-600 rounded focus:ring-nature-500"/>
                     <span className="font-bold text-gray-700">Gunakan Varian Warna & Gambar?</span>
                  </label>
                </div>
 
                {/* Variant Logic Area */}
                {useAdvancedVariants ? (
-                 <div className="space-y-4 border p-4 rounded-lg">
+                 <div className="space-y-4 border border-gray-200 p-4 rounded-xl">
                     <input 
                       type="file" 
                       ref={variantFileInputRef} 
@@ -399,22 +388,22 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
                     />
 
                     {tempVariantGroups.map((group) => (
-                      <div key={group.id} className="bg-gray-50 p-4 rounded-lg border relative">
-                         <button type="button" onClick={() => removeVariantGroup(group.id)} className="absolute top-2 right-2 text-red-500"><Trash2 size={16}/></button>
+                      <div key={group.id} className="bg-gray-50 p-4 rounded-lg border border-gray-200 relative">
+                         <button type="button" onClick={() => removeVariantGroup(group.id)} className="absolute top-2 right-2 text-red-500 hover:text-red-700 p-1"><Trash2 size={16}/></button>
                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
                            <div>
-                              <label className="text-xs font-bold block mb-1">Nama Warna</label>
-                              <input placeholder="Contoh: Merah" className="border p-2 rounded w-full" value={group.colorName} onChange={e => updateVariantGroup(group.id, 'colorName', e.target.value)} />
+                              <label className="text-xs font-bold block mb-1 text-gray-500">Nama Warna</label>
+                              <input placeholder="Contoh: Merah" className="border border-gray-300 p-2 rounded w-full text-sm" value={group.colorName} onChange={e => updateVariantGroup(group.id, 'colorName', e.target.value)} />
                            </div>
                            <div>
-                              <label className="text-xs font-bold block mb-1">URL Gambar (Manual / Upload)</label>
+                              <label className="text-xs font-bold block mb-1 text-gray-500">URL Gambar (Manual / Upload)</label>
                               <div className="flex gap-2">
-                                <input placeholder="https://..." className="border p-2 rounded flex-1 text-sm" value={group.imageUrl} onChange={e => updateVariantGroup(group.id, 'imageUrl', e.target.value)} />
+                                <input placeholder="https://..." className="border border-gray-300 p-2 rounded flex-1 text-sm" value={group.imageUrl} onChange={e => updateVariantGroup(group.id, 'imageUrl', e.target.value)} />
                                 <button 
                                   type="button" 
                                   onClick={() => triggerVariantUpload(group.id)}
                                   disabled={isUploading}
-                                  className="p-2 border rounded bg-white hover:bg-gray-100 flex items-center justify-center text-gray-600"
+                                  className="p-2 border border-gray-300 rounded bg-white hover:bg-gray-100 flex items-center justify-center text-gray-600"
                                   title="Upload Gambar Varian"
                                 >
                                   {isUploading && uploadingVariantId === group.id ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16}/>}
@@ -425,8 +414,8 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
                          <div className="flex flex-wrap gap-2">
                             {AVAILABLE_SIZES.map(sz => (
                               <div key={sz} className="flex flex-col items-center">
-                                <span className="text-[10px] font-bold">{sz}</span>
-                                <input type="number" className="w-12 text-center border rounded text-xs" min="0" 
+                                <span className="text-[10px] font-bold text-gray-500">{sz}</span>
+                                <input type="number" className="w-12 text-center border border-gray-300 rounded text-xs p-1" min="0" 
                                   value={group.sizes[sz] || ''} 
                                   onChange={e => updateVariantSizeStock(group.id, sz, parseInt(e.target.value) || 0)} 
                                 />
@@ -435,33 +424,33 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
                          </div>
                       </div>
                     ))}
-                    <button type="button" onClick={addVariantGroup} className="text-nature-600 font-bold flex items-center gap-2"><Plus size={16}/> Tambah Varian Warna</button>
+                    <button type="button" onClick={addVariantGroup} className="text-nature-600 font-bold flex items-center gap-2 hover:bg-nature-50 px-3 py-2 rounded transition"><Plus size={16}/> Tambah Varian Warna</button>
                  </div>
                ) : (
-                 <div className="bg-gray-50 p-4 rounded-lg">
-                    <label className="block text-sm font-bold mb-2">Stok per Ukuran (Opsional)</label>
+                 <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                    <label className="block text-sm font-bold mb-2 text-gray-700">Stok per Ukuran (Opsional)</label>
                     <div className="flex flex-wrap gap-3">
                        {AVAILABLE_SIZES.map(sz => (
                           <div key={sz} className="flex flex-col items-center">
-                            <span className="text-[10px] font-bold">{sz}</span>
-                            <input type="number" className="w-12 text-center border rounded" min="0" placeholder="0"
+                            <span className="text-[10px] font-bold text-gray-500">{sz}</span>
+                            <input type="number" className="w-12 text-center border border-gray-300 rounded text-sm p-1" min="0" placeholder="0"
                                value={simpleSizes[sz] || ''} onChange={e => updateSimpleSizeStock(sz, parseInt(e.target.value)||0)}
                             />
                           </div>
                        ))}
                     </div>
-                    <div className="mt-4">
-                       <label className="block text-sm font-bold">Stok Total (Manual jika tanpa size)</label>
-                       <input type="number" className="border p-2 rounded w-32" value={formData.stock} onChange={e => setFormData({...formData, stock: Number(e.target.value)})} />
+                    <div className="mt-4 border-t border-gray-200 pt-3">
+                       <label className="block text-sm font-bold text-gray-700 mb-1">Stok Total (Manual jika tanpa size)</label>
+                       <input type="number" className="border border-gray-300 p-2 rounded-lg w-32" value={formData.stock} onChange={e => setFormData({...formData, stock: Number(e.target.value)})} />
                     </div>
                  </div>
                )}
                
                {/* Image & Desc */}
                <div>
-                  <label className="block text-sm font-bold mb-1">URL Gambar Utama</label>
+                  <label className="block text-sm font-bold mb-1 text-gray-700">URL Gambar Utama</label>
                   <div className="flex gap-2">
-                    <input className="flex-1 border rounded p-2" value={formData.image} onChange={e => setFormData({...formData, image: e.target.value})} placeholder="https://..." />
+                    <input className="flex-1 border border-gray-300 rounded-lg p-2.5" value={formData.image} onChange={e => setFormData({...formData, image: e.target.value})} placeholder="https://..." />
                     
                     <input 
                       type="file" 
@@ -475,7 +464,7 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
                       type="button" 
                       onClick={() => fileInputRef.current?.click()}
                       disabled={isUploading}
-                      className="p-2 border rounded hover:bg-gray-50 flex items-center justify-center text-gray-600 w-12"
+                      className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center justify-center text-gray-600 w-12"
                       title="Upload Gambar dari Device"
                     >
                       {isUploading && !uploadingVariantId ? <Loader2 size={20} className="animate-spin" /> : <Upload size={20}/>}
@@ -483,23 +472,23 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
                   </div>
                </div>
                <div>
-                  <label className="block text-sm font-bold mb-1">Deskripsi</label>
-                  <textarea rows={3} className="w-full border rounded p-2" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
+                  <label className="block text-sm font-bold mb-1 text-gray-700">Deskripsi</label>
+                  <textarea rows={3} className="w-full border border-gray-300 rounded-lg p-2.5" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
                </div>
 
                {/* Package Builder */}
                {isPackageMode && (
-                 <div className="border border-purple-200 bg-purple-50 p-4 rounded-lg">
+                 <div className="border border-purple-200 bg-purple-50 p-4 rounded-xl">
                     <h4 className="font-bold text-purple-800 flex items-center gap-2 mb-3"><Layers size={16}/> Isi Paket Hemat</h4>
                     
                     {formData.packageItems?.map((item, idx) => {
                        const prod = products.find(p => p.id === item.productId);
                        return (
-                         <div key={idx} className="flex justify-between items-center bg-white p-2 rounded mb-2 shadow-sm">
-                            <span className="text-sm font-medium">{prod?.name || 'Produk Dihapus'}</span>
+                         <div key={idx} className="flex justify-between items-center bg-white p-2 rounded mb-2 shadow-sm border border-purple-100">
+                            <span className="text-sm font-medium text-gray-700">{prod?.name || 'Produk Dihapus'}</span>
                             <div className="flex items-center gap-2">
                                <input type="number" min="1" className="w-16 border rounded text-center" value={item.quantity} onChange={e => updatePackageQty(item.productId, parseInt(e.target.value))} />
-                               <button type="button" onClick={() => removeFromPackage(item.productId)} className="text-red-500"><Trash2 size={16}/></button>
+                               <button type="button" onClick={() => removeFromPackage(item.productId)} className="text-red-500 hover:text-red-700"><Trash2 size={16}/></button>
                             </div>
                          </div>
                        );
@@ -508,7 +497,7 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
                     <div className="relative mt-2">
                        <input 
                          placeholder="Cari alat untuk ditambahkan..." 
-                         className="w-full border p-2 rounded"
+                         className="w-full border border-purple-200 p-2 rounded-lg text-sm"
                          value={packageSearchTerm}
                          onChange={e => setPackageSearchTerm(e.target.value)}
                        />
@@ -525,10 +514,10 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
                  </div>
                )}
 
-               <div className="flex justify-end gap-3 pt-4 border-t">
-                  <button type="button" onClick={() => setIsModalOpen(false)} className="px-6 py-2 border rounded-lg font-bold text-gray-600">Batal</button>
-                  <button type="submit" disabled={isSubmitting} className="px-6 py-2 bg-nature-600 text-white rounded-lg font-bold flex items-center gap-2">
-                     {isSubmitting ? <Loader2 className="animate-spin"/> : <Save size={18}/>} Simpan Produk
+               <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+                  <button type="button" onClick={() => setIsModalOpen(false)} className="px-6 py-2.5 border border-gray-300 rounded-xl font-bold text-gray-600 hover:bg-gray-50 transition">Batal</button>
+                  <button type="submit" disabled={isSubmitting} className="px-6 py-2.5 bg-nature-600 hover:bg-nature-700 text-white rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-nature-200 transition">
+                     {isSubmitting ? <Loader2 className="animate-spin" size={18}/> : <Save size={18}/>} Simpan Produk
                   </button>
                </div>
             </form>

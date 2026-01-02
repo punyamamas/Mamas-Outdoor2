@@ -1,5 +1,3 @@
-
-// ... existing imports ...
 import React, { useState, useEffect, useMemo } from 'react';
 import { DollarSign, Wallet, CreditCard, ArrowUpRight, ArrowDownLeft, Plus, Calendar, Loader2, Save, Database, AlertTriangle, Copy, Check, BarChart3, PieChart, TrendingUp, HandCoins, Trash2, Download } from 'lucide-react';
 import { PaymentLog } from '../types';
@@ -34,9 +32,8 @@ const AdminFinanceManager: React.FC = () => {
   const [manualAmount, setManualAmount] = useState<number>(0);
   const [manualDesc, setManualDesc] = useState('');
   const [manualType, setManualType] = useState<'IN' | 'OUT'>('OUT');
-  const [manualDate, setManualDate] = useState<string>(new Date().toISOString().split('T')[0]); // NEW: Date for manual entry
+  const [manualDate, setManualDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
-  // ... (Effect and fetchData remains same) ...
   // --- EFFECT: FETCH DATA ---
   useEffect(() => {
     fetchData();
@@ -57,7 +54,6 @@ const AdminFinanceManager: React.FC = () => {
         const start = new Date(year, month - 1, 1);
         const end = new Date(year, month, 0); // Last day of month
         
-        // Format to YYYY-MM-DD ignoring timezone issues for simplicity (using local components)
         startDate = `${start.getFullYear()}-${String(start.getMonth()+1).padStart(2,'0')}-${String(start.getDate()).padStart(2,'0')}`;
         endDate = `${end.getFullYear()}-${String(end.getMonth()+1).padStart(2,'0')}-${String(end.getDate()).padStart(2,'0')}`;
     }
@@ -93,7 +89,7 @@ const AdminFinanceManager: React.FC = () => {
       type: manualType,
       description: manualDesc,
       category: manualType === 'OUT' ? 'Operasional' : 'Lain-lain',
-      created_at: dateTime // Send explicit date
+      created_at: dateTime
     });
 
     setManualAmount(0);
@@ -102,7 +98,6 @@ const AdminFinanceManager: React.FC = () => {
     fetchData();
   };
 
-  // ... (handleDeleteLog, handleExportCSV, copySQL, Calculations, etc remain same) ...
   const handleDeleteLog = async (id: string) => {
     if (window.confirm("Yakin hapus catatan ini? Saldo akan dikalkulasi ulang.")) {
         const success = await deletePaymentLog(id);
@@ -164,17 +159,13 @@ for all using (true) with check (true);`;
   };
 
   // --- CALCULATIONS (MEMOIZED) ---
-  
-  // 1. Total Summaries
   const summary = useMemo(() => {
       const totalIn = logs.filter(l => l.type === 'IN').reduce((acc, curr) => acc + curr.amount, 0);
       const totalOut = logs.filter(l => l.type === 'OUT').reduce((acc, curr) => acc + curr.amount, 0);
       
-      // NEW: Breakdown by Category
       const rentalIncome = logs.filter(l => l.type === 'IN' && l.category === 'Sewa').reduce((acc, curr) => acc + curr.amount, 0);
       const fineIncome = logs.filter(l => l.type === 'IN' && l.category === 'Denda').reduce((acc, curr) => acc + curr.amount, 0);
       
-      // Breakdown Payment Method (Only for Daily usually, but good to have)
       const cashIn = logs.filter(l => l.payment_method === 'cash' && l.type === 'IN').reduce((acc, curr) => acc + curr.amount, 0);
       const cashOut = logs.filter(l => l.payment_method === 'cash' && l.type === 'OUT').reduce((acc, curr) => acc + curr.amount, 0);
       const netCash = cashIn - cashOut;
@@ -184,13 +175,12 @@ for all using (true) with check (true);`;
       return { totalIn, totalOut, netTotal: totalIn - totalOut, netCash, transferIn, rentalIncome, fineIncome };
   }, [logs]);
 
-  // 2. Daily Aggregates (For Monthly View Chart & Table)
+  // Daily Aggregates (For Monthly View Chart & Table)
   const dailyAggregates = useMemo(() => {
       if (viewMode === 'daily') return [];
 
       const map: Record<string, { date: string, in: number, out: number }> = {};
       
-      // Initialize all days in month
       const [year, month] = selectedMonth.split('-').map(Number);
       const daysInMonth = new Date(year, month, 0).getDate();
       
@@ -199,7 +189,6 @@ for all using (true) with check (true);`;
           map[dayStr] = { date: dayStr, in: 0, out: 0 };
       }
 
-      // Fill Data
       logs.forEach(log => {
           const dayStr = log.created_at.split('T')[0];
           if (map[dayStr]) {
@@ -214,7 +203,6 @@ for all using (true) with check (true);`;
   const maxChartValue = Math.max(...dailyAggregates.map(d => d.in), 100000);
 
   if (dbError === 'missing_table') {
-    // ... Error Render (Same as before) ...
     return (
       <div className="bg-white rounded-2xl shadow-sm border border-orange-200 p-8 flex flex-col items-center text-center max-w-2xl mx-auto mt-10">
          <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 mb-4 animate-bounce">
@@ -255,7 +243,7 @@ for all using (true) with check (true);`}
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden min-h-[600px] flex flex-col">
-      {/* Header & Controls (Same as before) */}
+      {/* Header & Controls */}
       <div className="p-6 border-b border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4 bg-nature-50">
         <div>
           <h3 className="font-bold text-lg text-nature-800 flex items-center gap-2">
@@ -313,7 +301,7 @@ for all using (true) with check (true);`}
       </div>
 
       <div className="p-6 flex-1 overflow-y-auto">
-        {/* SUMMARY CARDS (Same) */}
+        {/* SUMMARY CARDS */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-2">
@@ -345,7 +333,6 @@ for all using (true) with check (true);`}
           </div>
         </div>
 
-        {/* ... (Details for Daily, Monthly Chart etc - Keep Same) ... */}
         {viewMode === 'daily' && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                 <div className="bg-green-50 p-5 rounded-2xl border border-green-100">
@@ -429,7 +416,6 @@ for all using (true) with check (true);`}
             </div>
         )}
 
-        {/* DAILY VIEW: ACTION & TABLE */}
         {viewMode === 'daily' && (
             <>
                 {/* Manual Entry Button */}
@@ -501,7 +487,6 @@ for all using (true) with check (true);`}
                     )}
                 </div>
 
-                {/* Daily Transaction Table */}
                 <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                     <table className="w-full text-sm text-left">
                         <thead className="bg-gray-50 text-gray-600 font-bold border-b border-gray-200">
@@ -530,7 +515,6 @@ for all using (true) with check (true);`}
                                         {log.transaction_id && <span className="text-xs text-gray-400 block">Ref: #{log.transaction_id.slice(0,6)}</span>}
                                     </td>
                                     <td className="px-6 py-3">
-                                        {/* Kategori Badge */}
                                         <span className={`text-[10px] font-bold px-2 py-1 rounded border uppercase ${
                                             log.category === 'Denda' ? 'bg-red-50 text-red-600 border-red-100' :
                                             log.category === 'Sewa' ? 'bg-blue-50 text-blue-600 border-blue-100' :
