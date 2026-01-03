@@ -299,7 +299,7 @@ function App() {
     if (catLower.includes('carrier') || catLower.includes('tas')) return <div className="flex items-center gap-1"><Weight size={14} /> <span>Backsystem</span></div>;
     if (catLower.includes('tidur') || catLower.includes('sleeping')) return <div className="flex items-center gap-1"><Wind size={14} /> <span>Warm</span></div>;
     if (catLower.includes('masak') || catLower.includes('kompor')) return <div className="flex items-center gap-1"><Flame size={14} /> <span>Portable</span></div>;
-    return <div className="flex items-center gap-1"><Star size={14} /> <span>Premium</span></div>;
+    return <div className="flex items-center gap-1"><Star size={14} /> <span>Top Tier</span></div>;
   };
 
   return (
@@ -572,13 +572,13 @@ function App() {
                     <div className="absolute top-4 right-4 flex flex-col gap-2 items-end z-20">
                        {displayStock < 3 && displayStock > 0 && (
                          <span className="bg-adventure-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-full shadow-lg animate-pulse uppercase tracking-wider flex items-center gap-1">
-                           <Zap size={10} fill="currentColor" /> Terbatas!
+                           <Zap size={10} fill="currentColor" /> Rebutan Nih!
                          </span>
                        )}
                        <span className={`px-3 py-1.5 rounded-full text-[10px] font-bold shadow-sm backdrop-blur-md border border-white/20 ${
                          displayStock > 0 ? 'bg-white/90 text-nature-700' : 'bg-red-600 text-white'
                        }`}>
-                         Stok Tgl Ini: {displayStock}
+                         Gercep! Sisa: {displayStock}
                        </span>
                     </div>
 
@@ -605,7 +605,7 @@ function App() {
                            {getProductFeatures(product.category)}
                         </span>
                         <span className="inline-flex items-center gap-1 bg-gray-50 text-gray-500 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wide border border-gray-100">
-                           <Check size={10} /> Bersih
+                           <Check size={10} /> Wangi
                         </span>
                       </div>
                     </div>
