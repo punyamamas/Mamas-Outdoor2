@@ -284,8 +284,7 @@ export const printTransactionReceipt = async (trx: Transaction) => {
     const pelangganStr = `${custId} ${custName}`;
 
     // --- PREPARE IMAGES (LOGO & QR) ---
-    // Gunakan URL Logo (Pastikan URL ini bisa diakses dan support CORS/Anonymous jika perlu)
-    // Jika tidak muncul, pastikan format PNG/JPG dan server mengizinkan akses.
+    // Gunakan URL Logo Mamas Outdoor
     const logoUrl = "https://imgur.com/iC8ycHT.png"; 
     
     // Generate QR Data URL

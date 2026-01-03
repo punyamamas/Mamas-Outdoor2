@@ -44,7 +44,7 @@ function App() {
       const [productsData, categoriesData, transactionsData] = await Promise.all([
         getProducts(),
         getCategories(),
-        getActiveTransactions() // Fetch only active for lightweight initial load
+        getActiveTransactions() 
       ]);
       setProducts(productsData);
       setCategories(categoriesData);
@@ -339,11 +339,11 @@ function App() {
       />
 
       {/* Hero Section WITH BOOKING WIDGET */}
-      <section className="relative min-h-[90vh] flex flex-col items-center justify-center overflow-hidden py-32 group/hero">
+      <section className="relative min-h-[85vh] flex flex-col items-center justify-center overflow-hidden py-32 group/hero">
         <div className="absolute inset-0 z-0 overflow-hidden">
           <img 
             src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=2000&auto=format&fit=crop" 
-            alt="Gunung Slamet Peak" 
+            alt="Gunung Slamet View" 
             className="w-full h-full object-cover transition-transform duration-[20s] ease-in-out group-hover:scale-110"
           />
           <div className="absolute inset-0 bg-gradient-to-b from-gray-900/90 via-gray-900/50 to-gray-50/10"></div>
@@ -354,20 +354,21 @@ function App() {
           <div className="text-center max-w-5xl mx-auto relative z-20 px-4 flex flex-col items-center">
             <div className="inline-flex items-center gap-2 bg-nature-600/90 backdrop-blur-md px-5 py-2 rounded-full text-white text-xs md:text-sm font-bold mb-8 border border-white/10 uppercase tracking-widest shadow-xl shadow-nature-900/50 hover:bg-nature-700 hover:scale-105 transition duration-300 cursor-default">
               <Flame size={16} className="text-yellow-400 fill-current animate-pulse" />
-              <span>Sewa Alat Camping Terfavorit di Purwokerto</span>
+              <span>Sewa Alat Outdoor Terlengkap di Purwokerto</span>
             </div>
 
             <h1 className="font-black text-white mb-8 tracking-tight drop-shadow-2xl">
               <span className="block text-4xl sm:text-5xl md:text-6xl lg:text-7xl mb-4 hover:tracking-wide transition-all duration-500 ease-out cursor-default">
-                SEWA ALAT SAT-SET
+                ANAK UNSOED
               </span>
               <span className="block text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 text-5xl sm:text-6xl md:text-7xl lg:text-8xl py-2 animate-gradient-x bg-[length:200%_auto] cursor-default">
-                ANTI RIBET
+                WAJIB TAHU!
               </span>
             </h1>
 
             <p className="text-lg text-gray-200 mb-10 max-w-2xl mx-auto font-medium leading-relaxed drop-shadow-md px-4">
-              Alat ready, harga friendly, liburan jadi happy. Solusi anak Purwokerto buat muncak santai tanpa drama saat naik Gunung. <span className="text-yellow-400 font-bold border-b-2 border-yellow-400/30 hover:bg-yellow-400/10 transition-colors px-1">Slamet, Prau, & Sindoro</span>.
+              Pusat rental alat camping & pendakian favorit mahasiswa Purwokerto. Lokasi strategis di <span className="text-yellow-400 font-bold border-b-2 border-yellow-400/30 hover:bg-yellow-400/10 transition-colors px-1">Grendeng</span>.
+              Gas muncak ke Slamet, Prau, & Sindoro tanpa ribet!
             </p>
 
             {/* --- BOOKING ENGINE WIDGET --- */}
@@ -412,7 +413,7 @@ function App() {
                         className="bg-nature-600 hover:bg-nature-700 text-white font-bold py-4 px-8 rounded-2xl shadow-lg transition-all hover:scale-105 active:scale-95 w-full md:w-auto flex items-center justify-center gap-2"
                     >
                         <Search size={20} />
-                        Spill Yang Ready
+                        Cek Alat Ready
                     </button>
                 </div>
             </div>
@@ -446,9 +447,9 @@ function App() {
                 <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center mb-6 text-blue-600 group-hover:scale-110 transition">
                   <MessageCircle size={32} />
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">2. Chat MasMin (Mamas Admin)</h3>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">2. Chat Mamas Outdoor</h3>
                 <p className="text-gray-500 text-sm leading-relaxed">
-                  Klik tombol pesan, terus konfirm ke Mamas. Mamas totalin biayanya, trus DP 50% dulu biar alat inceranmu gak ditikung orang.
+                  Klik tombol pesan, terus konfirm ke admin Mamas. Kami totalin biayanya, trus DP 50% dulu biar alat inceranmu aman.
                 </p>
             </div>
 
@@ -456,9 +457,9 @@ function App() {
                 <div className="w-16 h-16 bg-green-100 rounded-2xl flex items-center justify-center mb-6 text-green-600 group-hover:scale-110 transition">
                   <Truck size={32} />
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">3. Ambil & OTW!</h3>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">3. Ambil di Grendeng</h3>
                 <p className="text-gray-500 text-sm leading-relaxed">
-                  Merapat ke basecamp Mamas (depan warmino WBC). Titip identitas asli, lunasin sisa sewa, langsung tancap gas naik gunung!
+                  Merapat ke basecamp Mamas di Grendeng (dekat WBC). Titip identitas asli (KTM/KTP), lunasin sisa sewa, langsung tancap gas!
                 </p>
             </div>
           </div>
@@ -469,10 +470,10 @@ function App() {
       <section id="katalog" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 bg-white">
         <div className="text-center mb-8">
           <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-4 tracking-tight">
-            Spill <span className="text-transparent bg-clip-text bg-gradient-to-r from-nature-600 to-red-500">Alat Andalan</span>
+            Katalog <span className="text-transparent bg-clip-text bg-gradient-to-r from-nature-600 to-red-500">Mamas Outdoor</span>
           </h2>
           <p className="text-gray-500 text-lg max-w-2xl mx-auto">
-            Mulai dari tenda sampe printilan kecil ada. List ini real-time sesuai tanggal main lo ya, tinggal checkout!.
+            Stok real-time. Tenda, carrier, cooking set, semua ada. Cek ketersediaan untuk tanggal pendakianmu sekarang.
           </p>
         </div>
 
@@ -482,7 +483,7 @@ function App() {
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-nature-600 transition" size={20} />
               <input
                 type="text"
-                placeholder="Lagi nyari apa nih? Tenda, Carrier..."
+                placeholder="Cari alat... (Tenda, Carrier, Sepatu)"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-12 pr-10 py-3 bg-gray-50 border border-gray-200 rounded-full focus:ring-2 focus:ring-nature-500 focus:border-transparent outline-none transition text-gray-800 font-medium"
@@ -667,9 +668,9 @@ function App() {
       <section id="event" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 bg-white">
          <div className="mb-12 text-center">
           <span className="text-nature-600 font-bold tracking-widest uppercase text-sm mb-2 block">Jejak Langkah Kami</span>
-          <h2 className="text-3xl md:text-4xl font-black text-gray-900">Portofolio Sponsorship</h2>
+          <h2 className="text-3xl md:text-4xl font-black text-gray-900">Portofolio Support</h2>
           <p className="text-gray-500 mt-4 max-w-2xl mx-auto">
-            Mamas Outdoor bangga telah membersamai kesuksesan berbagai event kampus dan kegiatan alam bebas di Purwokerto.
+            Mamas Outdoor bangga telah membersamai kesuksesan berbagai event kampus UNSOED dan kegiatan alam bebas di Purwokerto.
           </p>
         </div>
 
@@ -738,9 +739,9 @@ function App() {
                     <div className="inline-flex items-center gap-2 text-nature-600 font-bold bg-white px-3 py-1 rounded-full text-xs mb-4 border border-nature-100 shadow-sm">
                         <Handshake size={14} /> Open Collaboration
                     </div>
-                    <h3 className="text-2xl md:text-3xl font-black text-gray-900 mb-3">Bikin Event Outdoor?</h3>
+                    <h3 className="text-2xl md:text-3xl font-black text-gray-900 mb-3">UKM/Organisasi UNSOED?</h3>
                     <p className="text-gray-600 leading-relaxed">
-                        Punya acara kampus, makrab, atau ekspedisi? Mamas Outdoor siap support kebutuhan logistikmu dengan harga khusus pelajar & mahasiswa.
+                        Punya acara makrab, diksar, atau ekspedisi? Mamas Outdoor siap support kebutuhan logistikmu dengan harga khusus mahasiswa.
                     </p>
                 </div>
                 <div className="flex-shrink-0">
@@ -765,14 +766,14 @@ function App() {
               <Star className="fill-current" size={28} />
             </div>
             <h3 className="text-xl font-bold text-gray-900 mb-2">Gear Sultan</h3>
-            <p className="text-gray-500">Alat branded, bersih, dan wangi. Gak ada cerita tenda bocor pas badai.</p>
+            <p className="text-gray-500">Alat branded (Eiger, Consina, Rei), bersih, dan wangi. Gak ada cerita tenda bocor.</p>
           </div>
           <div className="flex flex-col items-center text-center p-8 bg-white rounded-2xl shadow-sm border border-gray-100 hover:border-nature-200 transition group">
              <div className="w-16 h-16 bg-adventure-50 text-adventure-600 rounded-2xl -rotate-3 group-hover:-rotate-6 transition duration-300 flex items-center justify-center mb-6">
               <MapPin className="fill-current" size={28} />
             </div>
-            <h3 className="text-xl font-bold text-gray-900 mb-2">Lokasi UNSOED</h3>
-            <p className="text-gray-500">Basecamp strategis di Grendeng. Gas ambil alat sambil berangkat kuliah.</p>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">Lokasi Strategis</h3>
+            <p className="text-gray-500">Basecamp di Grendeng (Dekat Pintu Belakang UNSOED). Gas ambil alat sambil ngampus.</p>
           </div>
           <div className="flex flex-col items-center text-center p-8 bg-white rounded-2xl shadow-sm border border-gray-100 hover:border-nature-200 transition group">
              <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl rotate-3 group-hover:rotate-6 transition duration-300 flex items-center justify-center mb-6">
@@ -798,26 +799,26 @@ function App() {
               </p>
             </div>
             <div>
-              <h3 className="text-lg font-bold mb-6 text-nature-500">Services</h3>
+              <h3 className="text-lg font-bold mb-6 text-nature-500">Layanan</h3>
               <ul className="space-y-3 text-gray-400 font-medium">
                 <li><a href="#" className="hover:text-white transition">Sewa Tenda Dome</a></li>
-                <li><a href="#" className="hover:text-white transition">Sewa Carrier</a></li>
+                <li><a href="#" className="hover:text-white transition">Sewa Carrier & Tas</a></li>
                 <li><a href="#" className="hover:text-white transition">Paket Open Trip</a></li>
                 <li><button onClick={() => setCurrentPage('admin')} className="text-left hover:text-white transition text-nature-800">Admin Login</button></li>
               </ul>
             </div>
             <div>
-              <h3 className="text-lg font-bold mb-6 text-nature-500">Contact Us</h3>
+              <h3 className="text-lg font-bold mb-6 text-nature-500">Kontak Kami</h3>
               <ul className="space-y-3 text-gray-400 font-medium">
-                <li>Jl. Kampus Grendeng No. 123</li>
-                <li>Purwokerto Utara</li>
-                <li>WA: 0812-3456-7890</li>
+                <li>Jl. Cenderawasih, Grendeng</li>
+                <li>Purwokerto Utara, 53122</li>
+                <li>WA: 0851-3741-1145</li>
                 <li>IG: @mamasoutdoor</li>
               </ul>
             </div>
           </div>
           <div className="border-t border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center text-gray-500 text-sm">
-            <p>&copy; 2024 Mamas Outdoor. All rights reserved.</p>
+            <p>&copy; 2024 Mamas Outdoor Purwokerto. All rights reserved.</p>
             <div className="flex items-center gap-6">
               <a href="#" className="flex items-center gap-2 hover:text-white transition">
                 <Github size={18} />

@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
-import { Mountain, ShoppingBag, Menu, X, History, FileText, Calendar, Phone, Sparkles, ChevronRight } from 'lucide-react';
+import { ShoppingBag, Menu, X, History, FileText, Calendar, Phone, Sparkles, ChevronRight, Mountain } from 'lucide-react';
 
 interface NavbarProps {
   cartCount: number;
@@ -13,7 +14,6 @@ interface NavbarProps {
 const Navbar: React.FC<NavbarProps> = ({ cartCount, onOpenCart, onToggleMobileMenu, isMobileMenuOpen, onOpenHistory, onOpenTerms }) => {
   const [isScrolled, setIsScrolled] = useState(false);
 
-  // Deteksi scroll untuk memberikan efek shadow
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 10);
@@ -27,8 +27,8 @@ const Navbar: React.FC<NavbarProps> = ({ cartCount, onOpenCart, onToggleMobileMe
       <nav 
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ease-in-out ${
           isScrolled 
-            ? 'bg-white/90 backdrop-blur-md shadow-md py-2' 
-            : 'bg-white/50 backdrop-blur-sm py-4 border-b border-white/20'
+            ? 'bg-white/95 backdrop-blur-md shadow-md py-2' 
+            : 'bg-white/80 backdrop-blur-sm py-4 border-b border-white/20'
         }`}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -36,22 +36,27 @@ const Navbar: React.FC<NavbarProps> = ({ cartCount, onOpenCart, onToggleMobileMe
             
             {/* Logo Section */}
             <div 
-              className="flex items-center gap-2.5 cursor-pointer group" 
+              className="flex items-center gap-3 cursor-pointer group" 
               onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
             >
-              <div className="bg-gradient-to-br from-nature-600 to-nature-800 p-2.5 rounded-xl text-white shadow-lg shadow-nature-200 group-hover:rotate-12 transition-transform duration-300">
-                <Mountain size={24} strokeWidth={2.5} />
+              {/* IMAGE LOGO REPLACEMENT */}
+              <div className="relative">
+                <img 
+                  src="https://imgur.com/iC8ycHT.png" 
+                  alt="Mamas Outdoor Logo" 
+                  className="w-10 h-10 object-contain drop-shadow-sm group-hover:scale-110 transition-transform duration-300"
+                />
               </div>
               <div className="hidden sm:block">
-                <h1 className="text-xl font-extrabold text-gray-900 tracking-tight leading-none group-hover:text-nature-700 transition-colors">
+                <h1 className="text-xl font-extrabold text-gray-900 tracking-tight leading-none group-hover:text-nature-600 transition-colors">
                   Mamas<span className="text-nature-600">Outdoor</span>
                 </h1>
-                <p className="text-[10px] text-gray-500 font-bold tracking-[0.2em] uppercase mt-0.5">Rental & Adventure</p>
+                <p className="text-[10px] text-gray-500 font-bold tracking-[0.2em] uppercase mt-0.5">Purwokerto</p>
               </div>
             </div>
 
             {/* Desktop Menu */}
-            <div className="hidden md:flex items-center gap-1 bg-white/50 p-1.5 rounded-full border border-gray-100 shadow-sm backdrop-blur-md">
+            <div className="hidden md:flex items-center gap-1 bg-gray-50/80 p-1.5 rounded-full border border-gray-200 shadow-sm backdrop-blur-md">
               <NavLink href="#" label="Beranda" />
               <NavLink href="#katalog" label="Katalog" />
               <NavLink href="#event" label="Event" />
@@ -63,7 +68,7 @@ const Navbar: React.FC<NavbarProps> = ({ cartCount, onOpenCart, onToggleMobileMe
                 href="#ai-guide" 
                 className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-bold text-gray-600 hover:text-adventure-600 hover:bg-yellow-50 transition-all"
               >
-                <Sparkles size={16} /> AI Guide
+                <Sparkles size={16} /> Tanya Mamas AI
               </a>
             </div>
 
@@ -74,7 +79,7 @@ const Navbar: React.FC<NavbarProps> = ({ cartCount, onOpenCart, onToggleMobileMe
                 onClick={onOpenTerms} 
                 className="hidden md:flex bg-nature-600 hover:bg-nature-700 text-white text-sm font-bold px-5 py-2.5 rounded-full shadow-lg shadow-nature-200 transition-all hover:scale-105 active:scale-95 items-center gap-2"
               >
-                <FileText size={16} /> Sewa Sekarang
+                <FileText size={16} /> Syarat Sewa
               </button>
 
               {/* History Button */}
@@ -121,7 +126,7 @@ const Navbar: React.FC<NavbarProps> = ({ cartCount, onOpenCart, onToggleMobileMe
               <MobileNavLink onClick={onToggleMobileMenu} href="#" icon={<Mountain size={18} />} label="Beranda" />
               <MobileNavLink onClick={onToggleMobileMenu} href="#katalog" icon={<ShoppingBag size={18} />} label="Katalog Alat" />
               <MobileNavLink onClick={onToggleMobileMenu} href="#event" icon={<Calendar size={18} />} label="Event & Open Trip" />
-              <MobileNavLink onClick={onToggleMobileMenu} href="#ai-guide" icon={<Sparkles size={18} />} label="Tanya AI Assistant" highlight />
+              <MobileNavLink onClick={onToggleMobileMenu} href="#ai-guide" icon={<Sparkles size={18} />} label="Tanya Mamas AI" highlight />
               
               <hr className="border-gray-100 my-2" />
               
@@ -165,7 +170,7 @@ const Navbar: React.FC<NavbarProps> = ({ cartCount, onOpenCart, onToggleMobileMe
 const NavLink = ({ href, label }: { href: string, label: string }) => (
   <a 
     href={href} 
-    className="px-4 py-2 rounded-full text-sm font-semibold text-gray-600 hover:text-nature-700 hover:bg-nature-50 transition-all duration-300"
+    className="px-4 py-2 rounded-full text-sm font-semibold text-gray-600 hover:text-nature-700 hover:bg-white hover:shadow-sm transition-all duration-300"
   >
     {label}
   </a>

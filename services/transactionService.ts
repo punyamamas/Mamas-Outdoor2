@@ -489,7 +489,7 @@ export const sendImageInvoiceToWhatsapp = async (trx: Transaction) => {
   const isGlobalPaid = paidGlobal >= totalGlobal;
   const statusLabel = isGlobalPaid ? 'LUNAS' : 'BELUM LUNAS';
   const stampColor = isGlobalPaid ? '#000000' : '#000000';
-  const logoUrl = "https://imgur.com/iC8ycHT.png";
+  const logoUrl = "https://imgur.com/iC8ycHT.png"; // UPDATED LOGO
   const fmt = (val: number) => val.toLocaleString('id-ID');
 
   // Create hidden container matching Print Styles (Thermal 80mm mimic)
