@@ -267,7 +267,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 <div className="flex items-center gap-2">
                   <div className={`w-2.5 h-2.5 rounded-full ${specificStock > 0 ? 'bg-green-400 animate-pulse' : 'bg-red-500'}`}></div>
                   <span className="font-bold text-sm tracking-wide">
-                    {specificStock > 0 ? `Ready ${specificStock} Paket` : 'Yah, Stok Habis!'}
+                    {specificStock > 0 ? `Tinggal ${specificStock} Lagi Nih` : 'Yah, Stok Habis!'}
                   </span>
                 </div>
              </div>
@@ -582,7 +582,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     </>
                   ) : (
                     <>
-                      <ShoppingCart size={24} strokeWidth={3} /> {product.isSale ? 'Beli Sekarang' : 'Bungkus Gan'}
+                      <ShoppingCart size={24} strokeWidth={3} /> {product.isSale ? 'Beli Sekarang' : 'Angkut Sekarang'}
                     </>
                   )}
                 </button>
@@ -600,7 +600,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   size={20} 
                   className={`transition-all duration-300 ${isWishlisted ? "fill-current scale-110" : "scale-100"}`} 
                 />
-                <span>{isWishlisted ? 'Tersimpan di Wishlist' : 'Tambah ke Wishlist'}</span>
+                <span>{isWishlisted ? 'Udah ke simpen nih' : 'Simpen Dulu Aja'}</span>
               </button>
 
             </div>
