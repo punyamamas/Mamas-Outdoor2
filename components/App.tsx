@@ -13,7 +13,7 @@ import { PRODUCTS, CATEGORIES as CONSTANT_CATEGORIES } from './constants';
 import { CartItem, Product, Category, Transaction } from './types';
 import { getProducts, addProduct, updateProduct, deleteProduct } from './services/productService';
 import { getCategories, addCategory, updateCategory, deleteCategory } from './services/categoryService';
-import { getTransactions } from './services/transactionService'; 
+import { getActiveTransactions } from './services/transactionService'; 
 import { MapPin, Star, Plus, Check, School, Github, Loader2, Flame, Lock, Calendar, Users, ArrowRight as ArrowIcon, ChevronDown, ShieldCheck, Zap, ShoppingCart, Info, Weight, Tent, Wind, ArrowUpDown, Search, XCircle, ShoppingBag, ClipboardList, MessageCircle, Truck, CalendarCheck, CalendarDays, Clock } from 'lucide-react';
 
 function App() {
@@ -44,7 +44,7 @@ function App() {
       const [productsData, categoriesData, transactionsData] = await Promise.all([
         getProducts(),
         getCategories(),
-        getTransactions()
+        getActiveTransactions() // Fetch only active for lightweight initial load
       ]);
       setProducts(productsData);
       setCategories(categoriesData);
