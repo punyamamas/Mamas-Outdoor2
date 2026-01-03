@@ -14,7 +14,7 @@ import { CartItem, Product, Category, Transaction } from './types';
 import { getProducts, addProduct, updateProduct, deleteProduct } from './services/productService';
 import { getCategories, addCategory, updateCategory, deleteCategory } from './services/categoryService';
 import { getActiveTransactions } from './services/transactionService'; 
-import { MapPin, Star, Plus, Check, School, Github, Loader2, Flame, Lock, Calendar, Users, ArrowRight as ArrowIcon, ChevronDown, ShieldCheck, Zap, ShoppingCart, Info, Weight, Tent, Wind, ArrowUpDown, Search, XCircle, ShoppingBag, ClipboardList, MessageCircle, Truck, CalendarCheck, CalendarDays, Clock } from 'lucide-react';
+import { MapPin, Star, Plus, Check, School, Github, Loader2, Flame, Lock, Calendar, Users, ArrowRight as ArrowIcon, ChevronDown, ShieldCheck, Zap, ShoppingCart, Info, Weight, Tent, Wind, ArrowUpDown, Search, XCircle, ShoppingBag, ClipboardList, MessageCircle, Truck, CalendarCheck, CalendarDays, Clock, Handshake, FileText } from 'lucide-react';
 
 function App() {
   const [currentPage, setCurrentPage] = useState<'home' | 'admin'>('home');
@@ -664,85 +664,97 @@ function App() {
         <GeminiAdvisor products={products} onAddRecommended={addRecommendedToCart} />
       </section>
       
-      {/* Event Section */}
+      {/* SPONSORSHIP PORTFOLIO SECTION (NEW) */}
       <section id="event" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-         <div className="mb-10 text-center">
-          <span className="text-nature-600 font-bold tracking-widest uppercase text-sm mb-2 block">Agenda & Kegiatan</span>
-          <h2 className="text-3xl md:text-4xl font-black text-gray-900">Mamas Open Trip</h2>
+         <div className="mb-12 text-center">
+          <span className="text-nature-600 font-bold tracking-widest uppercase text-sm mb-2 block">Jejak Langkah Kami</span>
+          <h2 className="text-3xl md:text-4xl font-black text-gray-900">Portofolio Sponsorship</h2>
           <p className="text-gray-500 mt-4 max-w-2xl mx-auto">
-            Gak punya temen nanjak? Gabung bareng komunitas Mamas Outdoor. 
-            Fasilitas lengkap, guide asik, dokumentasi kece.
+            Mamas Outdoor bangga telah membersamai kesuksesan berbagai event kampus dan kegiatan alam bebas di Purwokerto.
           </p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden group hover:shadow-xl transition duration-300">
-            <div className="relative h-64 overflow-hidden">
-              <img 
-                src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=800&auto=format&fit=crop" 
-                alt="Gunung Slamet" 
-                loading="lazy"
-                decoding="async"
-                className="w-full h-full object-cover group-hover:scale-105 transition duration-700"
-              />
-              <div className="absolute top-4 left-4 bg-white/90 backdrop-blur px-4 py-2 rounded-lg text-center shadow-lg">
-                <span className="block text-xs text-gray-500 font-bold uppercase">Agustus</span>
-                <span className="block text-2xl font-black text-nature-600">17</span>
-              </div>
-            </div>
-            <div className="p-8">
-              <div className="flex items-center gap-2 mb-3 text-sm font-medium text-nature-600">
-                <MapPin size={16} /> 
-                <span>Via Bambangan</span>
-              </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-3">Upacara 17 Agustus Atap Jawa Tengah</h3>
-              <p className="text-gray-500 mb-6 leading-relaxed">
-                Rayakan kemerdekaan di puncak tertinggi Jawa Tengah (3.428 mdpl). Include transportasi PP Purwokerto, tenda, alat masak, dan porter tim.
-              </p>
-              <div className="flex items-center justify-between pt-6 border-t border-gray-50">
-                <div className="flex items-center gap-2 text-gray-500">
-                   <Users size={18} />
-                   <span className="text-sm">Sisa 5 Seat</span>
-                </div>
-                <a href="#" className="flex items-center gap-2 text-nature-600 font-bold hover:gap-3 transition">
-                  Daftar Sekarang <ArrowIcon size={18} />
-                </a>
-              </div>
-            </div>
-          </div>
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden group hover:shadow-xl transition duration-300">
-            <div className="relative h-64 overflow-hidden">
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+           {/* Item 1 */}
+           <div className="group relative rounded-3xl overflow-hidden cursor-pointer h-80 shadow-lg hover:shadow-2xl transition-all duration-500">
               <img 
                 src="https://images.unsplash.com/photo-1533240332313-0db49b459ad6?q=80&w=800&auto=format&fit=crop" 
-                alt="Camping Ceria" 
-                loading="lazy"
-                decoding="async"
-                className="w-full h-full object-cover group-hover:scale-105 transition duration-700"
+                alt="Soedirman Expedition" 
+                className="w-full h-full object-cover transition duration-700 group-hover:scale-110"
               />
-              <div className="absolute top-4 left-4 bg-white/90 backdrop-blur px-4 py-2 rounded-lg text-center shadow-lg">
-                <span className="block text-xs text-gray-500 font-bold uppercase">Setiap</span>
-                <span className="block text-xl font-black text-nature-600">Weekend</span>
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent"></div>
+              <div className="absolute bottom-0 left-0 p-6 text-white w-full">
+                 <span className="bg-nature-600 px-3 py-1 rounded-lg text-[10px] font-bold uppercase mb-3 inline-block shadow-lg">Official Partner</span>
+                 <h3 className="text-2xl font-bold leading-tight mb-1">Soedirman Expedition VII</h3>
+                 <div className="flex items-center gap-2 text-gray-300 text-sm">
+                    <Calendar size={14}/> <span>Agustus 2024</span>
+                 </div>
+                 <p className="text-gray-400 text-xs mt-2 line-clamp-2">Support Tenda Dome & Logistik Tim SAR UNSOED.</p>
               </div>
-            </div>
-            <div className="p-8">
-              <div className="flex items-center gap-2 mb-3 text-sm font-medium text-nature-600">
-                <MapPin size={16} /> 
-                <span>Bukit Tranggulasih / Baturraden</span>
+           </div>
+
+           {/* Item 2 */}
+           <div className="group relative rounded-3xl overflow-hidden cursor-pointer h-80 shadow-lg hover:shadow-2xl transition-all duration-500">
+              <img 
+                src="https://images.unsplash.com/photo-1478131143081-80f7f84ca84d?q=80&w=800&auto=format&fit=crop" 
+                alt="Mapala Camp" 
+                className="w-full h-full object-cover transition duration-700 group-hover:scale-110"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent"></div>
+              <div className="absolute bottom-0 left-0 p-6 text-white w-full">
+                 <span className="bg-blue-600 px-3 py-1 rounded-lg text-[10px] font-bold uppercase mb-3 inline-block shadow-lg">Supported By</span>
+                 <h3 className="text-2xl font-bold leading-tight mb-1">Satria Camp 2024</h3>
+                 <div className="flex items-center gap-2 text-gray-300 text-sm">
+                    <Calendar size={14}/> <span>Oktober 2024</span>
+                 </div>
+                 <p className="text-gray-400 text-xs mt-2 line-clamp-2">Penyedia 50+ Sleeping Bag & Matras untuk peserta diksar.</p>
               </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-3">Paket Camping Ceria Anti Ribet</h3>
-              <p className="text-gray-500 mb-6 leading-relaxed">
-                Buat kamu yang mau healing tipis-tipis. Kami siapkan tenda berdiri, api unggun, dan jagung bakar. Datang tinggal bawa badan!
-              </p>
-              <div className="flex items-center justify-between pt-6 border-t border-gray-50">
-                <div className="flex items-center gap-2 text-gray-500">
-                   <Users size={18} />
-                   <span className="text-sm">Private Group</span>
+           </div>
+
+           {/* Item 3 */}
+           <div className="group relative rounded-3xl overflow-hidden cursor-pointer h-80 shadow-lg hover:shadow-2xl transition-all duration-500">
+              <img 
+                src="https://images.unsplash.com/photo-1510312305653-8ed496efae75?q=80&w=800&auto=format&fit=crop" 
+                alt="Music Fest" 
+                className="w-full h-full object-cover transition duration-700 group-hover:scale-110"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent"></div>
+              <div className="absolute bottom-0 left-0 p-6 text-white w-full">
+                 <span className="bg-purple-600 px-3 py-1 rounded-lg text-[10px] font-bold uppercase mb-3 inline-block shadow-lg">Sponsorship</span>
+                 <h3 className="text-2xl font-bold leading-tight mb-1">Baturraden Jazz Mountain</h3>
+                 <div className="flex items-center gap-2 text-gray-300 text-sm">
+                    <Calendar size={14}/> <span>Desember 2024</span>
+                 </div>
+                 <p className="text-gray-400 text-xs mt-2 line-clamp-2">Support Tenda VVIP & Area Camping Ground.</p>
+              </div>
+           </div>
+        </div>
+
+        {/* Call to Action Sponsorship */}
+        <div className="mt-16 bg-white rounded-3xl p-8 md:p-12 border border-nature-200 shadow-xl relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-nature-100 rounded-full blur-3xl -mr-16 -mt-16 opacity-50 group-hover:scale-110 transition duration-700"></div>
+            
+            <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8 text-center md:text-left">
+                <div className="max-w-xl">
+                    <div className="inline-flex items-center gap-2 text-nature-600 font-bold bg-nature-50 px-3 py-1 rounded-full text-xs mb-4 border border-nature-100">
+                        <Handshake size={14} /> Open Collaboration
+                    </div>
+                    <h3 className="text-2xl md:text-3xl font-black text-gray-900 mb-3">Bikin Event Outdoor?</h3>
+                    <p className="text-gray-600 leading-relaxed">
+                        Punya acara kampus, makrab, atau ekspedisi? Mamas Outdoor siap support kebutuhan logistikmu dengan harga khusus pelajar & mahasiswa.
+                    </p>
                 </div>
-                <a href="#" className="flex items-center gap-2 text-nature-600 font-bold hover:gap-3 transition">
-                  Booking Tanggal <ArrowIcon size={18} />
-                </a>
-              </div>
+                <div className="flex-shrink-0">
+                    <a 
+                        href="https://wa.me/6285137411145?text=Halo%20Mamas%20Outdoor,%20saya%20mau%20mengajukan%20proposal%20sponsorship%20untuk%20event..." 
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-3 bg-nature-600 hover:bg-nature-700 text-white px-8 py-4 rounded-xl font-bold text-lg shadow-lg shadow-nature-200 transition transform hover:-translate-y-1 active:scale-95"
+                    >
+                        <FileText size={20} /> Ajukan Proposal
+                    </a>
+                </div>
             </div>
-          </div>
         </div>
       </section>
 
