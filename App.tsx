@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { ShoppingCart, Search, Filter, MapPin, MessageCircle, CalendarCheck, Smile, School, Sparkles, Award, Check, ThumbsUp, ShieldCheck, Instagram, Facebook, Phone, Globe, ChevronDown, Lock, CalendarDays, Clock, Package, HeartHandshake, Map } from 'lucide-react';
 import Navbar from './components/Navbar';
@@ -216,8 +217,8 @@ const App: React.FC = () => {
   const categoryPills = ['Semua', ...categories.map(c => c.name)];
 
   return (
-    // Added pb-20 to make space for MobileBottomNav
-    <div className="min-h-screen bg-gray-50 font-sans text-gray-900 scroll-smooth pb-20 md:pb-0">
+    // Updated padding-bottom to 32 (128px) to clear floating buttons and safe area
+    <div className="min-h-screen bg-gray-50 font-sans text-gray-900 scroll-smooth pb-32 md:pb-0">
       
       {/* HIDE DESKTOP NAVBAR ON MOBILE (Since we have bottom nav) but keep Logo visible via custom header or simplified nav */}
       <div className="hidden md:block">
@@ -371,9 +372,9 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        {/* STICKY CATEGORY PILLS (IMPROVED) */}
+        {/* STICKY CATEGORY PILLS (IMPROVED WITH SNAP & SCROLL PADDING) */}
         <div className="sticky top-[53px] md:static z-40 bg-white/95 backdrop-blur-sm -mx-4 px-4 md:mx-0 md:px-0 py-3 mb-6 shadow-sm md:shadow-none border-b border-gray-100 md:border-none">
-            <div className="overflow-x-auto no-scrollbar">
+            <div className="overflow-x-auto no-scrollbar snap-x snap-mandatory">
                 <div className="flex gap-2 w-max">
                     {categoryPills.map(cat => (
                         <button
@@ -383,7 +384,7 @@ const App: React.FC = () => {
                                 window.scrollTo({ top: document.getElementById('katalog')?.offsetTop ? document.getElementById('katalog')!.offsetTop - 120 : 0, behavior: 'smooth' });
                             }}
                             className={`
-                                px-4 py-2 rounded-full text-xs md:text-sm font-bold whitespace-nowrap transition-all
+                                snap-center px-4 py-2 rounded-full text-xs md:text-sm font-bold whitespace-nowrap transition-all
                                 ${activeCategory === cat 
                                     ? 'bg-nature-600 text-white shadow-md shadow-nature-200 scale-105' 
                                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200'}
@@ -407,7 +408,7 @@ const App: React.FC = () => {
              return (
                <div 
                  key={product.id} 
-                 className="bg-white rounded-xl md:rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 group flex flex-col overflow-hidden cursor-pointer"
+                 className="bg-white rounded-xl md:rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 group flex flex-col overflow-hidden cursor-pointer active:scale-95 md:active:scale-100"
                  onClick={() => openProductModal(product)}
                >
                  {/* Image */}
@@ -451,13 +452,15 @@ const App: React.FC = () => {
                             Rp{product.isSale ? (product.salePrice||0).toLocaleString('id-ID') : product.price2Days.toLocaleString('id-ID')}
                           </p>
                        </div>
+                       
+                       {/* Enhanced Mobile Button: 40px minimum touch target */}
                        <button 
-                         className={`w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center transition shadow-md ${
+                         className={`w-10 h-10 md:w-10 md:h-10 rounded-full flex items-center justify-center transition shadow-md ${
                            isInCart 
                              ? 'bg-green-100 text-green-600' 
                              : isOutOfStock 
                                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                : 'bg-nature-600 text-white hover:bg-nature-700 hover:scale-110'
+                                : 'bg-nature-600 text-white hover:bg-nature-700 active:bg-nature-800'
                          }`}
                          onClick={(e) => {
                            e.stopPropagation();
@@ -467,8 +470,9 @@ const App: React.FC = () => {
                            }
                          }}
                          disabled={isOutOfStock}
+                         aria-label={isInCart ? "Sudah di keranjang" : "Tambah ke keranjang"}
                        >
-                         {isInCart ? <Check size={16} /> : <ShoppingCart size={16} />}
+                         {isInCart ? <Check size={20} /> : <ShoppingCart size={20} />}
                        </button>
                     </div>
                  </div>
