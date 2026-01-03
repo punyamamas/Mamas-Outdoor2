@@ -27,6 +27,7 @@ const App: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true); // Added Loading State
   
   // UI State
   const [isAdminMode, setIsAdminMode] = useState(false);
@@ -69,6 +70,7 @@ const App: React.FC = () => {
   }, [cartItems]);
 
   const refreshData = async () => {
+    setIsLoading(true);
     const [fetchedProducts, fetchedCategories, fetchedTransactions] = await Promise.all([
       getProducts(),
       getCategories(),
@@ -77,6 +79,7 @@ const App: React.FC = () => {
     setProducts(fetchedProducts);
     setCategories(fetchedCategories);
     setTransactions(fetchedTransactions);
+    setIsLoading(false);
   };
 
   // --- REAL-TIME STOCK LOGIC ---
@@ -216,6 +219,22 @@ const App: React.FC = () => {
   // Generate Pill Categories (Static 'Semua' + dynamic)
   const categoryPills = ['Semua', ...categories.map(c => c.name)];
 
+  // SKELETON LOADER COMPONENT (Inline)
+  const ProductSkeleton = () => (
+    <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+        <div className="aspect-[4/3] bg-gray-200 animate-pulse"></div>
+        <div className="p-4 space-y-2">
+            <div className="h-3 bg-gray-200 rounded w-1/3 animate-pulse"></div>
+            <div className="h-4 bg-gray-200 rounded w-3/4 animate-pulse"></div>
+            <div className="h-4 bg-gray-200 rounded w-1/2 animate-pulse"></div>
+            <div className="flex justify-between items-end pt-2">
+                <div className="h-5 bg-gray-200 rounded w-1/3 animate-pulse"></div>
+                <div className="h-10 w-10 bg-gray-200 rounded-full animate-pulse"></div>
+            </div>
+        </div>
+    </div>
+  );
+
   return (
     // Updated padding-bottom to 32 (128px) to clear floating buttons and safe area
     <div className="min-h-screen bg-gray-50 font-sans text-gray-900 scroll-smooth pb-32 md:pb-0">
@@ -297,41 +316,45 @@ const App: React.FC = () => {
             </div>
           </div>
 
-          {/* BOOKING WIDGET (Compact on Mobile) */}
+          {/* BOOKING WIDGET (Compact Grid on Mobile) */}
           <div className="bg-white p-3 rounded-2xl md:rounded-3xl shadow-2xl border border-gray-200 w-full max-w-4xl transform translate-y-4 md:translate-y-8 animate-slide-in-right">
               <div className="flex flex-col md:flex-row items-center p-1 md:p-2 gap-2">
-                  {/* Date Input */}
-                  <div className="flex-1 bg-gray-50 rounded-xl md:rounded-2xl p-2 md:p-3 w-full border border-transparent cursor-pointer">
-                      <label className="text-[10px] uppercase font-bold text-gray-500 tracking-widest mb-1 block">Mulai Tanggal</label>
-                      <div className="flex items-center gap-2">
-                          <CalendarDays className="text-nature-600" size={18} />
-                          <input 
-                              type="date" 
-                              className="bg-transparent font-bold text-gray-800 text-sm outline-none w-full cursor-pointer"
-                              value={checkDate}
-                              onChange={(e) => setCheckDate(e.target.value)}
-                          />
+                  
+                  {/* Container Input: Grid on Mobile, Flex on Desktop */}
+                  <div className="grid grid-cols-2 md:flex md:flex-1 gap-2 w-full">
+                      {/* Date Input */}
+                      <div className="bg-gray-50 rounded-xl md:rounded-2xl p-2 md:p-3 w-full border border-transparent cursor-pointer">
+                          <label className="text-[10px] uppercase font-bold text-gray-500 tracking-widest mb-1 block">Mulai Tgl</label>
+                          <div className="flex items-center gap-1 md:gap-2">
+                              <CalendarDays className="text-nature-600" size={16} />
+                              <input 
+                                  type="date" 
+                                  className="bg-transparent font-bold text-gray-800 text-xs md:text-sm outline-none w-full cursor-pointer p-0"
+                                  value={checkDate}
+                                  onChange={(e) => setCheckDate(e.target.value)}
+                              />
+                          </div>
                       </div>
-                  </div>
 
-                  {/* Duration Input */}
-                  <div className="flex-1 bg-gray-50 rounded-xl md:rounded-2xl p-2 md:p-3 w-full border border-transparent">
-                      <label className="text-[10px] uppercase font-bold text-gray-500 tracking-widest mb-1 block">Durasi Sewa</label>
-                      <div className="flex items-center gap-2">
-                          <Clock className="text-nature-600" size={18} />
-                          <select 
-                              className="bg-transparent font-bold text-gray-800 text-sm outline-none w-full cursor-pointer appearance-none"
-                              value={checkDuration}
-                              onChange={(e) => setCheckDuration(Number(e.target.value))}
-                          >
-                              <option value={2}>2 Hari (Minimal)</option>
-                              <option value={3}>3 Hari</option>
-                              <option value={4}>4 Hari</option>
-                              <option value={5}>5 Hari (Santai)</option>
-                              <option value={6}>6 Hari</option>
-                              <option value={7}>7 Hari (Seminggu)</option>
-                          </select>
-                          <ChevronDown size={16} className="text-gray-400"/>
+                      {/* Duration Input */}
+                      <div className="bg-gray-50 rounded-xl md:rounded-2xl p-2 md:p-3 w-full border border-transparent">
+                          <label className="text-[10px] uppercase font-bold text-gray-500 tracking-widest mb-1 block">Durasi</label>
+                          <div className="flex items-center gap-1 md:gap-2">
+                              <Clock className="text-nature-600" size={16} />
+                              <select 
+                                  className="bg-transparent font-bold text-gray-800 text-xs md:text-sm outline-none w-full cursor-pointer appearance-none p-0"
+                                  value={checkDuration}
+                                  onChange={(e) => setCheckDuration(Number(e.target.value))}
+                              >
+                                  <option value={2}>2 Hari</option>
+                                  <option value={3}>3 Hari</option>
+                                  <option value={4}>4 Hari</option>
+                                  <option value={5}>5 Hari</option>
+                                  <option value={6}>6 Hari</option>
+                                  <option value={7}>7 Hari</option>
+                              </select>
+                              <ChevronDown size={14} className="text-gray-400"/>
+                          </div>
                       </div>
                   </div>
 
@@ -340,7 +363,7 @@ const App: React.FC = () => {
                       className="bg-nature-600 hover:bg-nature-700 text-white font-bold py-3 md:py-4 px-6 md:px-8 rounded-xl md:rounded-2xl shadow-lg transition-all w-full md:w-auto flex items-center justify-center gap-2 text-sm md:text-base"
                   >
                       <Search size={18} />
-                      Cek Alat Ready
+                      Cek Alat
                   </button>
               </div>
           </div>
@@ -399,89 +422,94 @@ const App: React.FC = () => {
 
         {/* Product Grid - OPTIMIZED FOR TABLETS (md:grid-cols-3) */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6">
-          {filteredProducts.map(product => {
-             const isInCart = cartItems.some(item => item.id === product.id);
-             const availableStock = getAvailableStock(product);
-             const isOutOfStock = availableStock <= 0;
-             const hasVariants = (product.colors && product.colors.length > 0) || (product.sizes && Object.keys(product.sizes).length > 0) || (product.variants && product.variants.length > 0);
+          {isLoading ? (
+             // SKELETON LOADER
+             [...Array(4)].map((_, i) => <ProductSkeleton key={i} />)
+          ) : (
+             filteredProducts.map(product => {
+                const isInCart = cartItems.some(item => item.id === product.id);
+                const availableStock = getAvailableStock(product);
+                const isOutOfStock = availableStock <= 0;
+                const hasVariants = (product.colors && product.colors.length > 0) || (product.sizes && Object.keys(product.sizes).length > 0) || (product.variants && product.variants.length > 0);
 
-             return (
-               <div 
-                 key={product.id} 
-                 className="bg-white rounded-xl md:rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 group flex flex-col overflow-hidden cursor-pointer active:scale-95 md:active:scale-100"
-                 onClick={() => openProductModal(product)}
-               >
-                 {/* Image */}
-                 <div className="relative aspect-[4/3] bg-gray-100 overflow-hidden">
-                    <ImageLoader 
-                      src={product.image} 
-                      alt={product.name} 
-                      className={`w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ${isOutOfStock ? 'grayscale' : ''}`}
-                    />
-                    {product.isSale && (
-                      <div className="absolute top-2 right-2 md:top-3 md:right-3 bg-blue-600 text-white text-[10px] md:text-xs font-bold px-2 py-0.5 md:px-3 md:py-1 rounded-full shadow-lg">
-                        DIJUAL
-                      </div>
-                    )}
-                    {isOutOfStock && (
-                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                        <span className="bg-red-600 text-white font-bold text-[10px] md:text-sm px-2 py-1 rounded shadow-lg border border-white -rotate-6">
-                            HABIS
-                        </span>
-                      </div>
-                    )}
-                    {!isOutOfStock && (
-                        <div className="absolute top-2 left-2 bg-white/90 backdrop-blur-sm px-1.5 py-0.5 md:px-2 md:py-1 rounded text-[9px] md:text-[10px] font-bold shadow-sm border border-gray-100 flex items-center gap-1">
-                            <div className={`w-1.5 h-1.5 rounded-full ${availableStock > 0 ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                            <span className="text-gray-700">Sisa {availableStock}</span>
-                        </div>
-                    )}
-                 </div>
-
-                 {/* Content */}
-                 <div className="p-3 md:p-5 flex flex-col flex-1">
-                    <div className="text-[10px] md:text-xs font-bold text-gray-400 mb-0.5 md:mb-1">{product.category}</div>
-                    <h3 className="font-bold text-gray-900 text-sm md:text-lg leading-tight mb-2 line-clamp-2 group-hover:text-nature-600 transition">
-                      {product.name}
-                    </h3>
-                    
-                    <div className="mt-auto pt-2 md:pt-4 flex items-end justify-between border-t border-gray-50">
-                       <div>
-                          <p className="text-[10px] md:text-xs text-gray-400 font-medium">{product.isSale ? 'Harga Jual' : 'Sewa 2 Hari'}</p>
-                          <p className="text-sm md:text-xl font-black text-nature-700">
-                            Rp{product.isSale ? (product.salePrice||0).toLocaleString('id-ID') : product.price2Days.toLocaleString('id-ID')}
-                          </p>
-                       </div>
-                       
-                       {/* Enhanced Mobile Button: 40px minimum touch target */}
-                       <button 
-                         className={`w-10 h-10 md:w-10 md:h-10 rounded-full flex items-center justify-center transition shadow-md ${
-                           isInCart 
-                             ? 'bg-green-100 text-green-600' 
-                             : isOutOfStock 
-                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                : 'bg-nature-600 text-white hover:bg-nature-700 active:bg-nature-800'
-                         }`}
-                         onClick={(e) => {
-                           e.stopPropagation();
-                           if (!isOutOfStock) {
-                               if (hasVariants) openProductModal(product);
-                               else handleAddToCart(product);
-                           }
-                         }}
-                         disabled={isOutOfStock}
-                         aria-label={isInCart ? "Sudah di keranjang" : "Tambah ke keranjang"}
-                       >
-                         {isInCart ? <Check size={20} /> : <ShoppingCart size={20} />}
-                       </button>
+                return (
+                  <div 
+                    key={product.id} 
+                    className="bg-white rounded-xl md:rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 group flex flex-col overflow-hidden cursor-pointer active:scale-95 md:active:scale-100"
+                    onClick={() => openProductModal(product)}
+                  >
+                    {/* Image */}
+                    <div className="relative aspect-[4/3] bg-gray-100 overflow-hidden">
+                        <ImageLoader 
+                          src={product.image} 
+                          alt={product.name} 
+                          className={`w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ${isOutOfStock ? 'grayscale' : ''}`}
+                        />
+                        {product.isSale && (
+                          <div className="absolute top-2 right-2 md:top-3 md:right-3 bg-blue-600 text-white text-[10px] md:text-xs font-bold px-2 py-0.5 md:px-3 md:py-1 rounded-full shadow-lg">
+                            DIJUAL
+                          </div>
+                        )}
+                        {isOutOfStock && (
+                          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                            <span className="bg-red-600 text-white font-bold text-[10px] md:text-sm px-2 py-1 rounded shadow-lg border border-white -rotate-6">
+                                HABIS
+                            </span>
+                          </div>
+                        )}
+                        {!isOutOfStock && (
+                            <div className="absolute top-2 left-2 bg-white/90 backdrop-blur-sm px-1.5 py-0.5 md:px-2 md:py-1 rounded text-[9px] md:text-[10px] font-bold shadow-sm border border-gray-100 flex items-center gap-1">
+                                <div className={`w-1.5 h-1.5 rounded-full ${availableStock > 0 ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                                <span className="text-gray-700">Sisa {availableStock}</span>
+                            </div>
+                        )}
                     </div>
-                 </div>
-               </div>
-             )
-          })}
+
+                    {/* Content */}
+                    <div className="p-3 md:p-5 flex flex-col flex-1">
+                        <div className="text-[10px] md:text-xs font-bold text-gray-400 mb-0.5 md:mb-1">{product.category}</div>
+                        <h3 className="font-bold text-gray-900 text-sm md:text-lg leading-tight mb-2 line-clamp-2 group-hover:text-nature-600 transition">
+                          {product.name}
+                        </h3>
+                        
+                        <div className="mt-auto pt-2 md:pt-4 flex items-end justify-between border-t border-gray-50">
+                          <div>
+                              <p className="text-[10px] md:text-xs text-gray-400 font-medium">{product.isSale ? 'Harga Jual' : 'Sewa 2 Hari'}</p>
+                              <p className="text-sm md:text-xl font-black text-nature-700">
+                                Rp{product.isSale ? (product.salePrice||0).toLocaleString('id-ID') : product.price2Days.toLocaleString('id-ID')}
+                              </p>
+                          </div>
+                          
+                          {/* Enhanced Mobile Button: 40px minimum touch target */}
+                          <button 
+                            className={`w-10 h-10 md:w-10 md:h-10 rounded-full flex items-center justify-center transition shadow-md ${
+                              isInCart 
+                                ? 'bg-green-100 text-green-600' 
+                                : isOutOfStock 
+                                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                    : 'bg-nature-600 text-white hover:bg-nature-700 active:bg-nature-800'
+                            }`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (!isOutOfStock) {
+                                  if (hasVariants) openProductModal(product);
+                                  else handleAddToCart(product);
+                              }
+                            }}
+                            disabled={isOutOfStock}
+                            aria-label={isInCart ? "Sudah di keranjang" : "Tambah ke keranjang"}
+                          >
+                            {isInCart ? <Check size={20} /> : <ShoppingCart size={20} />}
+                          </button>
+                        </div>
+                    </div>
+                  </div>
+                )
+             })
+          )}
         </div>
         
-        {filteredProducts.length === 0 && (
+        {!isLoading && filteredProducts.length === 0 && (
           <div className="text-center py-20">
             <div className="inline-block p-4 rounded-full bg-gray-100 mb-4">
               <Search size={40} className="text-gray-400" />
