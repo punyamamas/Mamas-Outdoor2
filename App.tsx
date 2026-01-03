@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { ShoppingCart, Search, Filter, MapPin, MessageCircle, CalendarCheck, Smile, School, Sparkles, Award, Check, ThumbsUp, ShieldCheck, Instagram, Facebook, Phone, Globe, ChevronDown, Lock } from 'lucide-react';
+import { ShoppingCart, Search, Filter, MapPin, MessageCircle, CalendarCheck, Smile, School, Sparkles, Award, Check, ThumbsUp, ShieldCheck, Instagram, Facebook, Phone, Globe, ChevronDown, Lock, CalendarDays, Clock } from 'lucide-react';
 import Navbar from './components/Navbar';
 import GeminiAdvisor from './components/GeminiAdvisor';
 import CartDrawer from './components/CartDrawer';
@@ -28,6 +28,10 @@ const App: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
+  // Availability State (Booking Engine)
+  const [checkDate, setCheckDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [checkDuration, setCheckDuration] = useState(2);
+
   // Modal State
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
@@ -62,12 +66,68 @@ const App: React.FC = () => {
     setTransactions(fetchedTransactions);
   };
 
+  // --- REAL-TIME STOCK LOGIC ---
+  const bookedStockMap = useMemo(() => {
+    const bookedMap: Record<string, number> = {}; 
+    const userStart = new Date(checkDate).getTime();
+    const userEnd = new Date(checkDate).getTime() + (checkDuration * 24 * 60 * 60 * 1000);
+
+    transactions.forEach(trx => {
+        // Abaikan transaksi yang batal atau selesai (barang sudah balik)
+        // NOTE: Completed biasanya berarti sudah dikembalikan, jadi stok aman.
+        if (trx.status === 'cancelled' || trx.status === 'completed') return;
+        
+        const trxStart = new Date(trx.rentalDate).getTime();
+        const trxEnd = new Date(trx.rentalDate).getTime() + (trx.duration * 24 * 60 * 60 * 1000);
+        
+        // Cek irisan waktu (Overlapping)
+        const isOverlapping = (userStart < trxEnd) && (userEnd > trxStart);
+
+        if (isOverlapping) {
+            trx.items.forEach(item => {
+                bookedMap[item.id] = (bookedMap[item.id] || 0) + item.quantity;
+            });
+        }
+    });
+    return bookedMap;
+  }, [transactions, checkDate, checkDuration]);
+
+  const getAvailableStock = (product: Product): number => {
+    // 1. Paket: Cek ketersediaan item terkecil di dalamnya
+    if (product.packageItems && product.packageItems.length > 0) {
+        const possibleStocks = product.packageItems.map(pi => {
+            const child = products.find(p => p.id === pi.productId);
+            if (!child) return 0;
+            const childBooked = bookedStockMap[child.id] || 0;
+            const childPhysical = child.stock;
+            const childAvailable = Math.max(0, childPhysical - childBooked);
+            return Math.floor(childAvailable / pi.quantity);
+        });
+        return possibleStocks.length > 0 ? Math.min(...possibleStocks) : 0;
+    } 
+    
+    // 2. Produk Biasa / Varian
+    // Catatan: Untuk varian spesifik (size/warna), logika ini menyederhanakan ke level ID produk utama
+    // karena transaksi menyimpan ID produk. 
+    // Idealnya booking map juga mencatat varian, tapi untuk MVP ID cukup.
+    const bookedQty = bookedStockMap[product.id] || 0;
+    return Math.max(0, product.stock - bookedQty);
+  };
+
   // Cart Handlers
   const handleAddToCart = (product: Product, size?: string, color?: string) => {
+    const available = getAvailableStock(product);
+    const existingItem = cartItems.find(item => 
+      item.id === product.id && item.selectedSize === size && item.selectedColor === color
+    );
+    const currentQty = existingItem ? existingItem.quantity : 0;
+
+    if (currentQty + 1 > available) {
+        alert(`Stok tidak cukup untuk tanggal ${checkDate}. Sisa: ${available}`);
+        return;
+    }
+
     setCartItems(prev => {
-      const existingItem = prev.find(item => 
-        item.id === product.id && item.selectedSize === size && item.selectedColor === color
-      );
       if (existingItem) {
         return prev.map(item => 
           (item.id === product.id && item.selectedSize === size && item.selectedColor === color)
@@ -82,6 +142,19 @@ const App: React.FC = () => {
   };
 
   const handleUpdateCartQuantity = (id: string, delta: number, size?: string, color?: string) => {
+    // Cek stok saat update
+    if (delta > 0) {
+        const product = products.find(p => p.id === id);
+        const itemInCart = cartItems.find(i => i.id === id && i.selectedSize === size && i.selectedColor === color);
+        if (product && itemInCart) {
+            const available = getAvailableStock(product);
+            if (itemInCart.quantity + 1 > available) {
+                alert("Maksimal stok tersedia tercapai");
+                return;
+            }
+        }
+    }
+
     setCartItems(prev => prev.map(item => {
       if (item.id === id && item.selectedSize === size && item.selectedColor === color) {
         return { ...item, quantity: Math.max(1, item.quantity + delta) };
@@ -141,71 +214,85 @@ const App: React.FC = () => {
       />
 
       {/* Hero Section */}
-      <section className="relative pt-32 pb-20 md:pt-48 md:pb-32 overflow-hidden">
+      <section className="relative pt-32 pb-20 md:pt-48 md:pb-40 overflow-hidden">
         <div className="absolute inset-0 z-0">
           <ImageLoader 
             src="https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?ixlib=rb-1.2.1&auto=format&fit=crop&w=1950&q=80" 
             alt="Camping Background" 
             className="w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-gray-900/90 to-gray-900/40"></div>
+          <div className="absolute inset-0 bg-gradient-to-r from-gray-900/90 via-gray-900/60 to-gray-900/40"></div>
         </div>
         
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-white">
-          <div className="max-w-3xl animate-slide-in-right">
-            <span className="inline-block px-4 py-1.5 rounded-full bg-nature-600/90 text-nature-100 text-sm font-bold mb-6 backdrop-blur-sm border border-nature-500">
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-3xl animate-slide-in-right text-white mb-12">
+            <span className="inline-block px-4 py-1.5 rounded-full bg-nature-600/90 text-nature-100 text-sm font-bold mb-6 backdrop-blur-sm border border-nature-500 shadow-lg">
               #1 Sewa Alat Outdoor Purwokerto
             </span>
-            <h1 className="text-4xl md:text-6xl font-black leading-tight mb-6 tracking-tight">
+            <h1 className="text-4xl md:text-6xl font-black leading-tight mb-6 tracking-tight drop-shadow-lg">
               Jelajahi Alam <br/>
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-nature-400 to-yellow-400">Tanpa Batas.</span>
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-yellow-500">Tanpa Batas.</span>
             </h1>
-            <p className="text-lg md:text-xl text-gray-300 mb-10 leading-relaxed max-w-2xl">
+            <p className="text-lg md:text-xl text-gray-200 mb-8 leading-relaxed max-w-2xl drop-shadow-md">
               Sewa peralatan camping & hiking lengkap, bersih, dan berkualitas. 
               Siap temani petualanganmu di Gunung Slamet, Prau, dan sekitarnya.
             </p>
-            
-            <div className="flex flex-col sm:flex-row gap-4">
-               <a 
-                 href="#katalog"
-                 className="inline-flex items-center justify-center gap-2 bg-nature-600 hover:bg-nature-700 text-white px-8 py-4 rounded-xl font-bold transition shadow-lg shadow-nature-900/20 hover:-translate-y-1"
-               >
-                  <ShoppingCart size={20} /> Sewa Sekarang
-               </a>
-               <a 
-                 href="#ai-guide"
-                 className="inline-flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white border border-white/20 px-8 py-4 rounded-xl font-bold transition backdrop-blur-md"
-               >
-                  <Sparkles size={20} className="text-yellow-400"/> Tanya AI Guide
-               </a>
-            </div>
-
-            <div className="mt-12 pt-8 border-t border-white/10 flex flex-col sm:flex-row gap-6">
-                 <a 
-                   href="https://maps.google.com/?q=Mamas+Outdoor+Purwokerto" 
-                   target="_blank"
-                   rel="noreferrer"
-                   className="inline-flex items-center gap-3 text-gray-300 hover:text-white transition group"
-                 >
-                    <div className="p-2 bg-white/10 rounded-lg group-hover:bg-nature-600 transition"><MapPin size={20} /></div>
-                    <span className="font-medium">Lokasi Gmaps</span>
-                 </a>
-                 <a 
-                   href={`https://wa.me/${storeConfig.adminWhatsapp}?text=Halo%20Mamas%20Outdoor,%20saya%20mau%20tanya%20alamat...`} 
-                   target="_blank"
-                   rel="noreferrer"
-                   className="inline-flex items-center gap-3 text-gray-300 hover:text-white transition group"
-                 >
-                    <div className="p-2 bg-white/10 rounded-lg group-hover:bg-green-600 transition"><MessageCircle size={20} /></div>
-                    <span className="font-medium">Chat WhatsApp</span>
-                 </a>
-            </div>
           </div>
+
+          {/* BOOKING WIDGET (RESTORED) */}
+          <div className="bg-white p-3 rounded-3xl shadow-2xl border border-gray-200 w-full max-w-4xl transform translate-y-8 animate-slide-in-right">
+              <div className="flex flex-col md:flex-row items-center p-2 gap-2">
+                  {/* Date Input */}
+                  <div className="flex-1 bg-gray-50 rounded-2xl p-3 w-full border border-transparent hover:border-nature-200 transition group cursor-pointer relative">
+                      <label className="text-[10px] uppercase font-bold text-gray-500 tracking-widest mb-1 block">Mulai Tanggal</label>
+                      <div className="flex items-center gap-2">
+                          <CalendarDays className="text-nature-600" size={20} />
+                          <input 
+                              type="date" 
+                              className="bg-transparent font-bold text-gray-800 text-sm outline-none w-full cursor-pointer"
+                              value={checkDate}
+                              onChange={(e) => setCheckDate(e.target.value)}
+                          />
+                      </div>
+                  </div>
+
+                  {/* Duration Input */}
+                  <div className="flex-1 bg-gray-50 rounded-2xl p-3 w-full border border-transparent hover:border-nature-200 transition group">
+                      <label className="text-[10px] uppercase font-bold text-gray-500 tracking-widest mb-1 block">Durasi Sewa</label>
+                      <div className="flex items-center gap-2">
+                          <Clock className="text-nature-600" size={20} />
+                          <select 
+                              className="bg-transparent font-bold text-gray-800 text-sm outline-none w-full cursor-pointer appearance-none"
+                              value={checkDuration}
+                              onChange={(e) => setCheckDuration(Number(e.target.value))}
+                          >
+                              <option value={2}>2 Hari (Minimal)</option>
+                              <option value={3}>3 Hari</option>
+                              <option value={4}>4 Hari</option>
+                              <option value={5}>5 Hari (Santai)</option>
+                              <option value={6}>6 Hari</option>
+                              <option value={7}>7 Hari (Seminggu)</option>
+                          </select>
+                          <ChevronDown size={16} className="text-gray-400"/>
+                      </div>
+                  </div>
+
+                  {/* Search Button */}
+                  <button 
+                      onClick={() => document.getElementById('katalog')?.scrollIntoView({ behavior: 'smooth' })}
+                      className="bg-nature-600 hover:bg-nature-700 text-white font-bold py-4 px-8 rounded-2xl shadow-lg transition-all hover:scale-105 active:scale-95 w-full md:w-auto flex items-center justify-center gap-2"
+                  >
+                      <Search size={20} />
+                      Cek Alat Ready
+                  </button>
+              </div>
+          </div>
+
         </div>
       </section>
 
       {/* Why Choose Us Section */}
-      <section className="py-20 bg-nature-50/50 border-b border-gray-100">
+      <section className="pt-32 pb-20 bg-nature-50/50 border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <span className="text-nature-600 font-black tracking-widest uppercase text-sm mb-2 block">KEUNGGULAN KAMI</span>
@@ -283,14 +370,14 @@ const App: React.FC = () => {
                </p>
             </div>
 
-            {/* Feature 7 */}
+            {/* Feature 7 - UPDATED FREE ITEM TEXT */}
             <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition hover:-translate-y-1 group">
                <div className="w-12 h-12 bg-teal-100 text-teal-600 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition">
                   <Check size={24} />
                </div>
                <h3 className="font-bold text-gray-900 text-lg mb-2">Free Item</h3>
                <p className="text-sm text-gray-600 leading-relaxed">
-                  Gratis sewa sajadah lipat dan kotak P3K untuk rombongan (selama persediaan ada).
+                  Gratis sewa sajadah lipat untuk rombongan (selama persediaan ada).
                </p>
             </div>
 
@@ -328,6 +415,7 @@ const App: React.FC = () => {
           <div>
             <span className="text-nature-600 font-black tracking-widest uppercase text-sm mb-2 block">KATALOG ALAT</span>
             <h2 className="text-3xl md:text-4xl font-black text-gray-900">Pilih Perlengkapanmu</h2>
+            <p className="text-sm text-gray-500 mt-1 font-medium">Menampilkan ketersediaan untuk tanggal: <span className="text-nature-600 font-bold">{new Date(checkDate).toLocaleDateString('id-ID', {day: 'numeric', month:'long'})}</span></p>
           </div>
           
           <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
@@ -364,6 +452,10 @@ const App: React.FC = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {filteredProducts.map(product => {
              const isInCart = cartItems.some(item => item.id === product.id);
+             // Calculate real-time stock
+             const availableStock = getAvailableStock(product);
+             const isOutOfStock = availableStock <= 0;
+
              return (
                <div 
                  key={product.id} 
@@ -375,17 +467,24 @@ const App: React.FC = () => {
                     <ImageLoader 
                       src={product.image} 
                       alt={product.name} 
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                      className={`w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ${isOutOfStock ? 'grayscale' : ''}`}
                     />
                     {product.isSale && (
                       <div className="absolute top-3 right-3 bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">
                         DIJUAL
                       </div>
                     )}
-                    {product.stock <= 0 && (
+                    {isOutOfStock && (
                       <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                        <span className="bg-red-600 text-white font-bold px-4 py-2 rounded-lg transform -rotate-6">STOK HABIS</span>
+                        <span className="bg-red-600 text-white font-bold px-4 py-2 rounded-lg transform -rotate-6 shadow-lg border border-white">
+                            HABIS DI TANGGAL INI
+                        </span>
                       </div>
+                    )}
+                    {!isOutOfStock && availableStock <= 3 && (
+                        <div className="absolute bottom-3 left-3 bg-red-100 text-red-700 text-[10px] font-bold px-2 py-1 rounded shadow-sm border border-red-200">
+                            Sisa {availableStock} Unit
+                        </div>
                     )}
                  </div>
 
@@ -407,12 +506,15 @@ const App: React.FC = () => {
                          className={`w-10 h-10 rounded-full flex items-center justify-center transition shadow-md ${
                            isInCart 
                              ? 'bg-green-100 text-green-600' 
-                             : 'bg-nature-600 text-white hover:bg-nature-700 hover:scale-110'
+                             : isOutOfStock 
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                : 'bg-nature-600 text-white hover:bg-nature-700 hover:scale-110'
                          }`}
                          onClick={(e) => {
                            e.stopPropagation();
-                           openProductModal(product);
+                           if (!isOutOfStock) openProductModal(product);
                          }}
+                         disabled={isOutOfStock}
                        >
                          {isInCart ? <Check size={20} /> : <ShoppingCart size={20} />}
                        </button>
