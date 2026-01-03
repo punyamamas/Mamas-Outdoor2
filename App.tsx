@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import Navbar from './components/Navbar';
 import CartDrawer from './components/CartDrawer';
@@ -13,7 +14,7 @@ import { CartItem, Product, Category, Transaction } from './types';
 import { getProducts, addProduct, updateProduct, deleteProduct } from './services/productService';
 import { getCategories, addCategory, updateCategory, deleteCategory } from './services/categoryService';
 import { getActiveTransactions } from './services/transactionService'; 
-import { MapPin, Star, Plus, Check, School, Github, Loader2, Flame, Lock, Calendar, Users, ArrowRight as ArrowIcon, ChevronDown, ShieldCheck, Zap, ShoppingCart, Info, Weight, Tent, Wind, ArrowUpDown, Search, XCircle, ShoppingBag, ClipboardList, MessageCircle, Truck, CalendarCheck, CalendarDays, Clock, Handshake, FileText } from 'lucide-react';
+import { MapPin, Star, Plus, Check, School, Github, Loader2, Flame, Lock, Calendar, Users, ArrowRight as ArrowIcon, ChevronDown, ShieldCheck, Zap, ShoppingCart, Info, Weight, Tent, Wind, ArrowUpDown, Search, XCircle, ShoppingBag, ClipboardList, MessageCircle, Truck, CalendarCheck, CalendarDays, Clock } from 'lucide-react';
 
 function App() {
   const [currentPage, setCurrentPage] = useState<'home' | 'admin'>('home');
@@ -298,7 +299,7 @@ function App() {
     if (catLower.includes('carrier') || catLower.includes('tas')) return <div className="flex items-center gap-1"><Weight size={14} /> <span>Backsystem</span></div>;
     if (catLower.includes('tidur') || catLower.includes('sleeping')) return <div className="flex items-center gap-1"><Wind size={14} /> <span>Warm</span></div>;
     if (catLower.includes('masak') || catLower.includes('kompor')) return <div className="flex items-center gap-1"><Flame size={14} /> <span>Portable</span></div>;
-    return <div className="flex items-center gap-1"><Star size={14} /> <span>Premium</span></div>;
+    return <div className="flex items-center gap-1"><Star size={14} /> <span>Top Tier</span></div>;
   };
 
   return (
@@ -358,16 +359,15 @@ function App() {
 
             <h1 className="font-black text-white mb-8 tracking-tight drop-shadow-2xl">
               <span className="block text-4xl sm:text-5xl md:text-6xl lg:text-7xl mb-4 hover:tracking-wide transition-all duration-500 ease-out cursor-default">
-                GAS TERUS
+                SEWA ALAT SAT-SET
               </span>
               <span className="block text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 text-5xl sm:text-6xl md:text-7xl lg:text-8xl py-2 animate-gradient-x bg-[length:200%_auto] cursor-default">
-                TAKLUKKAN ALAM
+                ANTI RIBET
               </span>
             </h1>
 
             <p className="text-lg text-gray-200 mb-10 max-w-2xl mx-auto font-medium leading-relaxed drop-shadow-md px-4">
-              Sewa alat outdoor gak pake ribet. Gear lengkap, harga bersahabat, stok melimpah. 
-              Partner resmi penakluk <span className="text-yellow-400 font-bold border-b-2 border-yellow-400/30 hover:bg-yellow-400/10 transition-colors px-1">Slamet, Prau, & Sindoro</span>.
+              Alat ready, harga friendly, liburan jadi happy. Solusi anak Purwokerto buat muncak santai tanpa drama saat naik Gunung. <span className="text-yellow-400 font-bold border-b-2 border-yellow-400/30 hover:bg-yellow-400/10 transition-colors px-1">Slamet, Prau, & Sindoro</span>.
             </p>
 
             {/* --- BOOKING ENGINE WIDGET --- */}
@@ -412,7 +412,7 @@ function App() {
                         className="bg-nature-600 hover:bg-nature-700 text-white font-bold py-4 px-8 rounded-2xl shadow-lg transition-all hover:scale-105 active:scale-95 w-full md:w-auto flex items-center justify-center gap-2"
                     >
                         <Search size={20} />
-                        Cek Ketersediaan
+                        Spill Yang Ready
                     </button>
                 </div>
             </div>
@@ -426,9 +426,9 @@ function App() {
       <section className="bg-nature-50 py-20 border-b border-nature-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
-            <span className="text-nature-600 font-black tracking-widest uppercase text-sm mb-2 block">Panduan Pemula</span>
-            <h2 className="text-3xl font-black text-gray-900">Cara Sewa Gampang Banget!</h2>
-            <p className="text-gray-600 mt-2">Cuma butuh 3 langkah buat dapetin gear impianmu.</p>
+            <span className="text-nature-600 font-black tracking-widest uppercase text-sm mb-2 block">TUTORIAL SEWA</span>
+            <h2 className="text-3xl font-black text-gray-900">Cara Sewa Sat-Set Anti Ribet!</h2>
+            <p className="text-gray-600 mt-2">Cuma 3 step doang, langsung gas healing tanpa pusing.</p>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -436,9 +436,9 @@ function App() {
                 <div className="w-16 h-16 bg-nature-100 rounded-2xl flex items-center justify-center mb-6 text-nature-600 group-hover:scale-110 transition">
                   <ClipboardList size={32} />
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">1. Pilih & Cek Stok</h3>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">1. Cek Stok & Pilih Alat</h3>
                 <p className="text-gray-500 text-sm leading-relaxed">
-                  Masukkan tanggal naik gunung kamu di atas. Sistem akan otomatis menyaring alat yang tersedia. Masukkan ke keranjang.
+                  Input tanggal kapan lo mau muncak di atas. Biar sistem yang milihin gear yang ready. Kalo cocok, langsung add to cart aja!
                 </p>
             </div>
 
@@ -446,9 +446,9 @@ function App() {
                 <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center mb-6 text-blue-600 group-hover:scale-110 transition">
                   <MessageCircle size={32} />
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">2. Chat WhatsApp</h3>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">2. Chat MasMin (Mamas Admin)</h3>
                 <p className="text-gray-500 text-sm leading-relaxed">
-                  Klik tombol pesan. Admin Mamas akan konfirmasi total harga & ketersediaan tanggal. DP 50% untuk booking.
+                  Klik tombol pesan, terus konfirm ke Mamas. Mamas totalin biayanya, trus DP 50% dulu biar alat inceranmu gak ditikung orang.
                 </p>
             </div>
 
@@ -456,9 +456,9 @@ function App() {
                 <div className="w-16 h-16 bg-green-100 rounded-2xl flex items-center justify-center mb-6 text-green-600 group-hover:scale-110 transition">
                   <Truck size={32} />
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">3. Ambil & Gas!</h3>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">3. Ambil & OTW!</h3>
                 <p className="text-gray-500 text-sm leading-relaxed">
-                  Datang ke basecamp Grendeng (Dekat UNSOED), titip KTP Asli, lunasi pembayaran, dan langsung berangkat muncak!
+                  Merapat ke basecamp Mamas (depan warmino WBC). Titip identitas asli, lunasin sisa sewa, langsung tancap gas naik gunung!
                 </p>
             </div>
           </div>
@@ -469,10 +469,10 @@ function App() {
       <section id="katalog" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 bg-white">
         <div className="text-center mb-8">
           <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-4 tracking-tight">
-            Pilih <span className="text-transparent bg-clip-text bg-gradient-to-r from-nature-600 to-red-500">Gear Andalan</span>
+            Spill <span className="text-transparent bg-clip-text bg-gradient-to-r from-nature-600 to-red-500">Alat Andalan</span>
           </h2>
           <p className="text-gray-500 text-lg max-w-2xl mx-auto">
-            Koleksi lengkap, bersih, dan terawat. Stok di bawah ini otomatis menyesuaikan tanggal yang kamu pilih di atas.
+            Mulai dari tenda sampe printilan kecil ada. List ini real-time sesuai tanggal main lo ya, tinggal checkout!.
           </p>
         </div>
 
@@ -482,7 +482,7 @@ function App() {
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-nature-600 transition" size={20} />
               <input
                 type="text"
-                placeholder="Cari nama alat (misal: Tenda, Carrier)..."
+                placeholder="Lagi nyari apa nih? Tenda, Carrier..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-12 pr-10 py-3 bg-gray-50 border border-gray-200 rounded-full focus:ring-2 focus:ring-nature-500 focus:border-transparent outline-none transition text-gray-800 font-medium"
@@ -572,13 +572,13 @@ function App() {
                     <div className="absolute top-4 right-4 flex flex-col gap-2 items-end z-20">
                        {displayStock < 3 && displayStock > 0 && (
                          <span className="bg-adventure-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-full shadow-lg animate-pulse uppercase tracking-wider flex items-center gap-1">
-                           <Zap size={10} fill="currentColor" /> Terbatas!
+                           <Zap size={10} fill="currentColor" /> Rebutan Nih!
                          </span>
                        )}
                        <span className={`px-3 py-1.5 rounded-full text-[10px] font-bold shadow-sm backdrop-blur-md border border-white/20 ${
                          displayStock > 0 ? 'bg-white/90 text-nature-700' : 'bg-red-600 text-white'
                        }`}>
-                         Stok Tgl Ini: {displayStock}
+                         Gercep! Sisa: {displayStock}
                        </span>
                     </div>
 
@@ -605,7 +605,7 @@ function App() {
                            {getProductFeatures(product.category)}
                         </span>
                         <span className="inline-flex items-center gap-1 bg-gray-50 text-gray-500 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wide border border-gray-100">
-                           <Check size={10} /> Bersih
+                           <Check size={10} /> Wangi
                         </span>
                       </div>
                     </div>
@@ -663,123 +663,84 @@ function App() {
         <GeminiAdvisor products={products} onAddRecommended={addRecommendedToCart} />
       </section>
       
-      {/* SPONSORSHIP PORTFOLIO SECTION (NEW) */}
+      {/* Event Section */}
       <section id="event" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-         <div className="mb-12 text-center">
-          <span className="text-nature-600 font-bold tracking-widest uppercase text-sm mb-2 block">Jejak Langkah Kami</span>
-          <h2 className="text-3xl md:text-4xl font-black text-gray-900">Portofolio Sponsorship</h2>
+         <div className="mb-10 text-center">
+          <span className="text-nature-600 font-bold tracking-widest uppercase text-sm mb-2 block">Agenda & Kegiatan</span>
+          <h2 className="text-3xl md:text-4xl font-black text-gray-900">Mamas Open Trip</h2>
           <p className="text-gray-500 mt-4 max-w-2xl mx-auto">
-            Mamas Outdoor bangga telah membersamai kesuksesan berbagai event kampus dan kegiatan alam bebas di Purwokerto.
+            Gak punya temen nanjak? Gabung bareng komunitas Mamas Outdoor. 
+            Fasilitas lengkap, guide asik, dokumentasi kece.
           </p>
         </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-           {/* Item 1 */}
-           <div className="group relative rounded-3xl overflow-hidden cursor-pointer h-80 shadow-lg hover:shadow-2xl transition-all duration-500">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden group hover:shadow-xl transition duration-300">
+            <div className="relative h-64 overflow-hidden">
+              <img 
+                src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=800&auto=format&fit=crop" 
+                alt="Gunung Slamet" 
+                loading="lazy"
+                decoding="async"
+                className="w-full h-full object-cover group-hover:scale-105 transition duration-700"
+              />
+              <div className="absolute top-4 left-4 bg-white/90 backdrop-blur px-4 py-2 rounded-lg text-center shadow-lg">
+                <span className="block text-xs text-gray-500 font-bold uppercase">Agustus</span>
+                <span className="block text-2xl font-black text-nature-600">17</span>
+              </div>
+            </div>
+            <div className="p-8">
+              <div className="flex items-center gap-2 mb-3 text-sm font-medium text-nature-600">
+                <MapPin size={16} /> 
+                <span>Via Bambangan</span>
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-3">Upacara 17 Agustus Atap Jawa Tengah</h3>
+              <p className="text-gray-500 mb-6 leading-relaxed">
+                Rayakan kemerdekaan di puncak tertinggi Jawa Tengah (3.428 mdpl). Include transportasi PP Purwokerto, tenda, alat masak, dan porter tim.
+              </p>
+              <div className="flex items-center justify-between pt-6 border-t border-gray-50">
+                <div className="flex items-center gap-2 text-gray-500">
+                   <Users size={18} />
+                   <span className="text-sm">Sisa 5 Seat</span>
+                </div>
+                <a href="#" className="flex items-center gap-2 text-nature-600 font-bold hover:gap-3 transition">
+                  Daftar Sekarang <ArrowIcon size={18} />
+                </a>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden group hover:shadow-xl transition duration-300">
+            <div className="relative h-64 overflow-hidden">
               <img 
                 src="https://images.unsplash.com/photo-1533240332313-0db49b459ad6?q=80&w=800&auto=format&fit=crop" 
-                alt="Soedirman Expedition" 
-                className="w-full h-full object-cover transition duration-700 group-hover:scale-110"
+                alt="Camping Ceria" 
+                loading="lazy"
+                decoding="async"
+                className="w-full h-full object-cover group-hover:scale-105 transition duration-700"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent"></div>
-              <div className="absolute bottom-0 left-0 p-6 text-white w-full">
-                 <span className="bg-nature-600 px-3 py-1 rounded-lg text-[10px] font-bold uppercase mb-3 inline-block shadow-lg">Official Partner</span>
-                 <h3 className="text-2xl font-bold leading-tight mb-1">Open House BEM Unsoed 2025</h3>
-                 <div className="flex items-center gap-2 text-gray-300 text-sm">
-                    <Calendar size={14}/> <span>Agustus 2025</span>
-                 </div>
-                 <p className="text-gray-400 text-xs mt-2 line-clamp-2">Support Tenda Stand untuk Open House.</p>
+              <div className="absolute top-4 left-4 bg-white/90 backdrop-blur px-4 py-2 rounded-lg text-center shadow-lg">
+                <span className="block text-xs text-gray-500 font-bold uppercase">Setiap</span>
+                <span className="block text-xl font-black text-nature-600">Weekend</span>
               </div>
-           </div>
-
-           {/* Item 2 */}
-           <div className="group relative rounded-3xl overflow-hidden cursor-pointer h-80 shadow-lg hover:shadow-2xl transition-all duration-500">
-              <img 
-                src="https://images.unsplash.com/photo-1478131143081-80f7f84ca84d?q=80&w=800&auto=format&fit=crop" 
-                alt="Mapala Camp" 
-                className="w-full h-full object-cover transition duration-700 group-hover:scale-110"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent"></div>
-              <div className="absolute bottom-0 left-0 p-6 text-white w-full">
-                 <span className="bg-blue-600 px-3 py-1 rounded-lg text-[10px] font-bold uppercase mb-3 inline-block shadow-lg">Supported By</span>
-                 <h3 className="text-2xl font-bold leading-tight mb-1">Satria Camp 2024</h3>
-                 <div className="flex items-center gap-2 text-gray-300 text-sm">
-                    <Calendar size={14}/> <span>Oktober 2024</span>
-                 </div>
-                 <p className="text-gray-400 text-xs mt-2 line-clamp-2">Penyedia 50+ Sleeping Bag & Matras untuk peserta diksar.</p>
+            </div>
+            <div className="p-8">
+              <div className="flex items-center gap-2 mb-3 text-sm font-medium text-nature-600">
+                <MapPin size={16} /> 
+                <span>Bukit Tranggulasih / Baturraden</span>
               </div>
-           </div>
-
-           {/* Item 3 */}
-           <div className="group relative rounded-3xl overflow-hidden cursor-pointer h-80 shadow-lg hover:shadow-2xl transition-all duration-500">
-              <img 
-                src="https://images.unsplash.com/photo-1510312305653-8ed496efae75?q=80&w=800&auto=format&fit=crop" 
-                alt="Music Fest" 
-                className="w-full h-full object-cover transition duration-700 group-hover:scale-110"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent"></div>
-              <div className="absolute bottom-0 left-0 p-6 text-white w-full">
-                 <span className="bg-purple-600 px-3 py-1 rounded-lg text-[10px] font-bold uppercase mb-3 inline-block shadow-lg">Sponsorship</span>
-                 <h3 className="text-2xl font-bold leading-tight mb-1">Baturraden Jazz Mountain</h3>
-                 <div className="flex items-center gap-2 text-gray-300 text-sm">
-                    <Calendar size={14}/> <span>Desember 2024</span>
-                 </div>
-                 <p className="text-gray-400 text-xs mt-2 line-clamp-2">Support Tenda VVIP & Area Camping Ground.</p>
-              </div>
-           </div>
-        </div>
-
-        {/* Call to Action Sponsorship */}
-        <div className="mt-16 bg-white rounded-3xl p-8 md:p-12 border border-nature-200 shadow-xl relative overflow-hidden group">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-nature-100 rounded-full blur-3xl -mr-16 -mt-16 opacity-50 group-hover:scale-110 transition duration-700"></div>
-            
-            <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8 text-center md:text-left">
-                <div className="max-w-xl">
-                    <div className="inline-flex items-center gap-2 text-nature-600 font-bold bg-nature-50 px-3 py-1 rounded-full text-xs mb-4 border border-nature-100">
-                        <Handshake size={14} /> Open Collaboration
-                    </div>
-                    <h3 className="text-2xl md:text-3xl font-black text-gray-900 mb-3">Bikin Event Outdoor?</h3>
-                    <p className="text-gray-600 leading-relaxed">
-                        Punya acara kampus, makrab, atau ekspedisi? Mamas Outdoor siap support kebutuhan logistikmu dengan harga khusus pelajar & mahasiswa.
-                    </p>
+              <h3 className="text-2xl font-bold text-gray-900 mb-3">Paket Camping Ceria Anti Ribet</h3>
+              <p className="text-gray-500 mb-6 leading-relaxed">
+                Buat kamu yang mau healing tipis-tipis. Kami siapkan tenda berdiri, api unggun, dan jagung bakar. Datang tinggal bawa badan!
+              </p>
+              <div className="flex items-center justify-between pt-6 border-t border-gray-50">
+                <div className="flex items-center gap-2 text-gray-500">
+                   <Users size={18} />
+                   <span className="text-sm">Private Group</span>
                 </div>
-                <div className="flex-shrink-0">
-                    <a 
-                        href="https://wa.me/6285137411145?text=Halo%20Mamas%20Outdoor,%20saya%20mau%20mengajukan%20proposal%20sponsorship%20untuk%20event..." 
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-3 bg-nature-600 hover:bg-nature-700 text-white px-8 py-4 rounded-xl font-bold text-lg shadow-lg shadow-nature-200 transition transform hover:-translate-y-1 active:scale-95"
-                    >
-                        <FileText size={20} /> Ajukan Proposal
-                    </a>
-                </div>
+                <a href="#" className="flex items-center gap-2 text-nature-600 font-bold hover:gap-3 transition">
+                  Booking Tanggal <ArrowIcon size={18} />
+                </a>
+              </div>
             </div>
-        </div>
-      </section>
-
-      {/* Features Section */}
-      <section className="bg-gray-50 border-t border-gray-200 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div className="flex flex-col items-center text-center p-8 bg-white rounded-2xl shadow-sm border border-gray-100 hover:border-nature-200 transition group">
-            <div className="w-16 h-16 bg-nature-50 text-nature-600 rounded-2xl rotate-3 group-hover:rotate-6 transition duration-300 flex items-center justify-center mb-6">
-              <Star className="fill-current" size={28} />
-            </div>
-            <h3 className="text-xl font-bold text-gray-900 mb-2">Gear Sultan</h3>
-            <p className="text-gray-500">Alat branded, bersih, dan wangi. Gak ada cerita tenda bocor pas badai.</p>
-          </div>
-          <div className="flex flex-col items-center text-center p-8 bg-white rounded-2xl shadow-sm border border-gray-100 hover:border-nature-200 transition group">
-             <div className="w-16 h-16 bg-adventure-50 text-adventure-600 rounded-2xl -rotate-3 group-hover:-rotate-6 transition duration-300 flex items-center justify-center mb-6">
-              <MapPin className="fill-current" size={28} />
-            </div>
-            <h3 className="text-xl font-bold text-gray-900 mb-2">Lokasi UNSOED</h3>
-            <p className="text-gray-500">Basecamp strategis di Grendeng. Gas ambil alat sambil berangkat kuliah.</p>
-          </div>
-          <div className="flex flex-col items-center text-center p-8 bg-white rounded-2xl shadow-sm border border-gray-100 hover:border-nature-200 transition group">
-             <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl rotate-3 group-hover:rotate-6 transition duration-300 flex items-center justify-center mb-6">
-              <School className="fill-current" size={28} />
-            </div>
-            <h3 className="text-xl font-bold text-gray-900 mb-2">Harga Mahasiswa</h3>
-            <p className="text-gray-500">Tunjukkan KTM sakti mu, dapatkan harga spesial kawan.</p>
           </div>
         </div>
       </section>
@@ -795,37 +756,35 @@ function App() {
                 Sedia alat tempur buat naklukin Slamet, Prau, Sindoro, Sumbing. 
                 <br/><br/>
                 <span className="text-white font-bold">#SalamLestari</span>
-                 <span className="text-white font-bold">#GasHealing</span>              </p>
+              </p>
             </div>
             <div>
-              <h3 className="text-lg font-bold mb-6 text-nature-500">Menyediakan</h3>
+              <h3 className="text-lg font-bold mb-6 text-nature-500">Services</h3>
               <ul className="space-y-3 text-gray-400 font-medium">
-                <li><a href="#" className="hover:text-white transition">Sewa Alat Camping</a></li>
-                <li><a href="#" className="hover:text-white transition">Sewa Alat Event</a></li>
-                <li><a href="#" className="hover:text-white transition">Sponsorship Event</a></li>
-                <li><button onClick={() => setCurrentPage('admin')} className="text-left hover:text-white transition text-nature-800">Portal Mimin</button></li>
+                <li><a href="#" className="hover:text-white transition">Sewa Tenda Dome</a></li>
+                <li><a href="#" className="hover:text-white transition">Sewa Carrier</a></li>
+                <li><a href="#" className="hover:text-white transition">Paket Open Trip</a></li>
+                <li><button onClick={() => setCurrentPage('admin')} className="text-left hover:text-white transition text-nature-800">Admin Login</button></li>
               </ul>
             </div>
             <div>
-              <h3 className="text-lg font-bold mb-6 text-nature-500">Merapat Sini</h3>
+              <h3 className="text-lg font-bold mb-6 text-nature-500">Contact Us</h3>
               <ul className="space-y-3 text-gray-400 font-medium">
-                <li>Jl. Cendrawasih Rt 03/07 Grendeng</li>
-                <li>Depan Warmindo WBC</li>
+                <li>Jl. Kampus Grendeng No. 123</li>
                 <li>Purwokerto Utara</li>
-                <li>WA: 0851-3741-1145</li>
-                <li>IG: @mamas.outdoor</li>
-                <li>Tiktok: @mamas.outdoor</li>
+                <li>WA: 0812-3456-7890</li>
+                <li>IG: @mamasoutdoor</li>
               </ul>
             </div>
           </div>
           <div className="border-t border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center text-gray-500 text-sm">
-            <p>&copy; 2025 Mamas Outdoor. All rights reserved.</p>
+            <p>&copy; 2024 Mamas Outdoor. All rights reserved.</p>
             <div className="flex items-center gap-6">
               <a href="#" className="flex items-center gap-2 hover:text-white transition">
                 <Github size={18} />
                 <span>Source Code</span>
               </a>
-              <p className="font-medium text-nature-500">Made with ❤️ for You</p>
+              <p className="font-medium text-nature-500">Made with ❤️ for Nature Lovers</p>
             </div>
           </div>
         </div>
