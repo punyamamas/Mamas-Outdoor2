@@ -359,10 +359,10 @@ function App() {
 
             <h1 className="font-black text-white mb-8 tracking-tight drop-shadow-2xl">
               <span className="block text-4xl sm:text-5xl md:text-6xl lg:text-7xl mb-4 hover:tracking-wide transition-all duration-500 ease-out cursor-default">
-                MAMAS OUTDOOR
+                GAS HEALING
               </span>
               <span className="block text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 text-5xl sm:text-6xl md:text-7xl lg:text-8xl py-2 animate-gradient-x bg-[length:200%_auto] cursor-default">
-                TEMAN PERJALANANMU
+                GA PAKE PUSING
               </span>
             </h1>
 
