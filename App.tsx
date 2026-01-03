@@ -367,8 +367,7 @@ function App() {
             </h1>
 
             <p className="text-lg text-gray-200 mb-10 max-w-2xl mx-auto font-medium leading-relaxed drop-shadow-md px-4">
-              Sewa alat outdoor gak pake ribet. Gear lengkap, harga bersahabat, stok melimpah. 
-              Partner resmi penakluk <span className="text-yellow-400 font-bold border-b-2 border-yellow-400/30 hover:bg-yellow-400/10 transition-colors px-1">Slamet, Prau, & Sindoro</span>.
+              Alat ready, harga friendly, liburan jadi happy. Solusi anak Purwokerto buat muncak santai tanpa drama saat naik Gunung. <span className="text-yellow-400 font-bold border-b-2 border-yellow-400/30 hover:bg-yellow-400/10 transition-colors px-1">Slamet, Prau, & Sindoro</span>.
             </p>
 
             {/* --- BOOKING ENGINE WIDGET --- */}
