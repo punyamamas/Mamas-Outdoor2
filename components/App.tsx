@@ -354,7 +354,7 @@ function App() {
           <div className="text-center max-w-5xl mx-auto relative z-20 px-4 flex flex-col items-center">
             <div className="inline-flex items-center gap-2 bg-nature-600/90 backdrop-blur-md px-5 py-2 rounded-full text-white text-xs md:text-sm font-bold mb-8 border border-white/10 uppercase tracking-widest shadow-xl shadow-nature-900/50 hover:bg-nature-700 hover:scale-105 transition duration-300 cursor-default">
               <Flame size={16} className="text-yellow-400 fill-current animate-pulse" />
-              <span>Basecamp Anak Gunung Purwokerto</span>
+              <span>Sewa Alat Camping Terfavorit di Purwokerto</span>
             </div>
 
             <h1 className="font-black text-white mb-8 tracking-tight drop-shadow-2xl">
