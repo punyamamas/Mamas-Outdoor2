@@ -175,12 +175,23 @@ const App: React.FC = () => {
     setIsProductModalOpen(true);
   };
 
-  // Filtering
-  const filteredProducts = products.filter(product => {
-    const matchesCategory = activeCategory === 'Semua' || product.category === activeCategory;
-    const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesCategory && matchesSearch;
-  });
+  // Filtering & Sorting (UPDATED: Category then Name)
+  const filteredProducts = useMemo(() => {
+    return products
+      .filter(product => {
+        const matchesCategory = activeCategory === 'Semua' || product.category === activeCategory;
+        const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase());
+        return matchesCategory && matchesSearch;
+      })
+      .sort((a, b) => {
+        // 1. Sort by Category
+        const catCompare = a.category.localeCompare(b.category);
+        if (catCompare !== 0) return catCompare;
+        
+        // 2. Sort by Name
+        return a.name.localeCompare(b.name);
+      });
+  }, [products, activeCategory, searchTerm]);
 
   const cartTotalItems = cartItems.reduce((acc, item) => acc + item.quantity, 0);
 
@@ -225,7 +236,7 @@ const App: React.FC = () => {
         </div>
         
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="max-w-3xl animate-slide-in-right text-white mb-12">
+          <div className="max-w-3xl animate-slide-in-right text-white mb-8">
             <span className="inline-block px-4 py-1.5 rounded-full bg-nature-600/90 text-nature-100 text-sm font-bold mb-6 backdrop-blur-sm border border-nature-500 shadow-lg">
               #1 Sewa Alat Outdoor Purwokerto
             </span>
@@ -237,6 +248,26 @@ const App: React.FC = () => {
               Sewa peralatan camping & hiking lengkap, bersih, dan berkualitas. 
               Siap temani petualanganmu di Gunung Slamet, Prau, dan sekitarnya.
             </p>
+
+            {/* BUTTONS RESTORED */}
+            <div className="flex flex-col sm:flex-row gap-4 mb-8">
+                 <a 
+                   href="https://maps.google.com/?q=Mamas+Outdoor+Purwokerto" 
+                   target="_blank"
+                   rel="noreferrer"
+                   className="inline-flex items-center justify-center gap-2 bg-nature-600 hover:bg-nature-700 text-white px-6 py-3 rounded-xl font-bold transition shadow-lg hover:-translate-y-1"
+                 >
+                    <MapPin size={20} /> Lihat Lokasi Gmaps
+                 </a>
+                 <a 
+                   href={`https://wa.me/${storeConfig.adminWhatsapp}?text=Halo%20Mamas%20Outdoor,%20saya%20mau%20tanya%20sewa%20alat...`} 
+                   target="_blank"
+                   rel="noreferrer"
+                   className="inline-flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white border border-white/30 px-6 py-3 rounded-xl font-bold transition backdrop-blur-sm"
+                 >
+                    <MessageCircle size={20} /> Chat WhatsApp
+                 </a>
+            </div>
           </div>
 
           {/* BOOKING WIDGET (RESTORED) */}
@@ -370,7 +401,7 @@ const App: React.FC = () => {
                </p>
             </div>
 
-            {/* Feature 7 - UPDATED FREE ITEM TEXT */}
+            {/* Feature 7 */}
             <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition hover:-translate-y-1 group">
                <div className="w-12 h-12 bg-teal-100 text-teal-600 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition">
                   <Check size={24} />
