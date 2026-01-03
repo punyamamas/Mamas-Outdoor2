@@ -1,527 +1,171 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
+import { MapPin, MessageCircle, CalendarCheck, Smile, Bike, Sparkles, Award, Coffee, ThumbsUp, ShieldCheck, ShoppingBag, Search, ShoppingCart, ArrowRight } from 'lucide-react';
 import Navbar from './components/Navbar';
 import CartDrawer from './components/CartDrawer';
 import HistoryDrawer from './components/HistoryDrawer';
-import GeminiAdvisor from './components/GeminiAdvisor';
 import TermsModal from './components/TermsModal';
-import { AdminDashboard } from './components/AdminDashboard';
 import ProductDetailModal from './components/ProductDetailModal';
-import Toast from './components/Toast'; 
-import ImageLoader from './components/ImageLoader'; 
-import FloatingWhatsApp from './components/FloatingWhatsApp'; // Import Floating WA
-import { PRODUCTS, CATEGORIES as CONSTANT_CATEGORIES } from './constants'; 
-import { CartItem, Product, Category, Transaction } from './types';
+import GeminiAdvisor from './components/GeminiAdvisor';
+import FloatingWhatsApp from './components/FloatingWhatsApp';
+import { AdminDashboard } from './components/AdminDashboard';
+import { Product, CartItem, Category, Transaction } from './types';
 import { getProducts, addProduct, updateProduct, deleteProduct } from './services/productService';
 import { getCategories, addCategory, updateCategory, deleteCategory } from './services/categoryService';
-import { getActiveTransactions } from './services/transactionService'; 
-import { MapPin, Star, Plus, Check, School, Github, Loader2, Flame, Lock, Calendar, Users, ArrowRight as ArrowIcon, ChevronDown, ShieldCheck, Zap, ShoppingCart, Info, Weight, Tent, Wind, ArrowUpDown, Search, XCircle, ShoppingBag, ClipboardList, MessageCircle, Truck, CalendarCheck, CalendarDays, Clock, Handshake, FileText } from 'lucide-react';
+import { getTransactions } from './services/transactionService';
+import ImageLoader from './components/ImageLoader';
+import Toast from './components/Toast';
 
-function App() {
-  const [currentPage, setCurrentPage] = useState<'home' | 'admin'>('home');
-  const [products, setProducts] = useState<Product[]>([]); 
+const App: React.FC = () => {
+  const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [transactions, setTransactions] = useState<Transaction[]>([]); 
-  const [isLoading, setIsLoading] = useState(true); 
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]); // For Admin
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isTermsOpen, setIsTermsOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState('Semua');
   
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+
+  const [selectedCategory, setSelectedCategory] = useState('Semua');
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<'default' | 'price_low' | 'price_high' | 'name'>('default');
-  const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
-  const [toast, setToast] = useState<{ show: boolean; message: string }>({ show: false, message: '' });
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
 
-  // --- AVAILABILITY STATE ---
-  const [checkDate, setCheckDate] = useState(() => new Date().toISOString().split('T')[0]);
-  const [checkDuration, setCheckDuration] = useState(2);
+  useEffect(() => {
+    loadData();
+    // Simple Admin Check (URL query ?admin=true)
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('admin') === 'true') {
+        setIsAdmin(true);
+    }
+  }, []);
 
-  const fetchData = async () => {
-    if (products.length === 0) setIsLoading(true);
-    try {
-      const [productsData, categoriesData, transactionsData] = await Promise.all([
+  // Fetch transactions only if admin
+  useEffect(() => {
+      if (isAdmin) {
+          fetchTransactions();
+      }
+  }, [isAdmin]);
+
+  const fetchTransactions = async () => {
+      const data = await getTransactions();
+      setTransactions(data);
+  };
+
+  const loadData = async () => {
+    const [prodData, catData] = await Promise.all([
         getProducts(),
-        getCategories(),
-        getActiveTransactions() 
-      ]);
-      setProducts(productsData);
-      setCategories(categoriesData);
-      setTransactions(transactionsData);
-    } catch (error) {
-      console.error("Failed to load data", error);
-      setProducts(PRODUCTS); 
-      const fallbackCats = CONSTANT_CATEGORIES
-        .filter(c => c !== 'Semua')
-        .map((name, idx) => ({ id: (idx + 1).toString(), name }));
-      setCategories(fallbackCats);
-    } finally {
-      setIsLoading(false);
-    }
+        getCategories()
+    ]);
+    setProducts(prodData);
+    setCategories(catData);
   };
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  useEffect(() => {
-    const savedCart = localStorage.getItem('mamasCart');
-    if (savedCart) {
-      try {
-        const parsed = JSON.parse(savedCart);
-        if (parsed.length > 0 && parsed[0].price2Days === undefined) {
-          setCartItems([]);
-          localStorage.removeItem('mamasCart');
-        } else {
-          setCartItems(parsed);
+  const addToCart = (product: Product, size?: string, color?: string) => {
+    setCart(prev => {
+        const existing = prev.find(item => 
+            item.id === product.id && 
+            item.selectedSize === size && 
+            item.selectedColor === color
+        );
+        if (existing) {
+            return prev.map(item => 
+                (item.id === product.id && item.selectedSize === size && item.selectedColor === color)
+                    ? { ...item, quantity: item.quantity + 1 }
+                    : item
+            );
         }
-      } catch (e) {
-        setCartItems([]);
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem('mamasCart', JSON.stringify(cartItems));
-  }, [cartItems]);
-
-  const showToast = (message: string) => {
-    setToast({ show: true, message });
-  };
-
-  const bookedStockMap = useMemo(() => {
-    const bookedMap: Record<string, number> = {}; 
-    const userStart = new Date(checkDate).getTime();
-    const userEnd = new Date(checkDate).getTime() + (checkDuration * 24 * 60 * 60 * 1000);
-
-    transactions.forEach(trx => {
-        if (trx.status === 'cancelled' || trx.status === 'completed') return;
-        const trxStart = new Date(trx.rentalDate).getTime();
-        const trxEnd = new Date(trx.rentalDate).getTime() + (trx.duration * 24 * 60 * 60 * 1000);
-        const isOverlapping = (userStart < trxEnd) && (userEnd > trxStart);
-
-        if (isOverlapping) {
-            trx.items.forEach(item => {
-                bookedMap[item.id] = (bookedMap[item.id] || 0) + item.quantity;
-            });
-        }
+        return [...prev, { ...product, quantity: 1, selectedSize: size, selectedColor: color }];
     });
-    return bookedMap;
-  }, [transactions, checkDate, checkDuration]);
-
-  const getAvailableStock = (product: Product, size?: string, color?: string): number => {
-    let physicalStock = product.stock;
-
-    if (product.variants && product.variants.length > 0 && size && color) {
-      const variant = product.variants.find(v => v.size === size && v.color === color);
-      physicalStock = variant ? variant.stock : 0;
-    } else if (product.sizes && size && Object.keys(product.sizes).length > 0) {
-       physicalStock = product.sizes[size] || 0;
-    }
-
-    if (product.packageItems && product.packageItems.length > 0) {
-        const possibleStocks = product.packageItems.map(pi => {
-            const child = products.find(p => p.id === pi.productId);
-            if (!child) return 0;
-            const childBooked = bookedStockMap[child.id] || 0;
-            const childPhysical = child.stock;
-            const childAvailable = Math.max(0, childPhysical - childBooked);
-            return Math.floor(childAvailable / pi.quantity);
-        });
-        physicalStock = possibleStocks.length > 0 ? Math.min(...possibleStocks) : 0;
-    } 
-    else {
-        const bookedQty = bookedStockMap[product.id] || 0;
-        physicalStock = Math.max(0, physicalStock - bookedQty);
-    }
-    return physicalStock;
-  };
-
-  const addToCart = (product: Product, selectedSize?: string, selectedColor?: string) => {
-    const maxStock = getAvailableStock(product, selectedSize, selectedColor);
-    const existingItem = cartItems.find(item => 
-      item.id === product.id && 
-      item.selectedSize === selectedSize &&
-      item.selectedColor === selectedColor
-    );
-    const currentQtyInCart = existingItem ? existingItem.quantity : 0;
-
-    if (currentQtyInCart + 1 > maxStock) {
-      showToast(`Ups! Untuk tanggal ${checkDate}, sisa stok hanya ${maxStock} unit.`);
-      return;
-    }
-
-    setCartItems(prev => {
-      if (existingItem) {
-        const newItems = [...prev];
-        const index = prev.indexOf(existingItem);
-        newItems[index] = { ...existingItem, quantity: existingItem.quantity + 1 };
-        return newItems;
-      }
-      return [...prev, { ...product, quantity: 1, selectedSize, selectedColor }];
-    });
-    
-    showToast(`${product.name} berhasil masuk keranjang!`);
-  };
-
-  const addRecommendedToCart = (productId: string) => {
-    const product = products.find(p => p.id === productId);
-    if (product) {
-      const hasSize = product.sizes && Object.keys(product.sizes).length > 0;
-      const hasColor = product.colors && product.colors.length > 0;
-      const hasVariants = product.variants && product.variants.length > 0;
-      
-      if (hasSize || hasColor || hasVariants) {
-        setViewingProduct(product);
-      } else {
-        addToCart(product);
-      }
-    }
   };
 
   const updateQuantity = (id: string, delta: number, size?: string, color?: string) => {
-    if (delta > 0) {
-      const itemInCart = cartItems.find(i => i.id === id && i.selectedSize === size && i.selectedColor === color);
-      if (itemInCart) {
-        const originalProduct = products.find(p => p.id === id);
-        if(originalProduct) {
-            const maxStock = getAvailableStock(originalProduct, size, color);
-            if (itemInCart.quantity + delta > maxStock) {
-              showToast(`Maksimal stok tercapai (${maxStock} unit)`);
-              return;
-            }
+    setCart(prev => prev.map(item => {
+        if (item.id === id && item.selectedSize === size && item.selectedColor === color) {
+            return { ...item, quantity: Math.max(1, item.quantity + delta) };
         }
-      }
-    }
-    setCartItems(prev => prev.map(item => {
-      if (item.id === id && item.selectedSize === size && item.selectedColor === color) {
-        const newQty = item.quantity + delta;
-        return newQty > 0 ? { ...item, quantity: newQty } : item;
-      }
-      return item;
+        return item;
     }));
   };
 
-  const removeItem = (id: string, size?: string, color?: string) => {
-    setCartItems(prev => prev.filter(item => 
-      !(item.id === id && item.selectedSize === size && item.selectedColor === color)
+  const removeFromCart = (id: string, size?: string, color?: string) => {
+    setCart(prev => prev.filter(item => 
+        !(item.id === id && item.selectedSize === size && item.selectedColor === color)
     ));
   };
 
-  const clearCart = () => setCartItems([]);
+  const clearCart = () => setCart([]);
 
-  // --- Handlers ---
-  const handleAddProduct = async (newProduct: Product) => {
-    setProducts(prev => [newProduct, ...prev]);
-    const savedProduct = await addProduct(newProduct);
-    if (savedProduct) setProducts(prev => prev.map(p => p.id === newProduct.id ? savedProduct : p));
-    else fetchData();
-  };
+  const filteredProducts = useMemo(() => {
+    return products.filter(product => {
+      const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesCategory = selectedCategory === 'Semua' || product.category === selectedCategory;
+      return matchesSearch && matchesCategory;
+    });
+  }, [products, searchQuery, selectedCategory]);
 
-  const handleUpdateProduct = async (updatedProduct: Product) => {
-    setProducts(prev => prev.map(p => p.id === updatedProduct.id ? updatedProduct : p));
-    await updateProduct(updatedProduct);
-  };
+  // Admin Actions
+  const handleAddProduct = async (product: Product) => { await addProduct(product); await loadData(); };
+  const handleUpdateProduct = async (product: Product) => { await updateProduct(product); await loadData(); };
+  const handleDeleteProduct = async (id: string) => { await deleteProduct(id); await loadData(); };
+  const handleAddCategory = async (name: string) => { await addCategory(name); await loadData(); };
+  const handleUpdateCategory = async (id: string, name: string) => { await updateCategory(id, name); await loadData(); };
+  const handleDeleteCategory = async (id: string) => { await deleteCategory(id); await loadData(); };
 
-  const handleDeleteProduct = async (id: string) => {
-    if (window.confirm('Yakin ingin menghapus produk ini?')) {
-      const success = await deleteProduct(id);
-      if (success) setProducts(prev => prev.filter(p => p.id !== id));
-      else fetchData();
-    }
-  };
-
-  const handleAddCategory = async (name: string) => {
-    const newCat = await addCategory(name);
-    if (newCat) setCategories(prev => [...prev, newCat]);
-  };
-
-  const handleUpdateCategory = async (id: string, name: string) => {
-    const updated = await updateCategory(id, name);
-    if (updated) setCategories(prev => prev.map(c => c.id === id ? updated : c));
-  };
-
-  const handleDeleteCategory = async (id: string) => {
-    if (window.confirm('Yakin hapus kategori?')) {
-      const success = await deleteCategory(id);
-      if (success) setCategories(prev => prev.filter(c => c.id !== id));
-    }
-  };
-
-  if (currentPage === 'admin') {
+  if (isAdmin) {
     return (
-      <AdminDashboard 
-        products={products}
-        categories={categories}
-        transactions={transactions}
-        onBackToHome={() => setCurrentPage('home')}
-        onAddProduct={handleAddProduct}
-        onUpdateProduct={handleUpdateProduct}
-        onDeleteProduct={handleDeleteProduct}
-        onAddCategory={handleAddCategory}
-        onUpdateCategory={handleUpdateCategory}
-        onDeleteCategory={handleDeleteCategory}
-        onRefresh={fetchData}
-      />
+        <AdminDashboard 
+            products={products}
+            categories={categories}
+            transactions={transactions}
+            onBackToHome={() => setIsAdmin(false)}
+            onAddProduct={handleAddProduct} 
+            onUpdateProduct={handleUpdateProduct}
+            onDeleteProduct={handleDeleteProduct}
+            onAddCategory={handleAddCategory}
+            onUpdateCategory={handleUpdateCategory}
+            onDeleteCategory={handleDeleteCategory}
+            onRefresh={async () => { await loadData(); await fetchTransactions(); }}
+        />
     );
   }
 
-  // --- Filter & Sort ---
-  const filteredProducts = products.filter(p => {
-    const matchesCategory = selectedCategory === 'Semua' || p.category === selectedCategory;
-    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          p.category.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesSearch;
-  });
-
-  const sortedProducts = [...filteredProducts].sort((a, b) => {
-    switch (sortBy) {
-      case 'price_low': return (a.isSale ? (a.salePrice||0) : a.price2Days) - (b.isSale ? (b.salePrice||0) : b.price2Days);
-      case 'price_high': return (b.isSale ? (b.salePrice||0) : b.price2Days) - (a.isSale ? (a.salePrice||0) : a.price2Days);
-      case 'name': return a.name.localeCompare(b.name);
-      case 'default':
-      default:
-        const idxA = CONSTANT_CATEGORIES.indexOf(a.category);
-        const idxB = CONSTANT_CATEGORIES.indexOf(b.category);
-        if (idxA !== idxB) {
-          const validIdxA = idxA === -1 ? 999 : idxA;
-          const validIdxB = idxB === -1 ? 999 : idxB;
-          return validIdxA - validIdxB;
-        }
-        return a.name.localeCompare(b.name);
-    }
-  });
-
-  const getProductFeatures = (category: string) => {
-    const catLower = category.toLowerCase();
-    if (catLower.includes('tenda')) return <div className="flex items-center gap-1"><Tent size={14} /> <span>Waterproof</span></div>;
-    if (catLower.includes('carrier') || catLower.includes('tas')) return <div className="flex items-center gap-1"><Weight size={14} /> <span>Backsystem</span></div>;
-    if (catLower.includes('tidur') || catLower.includes('sleeping')) return <div className="flex items-center gap-1"><Wind size={14} /> <span>Warm</span></div>;
-    if (catLower.includes('masak') || catLower.includes('kompor')) return <div className="flex items-center gap-1"><Flame size={14} /> <span>Portable</span></div>;
-    return <div className="flex items-center gap-1"><Star size={14} /> <span>Top Tier</span></div>;
-  };
-
   return (
-    <div className="min-h-screen bg-gray-50 pt-16">
-      <Toast message={toast.message} isVisible={toast.show} onClose={() => setToast({ ...toast, show: false })} />
+    <div className="font-sans text-gray-900 bg-white">
+       <Navbar 
+         cartCount={cart.reduce((acc, item) => acc + item.quantity, 0)}
+         onOpenCart={() => setIsCartOpen(true)}
+         onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+         isMobileMenuOpen={isMobileMenuOpen}
+         onOpenHistory={() => setIsHistoryOpen(true)}
+         onOpenTerms={() => setIsTermsOpen(true)}
+       />
+       
+       {/* HERO SECTION */}
+       <section className="relative pt-32 pb-20 lg:pt-48 lg:pb-32 overflow-hidden">
+          <div className="absolute inset-0 z-0">
+              <div className="absolute inset-0 bg-gradient-to-b from-white/80 via-white/50 to-white z-10"></div>
+              <img src="https://images.unsplash.com/photo-1478131143081-80f7f84ca84d?q=80&w=2070&auto=format&fit=crop" alt="Background" className="w-full h-full object-cover" />
+          </div>
 
-      <Navbar 
-        cartCount={cartItems.reduce((acc, item) => acc + item.quantity, 0)} 
-        onOpenCart={() => setIsCartOpen(true)}
-        onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-        isMobileMenuOpen={isMobileMenuOpen}
-        onOpenHistory={() => setIsHistoryOpen(true)}
-        onOpenTerms={() => setIsTermsOpen(true)}
-      />
-
-      <CartDrawer 
-        isOpen={isCartOpen} 
-        onClose={() => setIsCartOpen(false)} 
-        cartItems={cartItems}
-        products={products} 
-        onUpdateQuantity={updateQuantity}
-        onRemoveItem={removeItem}
-        onClearCart={clearCart}
-        onRefreshData={fetchData} 
-      />
-
-      <HistoryDrawer isOpen={isHistoryOpen} onClose={() => setIsHistoryOpen(false)} />
-      <TermsModal isOpen={isTermsOpen} onClose={() => setIsTermsOpen(false)} />
-      
-      <ProductDetailModal 
-        isOpen={!!viewingProduct}
-        onClose={() => setViewingProduct(null)}
-        product={viewingProduct}
-        allProducts={products}
-        onAddToCart={addToCart}
-        isInCart={viewingProduct ? !!cartItems.find(i => i.id === viewingProduct.id) : false} 
-      />
-
-      {/* FLOATING WHATSAPP BUTTON ADDED HERE */}
-      <FloatingWhatsApp />
-
-      {/* Hero Section WITH BOOKING WIDGET */}
-      <section className="relative min-h-[85vh] flex flex-col items-center justify-center overflow-hidden py-32 group/hero">
-        <div className="absolute inset-0 z-0 overflow-hidden">
-          <img 
-            src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=2000&auto=format&fit=crop" 
-            alt="Gunung Slamet View" 
-            className="w-full h-full object-cover transition-transform duration-[20s] ease-in-out group-hover:scale-110"
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-gray-900/90 via-gray-900/50 to-gray-50/10"></div>
-          <div className="absolute inset-0 bg-black/20"></div>
-        </div>
-
-        <div className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex flex-col justify-center items-center">
-          <div className="text-center max-w-5xl mx-auto relative z-20 px-4 flex flex-col items-center">
-            <div className="inline-flex items-center gap-2 bg-nature-600/90 backdrop-blur-md px-5 py-2 rounded-full text-white text-xs md:text-sm font-bold mb-8 border border-white/10 uppercase tracking-widest shadow-xl shadow-nature-900/50 hover:bg-nature-700 hover:scale-105 transition duration-300 cursor-default">
-              <Flame size={16} className="text-yellow-400 fill-current animate-pulse" />
-              <span>Sewa Alat Outdoor Terfavorit di Purwokerto</span>
-            </div>
-
-            <h1 className="font-black text-white mb-8 tracking-tight drop-shadow-2xl">
-              <span className="block text-4xl sm:text-5xl md:text-6xl lg:text-7xl mb-4 hover:tracking-wide transition-all duration-500 ease-out cursor-default">
-                SEWA SAT SET
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
+              <span className="inline-block py-1 px-3 rounded-full bg-yellow-100 text-yellow-800 text-xs font-bold uppercase tracking-wider mb-6 animate-bounce">
+                Purwokerto's #1 Outdoor Rental
               </span>
-              <span className="block text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 text-5xl sm:text-6xl md:text-7xl lg:text-8xl py-2 animate-gradient-x bg-[length:200%_auto] cursor-default">
-                ANTI RIBET!
-              </span>
-            </h1>
-
-            <p className="text-lg text-gray-200 mb-10 max-w-2xl mx-auto font-medium leading-relaxed drop-shadow-md px-4">
-              Pusat rental alat camping & pendakian favorit mahasiswa Purwokerto. Lokasi strategis di <span className="text-yellow-400 font-bold border-b-2 border-yellow-400/30 hover:bg-yellow-400/10 transition-colors px-1">Grendeng</span>.
-              Gas muncak ke Slamet, Prau, & Sindoro tanpa ribet!
-            </p>
-
-            {/* --- BOOKING ENGINE WIDGET --- */}
-            <div className="bg-white p-2 rounded-3xl shadow-2xl border border-gray-200 w-full max-w-4xl mx-auto transform translate-y-8 animate-slide-in-right">
-                <div className="flex flex-col md:flex-row items-center p-2 gap-2">
-                    {/* Date Input */}
-                    <div className="flex-1 bg-gray-50 rounded-2xl p-3 w-full border border-transparent hover:border-nature-200 transition group cursor-pointer relative">
-                        <label className="text-[10px] uppercase font-bold text-gray-500 tracking-widest mb-1 block">Mulai Tanggal</label>
-                        <div className="flex items-center gap-2">
-                            <CalendarDays className="text-nature-600" size={20} />
-                            <input 
-                                type="date" 
-                                className="bg-transparent font-bold text-gray-800 text-sm outline-none w-full cursor-pointer"
-                                value={checkDate}
-                                onChange={(e) => setCheckDate(e.target.value)}
-                            />
-                        </div>
-                    </div>
-
-                    {/* Duration Input */}
-                    <div className="flex-1 bg-gray-50 rounded-2xl p-3 w-full border border-transparent hover:border-nature-200 transition group">
-                        <label className="text-[10px] uppercase font-bold text-gray-500 tracking-widest mb-1 block">Durasi Sewa</label>
-                        <div className="flex items-center gap-2">
-                            <Clock className="text-nature-600" size={20} />
-                            <select 
-                                className="bg-transparent font-bold text-gray-800 text-sm outline-none w-full cursor-pointer appearance-none"
-                                value={checkDuration}
-                                onChange={(e) => setCheckDuration(Number(e.target.value))}
-                            >
-                                <option value={2}>2 Hari (Minimal)</option>
-                                <option value={3}>3 Hari</option>
-                                <option value={4}>4 Hari</option>
-                                <option value={5}>5 Hari (Santai)</option>
-                            </select>
-                            <ChevronDown size={16} className="text-gray-400"/>
-                        </div>
-                    </div>
-
-                    {/* Search Button */}
-                    <button 
-                        onClick={() => document.getElementById('katalog')?.scrollIntoView({ behavior: 'smooth' })}
-                        className="bg-nature-600 hover:bg-nature-700 text-white font-bold py-4 px-8 rounded-2xl shadow-lg transition-all hover:scale-105 active:scale-95 w-full md:w-auto flex items-center justify-center gap-2"
-                    >
-                        <Search size={20} />
-                        Cek Alat Ready
-                    </button>
-                </div>
-            </div>
-            {/* --- END BOOKING WIDGET --- */}
-
-          </div>
-        </div>
-      </section>
-
-      {/* NEW SECTION: How It Works (ENHANCED) */}
-      <section className="bg-nature-50 py-20 border-b border-nature-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <span className="text-nature-600 font-black tracking-widest uppercase text-sm mb-2 block">TUTORIAL SEWA</span>
-            <h2 className="text-3xl font-black text-gray-900">Cara Sewa Sat-Set Anti Ribet!</h2>
-            <p className="text-gray-600 mt-2">Cuma 3 step doang, langsung gas healing tanpa pusing.</p>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="relative group bg-white p-8 rounded-3xl shadow-sm hover:shadow-xl transition-all duration-300 border border-transparent hover:border-nature-200">
-                <div className="w-16 h-16 bg-nature-100 rounded-2xl flex items-center justify-center mb-6 text-nature-600 group-hover:scale-110 transition">
-                  <ClipboardList size={32} />
-                </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">1. Cek Stok & Pilih Alat</h3>
-                <p className="text-gray-500 text-sm leading-relaxed">
-                  Input tanggal kapan lo mau muncak di atas. Biar sistem yang milihin gear yang ready. Kalo cocok, langsung add to cart aja!
-                </p>
-            </div>
-
-            <div className="relative group bg-white p-8 rounded-3xl shadow-sm hover:shadow-xl transition-all duration-300 border border-transparent hover:border-blue-200">
-                <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center mb-6 text-blue-600 group-hover:scale-110 transition">
-                  <MessageCircle size={32} />
-                </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">2. Chat Mamas Outdoor</h3>
-                <p className="text-gray-500 text-sm leading-relaxed">
-                  Klik tombol pesan, terus konfirm ke admin Mamas. Kami totalin biayanya, trus DP 50% dulu biar alat inceranmu aman.
-                </p>
-            </div>
-
-            <div className="relative group bg-white p-8 rounded-3xl shadow-sm hover:shadow-xl transition-all duration-300 border border-transparent hover:border-green-200">
-                <div className="w-16 h-16 bg-green-100 rounded-2xl flex items-center justify-center mb-6 text-green-600 group-hover:scale-110 transition">
-                  <Truck size={32} />
-                </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">3. Ambil di Grendeng</h3>
-                <p className="text-gray-500 text-sm leading-relaxed">
-                  Merapat ke basecamp Mamas di Grendeng (dekat WBC). Titip identitas asli (KTM/KTP), lunasin sisa sewa, langsung tancap gas!
-                </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* NEW SECTION: About Us (Tentang Mamas Outdoor) */}
-      <section className="py-20 bg-white border-b border-gray-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col lg:flex-row items-center gap-12">
-            {/* Image Side */}
-            <div className="w-full lg:w-1/2 relative group">
-              <div className="absolute -inset-4 bg-nature-100 rounded-3xl transform rotate-2 group-hover:rotate-1 transition duration-500"></div>
-              <img 
-                src="https://images.unsplash.com/photo-1478131143081-80f7f84ca84d?q=80&w=800&auto=format&fit=crop" 
-                alt="Mamas Outdoor Store Atmosphere" 
-                className="relative rounded-2xl shadow-xl w-full h-[400px] object-cover"
-              />
-              <div className="absolute bottom-6 right-6 bg-white p-4 rounded-xl shadow-lg border border-gray-100 max-w-xs">
-                 <div className="flex items-center gap-3 mb-2">
-                    <div className="p-2 bg-green-100 text-green-600 rounded-full"><Clock size={18}/></div>
-                    <div>
-                       <p className="text-xs text-gray-500 font-bold uppercase">Buka Setiap Hari</p>
-                       <p className="text-sm font-black text-gray-800">08.30 - 22.00 WIB</p>
-                    </div>
-                 </div>
-                 <p className="text-[10px] text-gray-500 italic">*Jumat tutup 11.30-13.00 (Jumatan)</p>
-              </div>
-            </div>
-
-            {/* Text Side */}
-            <div className="w-full lg:w-1/2">
-              <span className="text-nature-600 font-bold tracking-widest uppercase text-sm mb-2 block">Tentang Kami</span>
-              <h2 className="text-3xl md:text-4xl font-black text-gray-900 mb-6 leading-tight">
-                Rental Outdoor Terlengkap di <span className="text-nature-600 underline decoration-wavy decoration-nature-200">Purwokerto</span>
-              </h2>
+              <h1 className="text-5xl md:text-7xl font-black text-gray-900 mb-6 tracking-tight leading-tight">
+                Petualangan Seru<br/>
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-nature-600 to-adventure-500">Tanpa Ribet</span>
+              </h1>
+              <p className="text-lg md:text-xl text-gray-600 mb-10 max-w-2xl mx-auto leading-relaxed">
+                Sewa alat camping & pendakian terlengkap di Purwokerto. 
+                Barang bersih, wangi, dan terawat. Buka setiap hari!
+              </p>
               
-              <div className="space-y-6 text-gray-600 text-lg leading-relaxed">
-                <p>
-                  <span className="font-bold text-gray-800">Mamas Outdoor</span> merupakan jasa persewaan alat outdoor dan camping terbesar dan terpercaya di Purwokerto. 
-                  Lokasi kami cukup strategis, yaitu di <span className="font-bold text-gray-800">Jl. Cenderawasih, Grendeng</span>, Purwokerto Utara. 
-                  Sangat dekat dengan kampus <span className="font-bold text-nature-600">UNSOED Pusat</span>, GOR Soesilo Soedarman, dan area kost mahasiswa Grendeng.
-                </p>
-                
-                <p>
-                  Kami buka setiap hari mulai pukul <span className="font-bold text-gray-800">08.30 - 22.00</span>. 
-                  Khusus hari Jumat, kami istirahat sejenak pukul 11.30 - 13.00 untuk Shalat Jumat. 
-                  Untuk tanggal merah dan hari libur nasional <span className="font-bold text-nature-600">kami tetap buka</span>, 
-                  sehingga disaat yang lain tutup, kami siap melayani petualanganmu.
-                </p>
-
-                <p>
-                  Silahkan datang ke store kami! Jangan ragu untuk menghubungi dan menggunakan jasa kami. 
-                  Dengan senang hati customer service kami akan melayani persiapan pendakian Anda.
-                </p>
-              </div>
-
-              <div className="mt-8 flex flex-col sm:flex-row gap-4">
+              <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
                  <a 
                    href="https://maps.google.com/?q=Mamas+Outdoor+Purwokerto" 
                    target="_blank"
@@ -531,404 +175,238 @@ function App() {
                     <MapPin size={20} /> Lihat Lokasi Gmaps
                  </a>
                  <a 
-                   href="https://wa.me/6285137411145?text=Halo%20Mamas%20Outdoor,%20saya%20mau%20tanya%20alamat..." 
-                   target="_blank"
-                   rel="noreferrer"
+                   href="#katalog" 
                    className="inline-flex items-center justify-center gap-2 bg-white border-2 border-gray-200 hover:border-nature-600 text-gray-700 hover:text-nature-600 px-6 py-3 rounded-xl font-bold transition"
                  >
-                    <MessageCircle size={20} /> Hubungi Kami
+                    <ShoppingBag size={20} /> Lihat Katalog
                  </a>
               </div>
-            </div>
           </div>
-        </div>
-      </section>
+       </section>
 
-      {/* Catalog Section */}
-      <section id="katalog" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 bg-white">
-        <div className="text-center mb-8">
-          <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-4 tracking-tight">
-            Katalog <span className="text-transparent bg-clip-text bg-gradient-to-r from-nature-600 to-red-500">Mamas Outdoor</span>
-          </h2>
-          <p className="text-gray-500 text-lg max-w-2xl mx-auto">
-            Stok real-time. Tenda, carrier, cooking set, semua ada. Cek ketersediaan untuk tanggal pendakianmu sekarang.
-          </p>
-        </div>
-
-        {/* SEARCH BAR (SIMPLE) */}
-        <div className="max-w-xl mx-auto mb-8 px-4 relative group">
-           <div className="relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-nature-600 transition" size={20} />
-              <input
-                type="text"
-                placeholder="Cari alat... (Tenda, Carrier, Sepatu)"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-12 pr-10 py-3 bg-gray-50 border border-gray-200 rounded-full focus:ring-2 focus:ring-nature-500 focus:border-transparent outline-none transition text-gray-800 font-medium"
-              />
-              {searchQuery && (
-                <button 
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1"
-                >
-                  <XCircle size={18} />
-                </button>
-              )}
-           </div>
-        </div>
-
-        {/* Dynamic Category Filter */}
-        <div className="flex justify-center mb-8">
-          <div className="inline-flex p-1.5 bg-gray-100 rounded-full overflow-x-auto max-w-full no-scrollbar">
-            <button
-               onClick={() => setSelectedCategory('Semua')}
-               className={`px-6 py-2.5 rounded-full text-sm font-bold whitespace-nowrap transition-all duration-300 ${
-                 selectedCategory === 'Semua'
-                   ? 'bg-white text-nature-600 shadow-md transform scale-105' 
-                   : 'text-gray-500 hover:text-gray-900 hover:bg-gray-200/50'
-               }`}
-            >
-              Semua
-            </button>
-            {categories.map(cat => (
-              <button
-                key={cat.id}
-                onClick={() => setSelectedCategory(cat.name)}
-                className={`px-6 py-2.5 rounded-full text-sm font-bold whitespace-nowrap transition-all duration-300 ${
-                  selectedCategory === cat.name 
-                    ? 'bg-white text-nature-600 shadow-md transform scale-105' 
-                    : 'text-gray-500 hover:text-gray-900 hover:bg-gray-200/50'
-                }`}
-              >
-                {cat.name}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Products Grid */}
-        {isLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-            {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-              <div key={i} className="bg-gray-100 rounded-3xl h-[400px] animate-pulse"></div>
-            ))}
-          </div>
-        ) : sortedProducts.length === 0 ? (
-          <div className="text-center py-20 bg-gray-50 rounded-3xl border border-dashed border-gray-200">
-             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Search size={32} className="text-gray-400" />
-             </div>
-             <h3 className="text-lg font-bold text-gray-700">Produk tidak ditemukan</h3>
-             <p className="text-gray-500">Coba kata kunci lain atau kategori berbeda.</p>
-             <button 
-               onClick={() => { setSearchQuery(''); setSelectedCategory('Semua'); }}
-               className="mt-4 text-nature-600 font-bold hover:underline"
-             >
-               Reset Filter
-             </button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-            {sortedProducts.map(product => {
-              const inCart = cartItems.find(i => i.id === product.id);
-              const displayPrice = product.price2Days || 0;
-              const displayStock = getAvailableStock(product);
-
-              return (
-                <div 
-                  key={product.id} 
-                  onClick={() => setViewingProduct(product)}
-                  className="group relative bg-white rounded-3xl border border-gray-100 overflow-hidden hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)] transition-all duration-500 hover:-translate-y-2 flex flex-col h-full cursor-pointer"
-                >
-                  <div className="relative h-64 overflow-hidden bg-gray-100">
-                    <ImageLoader 
-                      src={product.image} 
-                      alt={product.name} 
-                      className="w-full h-full object-cover group-hover:scale-110 transition duration-700 ease-in-out" 
-                    />
-                    <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition duration-300"></div>
-
-                    <div className="absolute top-4 right-4 flex flex-col gap-2 items-end z-20">
-                       {displayStock < 3 && displayStock > 0 && (
-                         <span className="bg-adventure-500 text-white text-[10px] font-bold px-3 py-1.5 rounded-full shadow-lg animate-pulse uppercase tracking-wider flex items-center gap-1">
-                           <Zap size={10} fill="currentColor" /> Rebutan Nih!
-                         </span>
-                       )}
-                       <span className={`px-3 py-1.5 rounded-full text-[10px] font-bold shadow-sm backdrop-blur-md border border-white/20 ${
-                         displayStock > 0 ? 'bg-white/90 text-nature-700' : 'bg-red-600 text-white'
-                       }`}>
-                         Gercep! Sisa: {displayStock}
-                       </span>
-                    </div>
-
-                    <div className="absolute top-4 left-4 z-20 flex flex-col items-start gap-1">
-                      <span className="bg-white/20 backdrop-blur-md border border-white/30 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm">
-                        {product.category}
-                      </span>
-                      {product.isSale && (
-                        <span className="bg-blue-600 text-white text-[10px] font-bold px-2 py-1 rounded-lg shadow-sm flex items-center gap-1 border border-white/20">
-                           <ShoppingBag size={10} /> DIJUAL
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="p-6 flex flex-col flex-1">
-                    <div className="mb-auto">
-                      <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-2 leading-tight group-hover:text-nature-600 transition">
-                        {product.name}
-                      </h3>
-                      
-                      <div className="flex flex-wrap gap-2 mb-4">
-                        <span className="inline-flex items-center gap-1 bg-gray-50 text-gray-500 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wide border border-gray-100">
-                           {getProductFeatures(product.category)}
-                        </span>
-                        <span className="inline-flex items-center gap-1 bg-gray-50 text-gray-500 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wide border border-gray-100">
-                           <Check size={10} /> Wangi
-                        </span>
-                      </div>
-                    </div>
-                    
-                    <div className="mt-4 pt-4 border-t border-gray-50">
-                      <div className="flex items-end justify-between gap-3">
-                        <div className="flex flex-col">
-                          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-0.5">
-                             {product.isSale ? 'Harga Beli' : 'Paket 2 Hari'}
-                          </span>
-                          <span className={`text-xl font-black tracking-tight ${product.isSale ? 'text-blue-600' : 'text-gray-900'}`}>
-                            {product.isSale ? `Rp${(product.salePrice||0).toLocaleString('id-ID')}` : `Rp${displayPrice.toLocaleString('id-ID')}`}
-                          </span>
-                        </div>
-
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const hasVariant = (product.sizes && Object.keys(product.sizes).length > 0) || (product.colors && product.colors.length > 0) || (product.variants && product.variants.length > 0);
-                            const isPackage = product.packageItems && product.packageItems.length > 0;
-
-                            if (hasVariant || isPackage) {
-                              setViewingProduct(product);
-                            } else {
-                              addToCart(product);
-                            }
-                          }}
-                          className={`
-                            h-12 w-12 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg z-10
-                            ${inCart 
-                              ? 'bg-green-100 text-green-600 hover:bg-green-200' 
-                              : product.isSale 
-                                ? 'bg-blue-600 text-white hover:bg-blue-700 hover:scale-110 active:scale-95 shadow-blue-200'
-                                : 'bg-nature-600 text-white hover:bg-nature-700 hover:scale-110 active:scale-95 shadow-nature-200'
-                            }
-                          `}
-                          title={inCart ? "Sudah di keranjang" : "Tambah ke keranjang"}
-                        >
-                          {inCart ? <Check size={24} strokeWidth={3} /> : product.isSale ? <ShoppingBag size={20} strokeWidth={2.5}/> : <Plus size={24} strokeWidth={3} />}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </section>
-
-      {/* Footer & Other Sections ... */}
-      <section className="bg-nature-50 border-y border-nature-100 relative overflow-hidden">
-        <div className="absolute top-0 right-0 -mr-20 -mt-20 w-96 h-96 bg-nature-200 rounded-full blur-3xl opacity-50"></div>
-        <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-80 h-80 bg-adventure-200 rounded-full blur-3xl opacity-50"></div>
-        <GeminiAdvisor products={products} onAddRecommended={addRecommendedToCart} />
-      </section>
-      
-      {/* SPONSORSHIP PORTFOLIO SECTION (NEW) */}
-      <section id="event" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 bg-white">
-         <div className="mb-12 text-center">
-          <span className="text-nature-600 font-bold tracking-widest uppercase text-sm mb-2 block">Jejak Langkah Kami</span>
-          <h2 className="text-3xl md:text-4xl font-black text-gray-900">Portofolio Support</h2>
-          <p className="text-gray-500 mt-4 max-w-2xl mx-auto">
-            Mamas Outdoor bangga telah membersamai kesuksesan berbagai event kampus UNSOED dan kegiatan alam bebas di Purwokerto.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-           {/* Item 1 */}
-           <div className="group relative rounded-3xl overflow-hidden cursor-pointer h-80 shadow-lg hover:shadow-2xl transition-all duration-500">
-              <img 
-                src="https://images.unsplash.com/photo-1533240332313-0db49b459ad6?q=80&w=800&auto=format&fit=crop" 
-                alt="Soedirman Expedition" 
-                className="w-full h-full object-cover transition duration-700 group-hover:scale-110"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent"></div>
-              <div className="absolute bottom-0 left-0 p-6 text-white w-full">
-                 <span className="bg-nature-600 px-3 py-1 rounded-lg text-[10px] font-bold uppercase mb-3 inline-block shadow-lg">Official Partner</span>
-                 <h3 className="text-2xl font-bold leading-tight mb-1">Soedirman Expedition VII</h3>
-                 <div className="flex items-center gap-2 text-gray-300 text-sm">
-                    <Calendar size={14}/> <span>Agustus 2024</span>
-                 </div>
-                 <p className="text-gray-400 text-xs mt-2 line-clamp-2">Support Tenda Dome & Logistik Tim SAR UNSOED.</p>
-              </div>
-           </div>
-
-           {/* Item 2 */}
-           <div className="group relative rounded-3xl overflow-hidden cursor-pointer h-80 shadow-lg hover:shadow-2xl transition-all duration-500">
-              <img 
-                src="https://images.unsplash.com/photo-1478131143081-80f7f84ca84d?q=80&w=800&auto=format&fit=crop" 
-                alt="Mapala Camp" 
-                className="w-full h-full object-cover transition duration-700 group-hover:scale-110"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent"></div>
-              <div className="absolute bottom-0 left-0 p-6 text-white w-full">
-                 <span className="bg-blue-600 px-3 py-1 rounded-lg text-[10px] font-bold uppercase mb-3 inline-block shadow-lg">Supported By</span>
-                 <h3 className="text-2xl font-bold leading-tight mb-1">Satria Camp 2024</h3>
-                 <div className="flex items-center gap-2 text-gray-300 text-sm">
-                    <Calendar size={14}/> <span>Oktober 2024</span>
-                 </div>
-                 <p className="text-gray-400 text-xs mt-2 line-clamp-2">Penyedia 50+ Sleeping Bag & Matras untuk peserta diksar.</p>
-              </div>
-           </div>
-
-           {/* Item 3 */}
-           <div className="group relative rounded-3xl overflow-hidden cursor-pointer h-80 shadow-lg hover:shadow-2xl transition-all duration-500">
-              <img 
-                src="https://images.unsplash.com/photo-1510312305653-8ed496efae75?q=80&w=800&auto=format&fit=crop" 
-                alt="Music Fest" 
-                className="w-full h-full object-cover transition duration-700 group-hover:scale-110"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent"></div>
-              <div className="absolute bottom-0 left-0 p-6 text-white w-full">
-                 <span className="bg-purple-600 px-3 py-1 rounded-lg text-[10px] font-bold uppercase mb-3 inline-block shadow-lg">Sponsorship</span>
-                 <h3 className="text-2xl font-bold leading-tight mb-1">Baturraden Jazz Mountain</h3>
-                 <div className="flex items-center gap-2 text-gray-300 text-sm">
-                    <Calendar size={14}/> <span>Desember 2024</span>
-                 </div>
-                 <p className="text-gray-400 text-xs mt-2 line-clamp-2">Support Tenda VVIP & Area Camping Ground.</p>
-              </div>
-           </div>
-        </div>
-
-        {/* Call to Action Sponsorship */}
-        <div className="mt-16 bg-nature-50 rounded-3xl p-8 md:p-12 border border-nature-100 relative overflow-hidden group">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-nature-200 rounded-full blur-3xl -mr-16 -mt-16 opacity-50 group-hover:scale-110 transition duration-700"></div>
-            
-            <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8 text-center md:text-left">
-                <div className="max-w-xl">
-                    <div className="inline-flex items-center gap-2 text-nature-600 font-bold bg-white px-3 py-1 rounded-full text-xs mb-4 border border-nature-100 shadow-sm">
-                        <Handshake size={14} /> Open Collaboration
-                    </div>
-                    <h3 className="text-2xl md:text-3xl font-black text-gray-900 mb-3">UKM/Organisasi UNSOED?</h3>
-                    <p className="text-gray-600 leading-relaxed">
-                        Punya acara makrab, diksar, atau ekspedisi? Mamas Outdoor siap support kebutuhan logistikmu dengan harga khusus mahasiswa.
-                    </p>
-                </div>
-                <div className="flex-shrink-0">
-                    <a 
-                        href="https://wa.me/6285137411145?text=Halo%20Mamas%20Outdoor,%20saya%20mau%20mengajukan%20proposal%20sponsorship%20untuk%20event..." 
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-3 bg-nature-600 hover:bg-nature-700 text-white px-8 py-4 rounded-xl font-bold text-lg shadow-lg shadow-nature-200 transition transform hover:-translate-y-1 active:scale-95"
-                    >
-                        <FileText size={20} /> Ajukan Proposal
-                    </a>
-                </div>
-            </div>
-        </div>
-      </section>
-
-      {/* Features Section */}
-      <section className="bg-gray-50 border-t border-gray-200 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div className="flex flex-col items-center text-center p-8 bg-white rounded-2xl shadow-sm border border-gray-100 hover:border-nature-200 transition group">
-            <div className="w-16 h-16 bg-nature-50 text-nature-600 rounded-2xl rotate-3 group-hover:rotate-6 transition duration-300 flex items-center justify-center mb-6">
-              <Star className="fill-current" size={28} />
-            </div>
-            <h3 className="text-xl font-bold text-gray-900 mb-2">Gear Sultan</h3>
-            <p className="text-gray-500">Alat branded (Eiger, Consina, Rei), bersih, dan wangi. Gak ada cerita tenda bocor.</p>
-          </div>
-          <div className="flex flex-col items-center text-center p-8 bg-white rounded-2xl shadow-sm border border-gray-100 hover:border-nature-200 transition group">
-             <div className="w-16 h-16 bg-adventure-50 text-adventure-600 rounded-2xl -rotate-3 group-hover:-rotate-6 transition duration-300 flex items-center justify-center mb-6">
-              <MapPin className="fill-current" size={28} />
-            </div>
-            <h3 className="text-xl font-bold text-gray-900 mb-2">Lokasi Strategis</h3>
-            <p className="text-gray-500">Basecamp di Grendeng (Depan Warmindo WBC). Gas ambil alat sambil ngampus.</p>
-          </div>
-          <div className="flex flex-col items-center text-center p-8 bg-white rounded-2xl shadow-sm border border-gray-100 hover:border-nature-200 transition group">
-             <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl rotate-3 group-hover:rotate-6 transition duration-300 flex items-center justify-center mb-6">
-              <School className="fill-current" size={28} />
-            </div>
-            <h3 className="text-xl font-bold text-gray-900 mb-2">Harga Mahasiswa</h3>
-            <p className="text-gray-500">Harga terjangkau cocok untuk teman-teman pelajar dan mahasiswa .</p>
-          </div>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer id="contact" className="bg-gray-900 text-white pt-20 pb-10 border-t-4 border-nature-600 scroll-mt-10">
+       {/* VALUE PROPOSITION SECTION */}
+       <section className="py-20 bg-nature-50/50 border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
-            <div className="col-span-1 md:col-span-2">
-              <h2 className="text-3xl font-black mb-6 tracking-tight">Mamas<span className="text-nature-500">Outdoor</span></h2>
-              <p className="text-gray-400 max-w-sm leading-relaxed text-lg">
-                Partner nanjak paling asik se-Purwokerto. 
-                Sedia alat tempur buat naklukin Slamet, Prau, Sindoro, Sumbing. 
-                <br/><br/>
-                <span className="text-white font-bold">#SalamLestari</span>
-              </p>
+          <div className="text-center mb-12">
+            <span className="text-nature-600 font-black tracking-widest uppercase text-sm mb-2 block">KEUNGGULAN KAMI</span>
+            <h2 className="text-3xl md:text-4xl font-black text-gray-900">Kenapa Harus Sewa di Mamas?</h2>
+            <p className="text-gray-500 mt-2 max-w-2xl mx-auto">
+              Bukan sekadar rental biasa. Kami memberikan pelayanan ekstra demi kenyamanan petualanganmu.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition hover:-translate-y-1">
+               <div className="w-12 h-12 bg-red-100 text-red-600 rounded-xl flex items-center justify-center mb-4">
+                  <CalendarCheck size={24} />
+               </div>
+               <h3 className="font-bold text-gray-900 text-lg mb-2">Buka Setiap Hari</h3>
+               <p className="text-sm text-gray-600 leading-relaxed">
+                  Tanggal merah & hari libur nasional <span className="font-bold text-red-600">TETAP BUKA</span>. Gas muncak kapanpun tanpa halangan.
+               </p>
             </div>
-            <div>
-              <h3 className="text-lg font-bold mb-6 text-nature-500">Layanan</h3>
-              <ul className="space-y-3 text-gray-400 font-medium">
-                <li><a href="#" className="hover:text-white transition">Sewa Tenda Event</a></li>
-                <li><a href="#" className="hover:text-white transition">Sewa Alat Camping</a></li>
-                <li><button onClick={() => setCurrentPage('admin')} className="text-left hover:text-white transition text-nature-800">Admin Login</button></li>
-              </ul>
+            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition hover:-translate-y-1">
+               <div className="w-12 h-12 bg-orange-100 text-orange-600 rounded-xl flex items-center justify-center mb-4">
+                  <Smile size={24} />
+               </div>
+               <h3 className="font-bold text-gray-900 text-lg mb-2">Pelayanan Bestie</h3>
+               <p className="text-sm text-gray-600 leading-relaxed">
+                  Admin ramah, cepat, dan responsif. Konsultasi alat atau jalur pendakian gratis sambil ngopi.
+               </p>
             </div>
-            <div>
-              <h3 className="text-lg font-bold mb-6 text-nature-500">Kontak Kami</h3>
-              <ul className="space-y-3 text-gray-400 font-medium">
-                <li>Jl. Cenderawasih, Grendeng</li>
-                <li>Purwokerto Utara, 53122</li>
-                <li>WA: 0851-3741-1145</li>
-                <li>IG: @mamas.outdoor</li>
-              </ul>
+            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition hover:-translate-y-1">
+               <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center mb-4">
+                  <MapPin size={24} />
+               </div>
+               <h3 className="font-bold text-gray-900 text-lg mb-2">Lokasi Strategis</h3>
+               <p className="text-sm text-gray-600 leading-relaxed">
+                  Pinggir jalan raya Grendeng. Dekat banget sama kampus UNSOED. Gampang dicari gampang dijangkau.
+               </p>
+            </div>
+            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition hover:-translate-y-1">
+               <div className="w-12 h-12 bg-green-100 text-green-600 rounded-xl flex items-center justify-center mb-4">
+                  <Bike size={24} />
+               </div>
+               <h3 className="font-bold text-gray-900 text-lg mb-2">Parkir Gratis</h3>
+               <p className="text-sm text-gray-600 leading-relaxed">
+                  Akses mudah, parkir motor luas dan aman. <span className="font-bold text-green-600">Gratis</span> parkir buat pelanggan Mamas.
+               </p>
+            </div>
+            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition hover:-translate-y-1">
+               <div className="w-12 h-12 bg-purple-100 text-purple-600 rounded-xl flex items-center justify-center mb-4">
+                  <Sparkles size={24} />
+               </div>
+               <h3 className="font-bold text-gray-900 text-lg mb-2">Bersih & Wangi</h3>
+               <p className="text-sm text-gray-600 leading-relaxed">
+                  Alat jaminan bersih, sudah dicuci, dan wangi. Tenda ga bau apek, sleeping bag higienis.
+               </p>
+            </div>
+            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition hover:-translate-y-1">
+               <div className="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center mb-4">
+                  <Award size={24} />
+               </div>
+               <h3 className="font-bold text-gray-900 text-lg mb-2">Brand Ternama</h3>
+               <p className="text-sm text-gray-600 leading-relaxed">
+                  Eiger, Rei, Consina, Naturehike. Stok banyak pilihan warna & model. Kualitas terjamin.
+               </p>
+            </div>
+            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition hover:-translate-y-1">
+               <div className="w-12 h-12 bg-teal-100 text-teal-600 rounded-xl flex items-center justify-center mb-4">
+                  <Coffee size={24} />
+               </div>
+               <h3 className="font-bold text-gray-900 text-lg mb-2">Free Amenities</h3>
+               <p className="text-sm text-gray-600 leading-relaxed">
+                  Gratis kopi dan isi ulang air minum di basecamp. Sambil nunggu packing, ngopi dulu lur.
+               </p>
+            </div>
+            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition hover:-translate-y-1">
+               <div className="w-12 h-12 bg-pink-100 text-pink-600 rounded-xl flex items-center justify-center mb-4">
+                  <ThumbsUp size={24} />
+               </div>
+               <h3 className="font-bold text-gray-900 text-lg mb-2">Bebas Pilih</h3>
+               <p className="text-sm text-gray-600 leading-relaxed">
+                  Bebas pilih dan coba alat suka-suka. Gratis sewa Sajadah & P3K (selama persediaan ada).
+               </p>
             </div>
           </div>
-          <div className="border-t border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center text-gray-500 text-sm">
-            <p>&copy; 2024 Mamas Outdoor Purwokerto. All rights reserved.</p>
-            <div className="flex items-center gap-6">
-              <a href="#" className="flex items-center gap-2 hover:text-white transition">
-                <Github size={18} />
-                <span>Source Code</span>
-              </a>
-              <p className="font-medium text-nature-500">Made with ❤️ for You</p>
-            </div>
+
+          <div className="mt-12 bg-nature-600 rounded-3xl p-8 text-center text-white relative overflow-hidden">
+             <div className="absolute top-0 left-0 w-full h-full opacity-10" style={{backgroundImage: 'radial-gradient(#fff 2px, transparent 2px)', backgroundSize: '20px 20px'}}></div>
+             <div className="relative z-10 max-w-3xl mx-auto">
+                <ShieldCheck size={48} className="mx-auto mb-4 text-yellow-400" />
+                <h3 className="text-xl md:text-2xl font-black mb-4">Jaminan Kualitas Mamas Outdoor</h3>
+                <p className="text-nature-100 text-sm md:text-base leading-relaxed">
+                   Demi memberikan pelayanan yang terbaik, kami menjamin bahwa barang yang kami sewakan adalah <span className="text-white font-bold underline decoration-yellow-400">bersih, layak pakai, dan berkualitas</span>. 
+                   Dan tentunya telah memenuhi standart keamanan demi kenyamanan bersama. Keistimewaan itu semua bisa Anda dapatkan dengan harga yang sangat kompetitif khusus mahasiswa.
+                </p>
+             </div>
           </div>
         </div>
-      </footer>
+       </section>
+
+       {/* CATALOG SECTION */}
+       <section id="katalog" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 bg-white">
+            <div className="flex flex-col md:flex-row justify-between items-center mb-10 gap-4">
+                <h2 className="text-3xl font-black text-gray-900">Katalog Alat</h2>
+                <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+                    {/* Search */}
+                    <div className="relative">
+                        <Search className="absolute left-3 top-3 text-gray-400" size={18}/>
+                        <input 
+                            type="text" 
+                            placeholder="Cari alat..." 
+                            className="pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-nature-500 outline-none w-full sm:w-64"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                    </div>
+                    {/* Categories */}
+                    <select 
+                        className="pl-4 pr-10 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-nature-500 outline-none appearance-none bg-white font-bold text-gray-600"
+                        value={selectedCategory}
+                        onChange={(e) => setSelectedCategory(e.target.value)}
+                    >
+                        {['Semua', ...categories.map(c => c.name)].map(c => (
+                            <option key={c} value={c}>{c}</option>
+                        ))}
+                    </select>
+                </div>
+            </div>
+
+            {/* Products Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                {filteredProducts.map(product => (
+                    <div key={product.id} className="group bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden flex flex-col">
+                        <div className="relative aspect-[4/3] bg-gray-100 overflow-hidden">
+                            <ImageLoader src={product.image} alt={product.name} className="w-full h-full object-cover transition duration-700 group-hover:scale-110" />
+                            {product.isSale && (
+                                <span className="absolute top-3 left-3 bg-blue-600 text-white text-[10px] font-black px-2 py-1 rounded shadow-lg uppercase tracking-wide">Dijual</span>
+                            )}
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors"></div>
+                            <button 
+                                onClick={() => { setSelectedProduct(product); setIsDetailModalOpen(true); }}
+                                className="absolute bottom-3 right-3 bg-white text-gray-900 p-2.5 rounded-full shadow-lg opacity-0 translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 hover:bg-nature-600 hover:text-white"
+                            >
+                                <ArrowRight size={20} />
+                            </button>
+                        </div>
+                        <div className="p-5 flex flex-col flex-1">
+                            <div className="flex-1">
+                                <span className="text-[10px] font-bold text-nature-600 uppercase tracking-wider">{product.category}</span>
+                                <h3 className="font-bold text-gray-900 mt-1 mb-2 line-clamp-2 leading-tight group-hover:text-nature-700 transition-colors">
+                                    {product.name}
+                                </h3>
+                                <div className="flex items-baseline gap-1">
+                                    <span className="text-lg font-black text-gray-900">
+                                        Rp{(product.isSale ? product.salePrice : product.price2Days)?.toLocaleString('id-ID')}
+                                    </span>
+                                    {!product.isSale && <span className="text-xs text-gray-400 font-medium">/ 2 hari</span>}
+                                </div>
+                            </div>
+                            <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
+                                <span className={`text-xs font-bold ${product.stock > 0 ? 'text-green-600' : 'text-red-500'}`}>
+                                    {product.stock > 0 ? `Stok: ${product.stock}` : 'Habis'}
+                                </span>
+                                <button 
+                                    onClick={() => {
+                                        addToCart(product);
+                                        setToastMessage(`${product.name} masuk keranjang!`);
+                                        setShowToast(true);
+                                    }}
+                                    disabled={product.stock <= 0}
+                                    className="bg-gray-900 text-white p-2 rounded-lg hover:bg-nature-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    <ShoppingCart size={18} />
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+       </section>
+
+       {/* AI Guide */}
+       <GeminiAdvisor products={products} onAddRecommended={(id) => {
+           const p = products.find(prod => prod.id === id);
+           if(p) {
+               addToCart(p);
+               setToastMessage(`${p.name} ditambahkan!`);
+               setShowToast(true);
+           }
+       }} />
+
+       {/* Floating Buttons */}
+       <FloatingWhatsApp />
+       
+       {/* Modals & Drawers */}
+       <CartDrawer 
+           isOpen={isCartOpen} 
+           onClose={() => setIsCartOpen(false)} 
+           cartItems={cart}
+           products={products}
+           onUpdateQuantity={updateQuantity}
+           onRemoveItem={removeFromCart}
+           onClearCart={clearCart}
+           onRefreshData={async () => await loadData()}
+       />
+       <HistoryDrawer isOpen={isHistoryOpen} onClose={() => setIsHistoryOpen(false)} />
+       <TermsModal isOpen={isTermsOpen} onClose={() => setIsTermsOpen(false)} />
+       <ProductDetailModal 
+           isOpen={isDetailModalOpen} 
+           onClose={() => setIsDetailModalOpen(false)} 
+           product={selectedProduct}
+           allProducts={products}
+           onAddToCart={(p, s, c) => {
+               addToCart(p, s, c);
+               setIsDetailModalOpen(false);
+               setToastMessage("Berhasil masuk keranjang!");
+               setShowToast(true);
+           }}
+           isInCart={selectedProduct ? cart.some(i => i.id === selectedProduct.id) : false}
+       />
+       <Toast message={toastMessage} isVisible={showToast} onClose={() => setShowToast(false)} />
     </div>
   );
-}
-
-// Helper component for arrow icon
-function ArrowRight({ className, size }: { className?: string, size: number }) {
-  return (
-    <svg 
-      xmlns="http://www.w3.org/2000/svg" 
-      width={size} 
-      height={size} 
-      viewBox="0 0 24 24" 
-      fill="none" 
-      stroke="currentColor" 
-      strokeWidth="3" 
-      strokeLinecap="round" 
-      strokeLinejoin="round" 
-      className={className}
-    >
-      <path d="M5 12h14" />
-      <path d="m12 5 7 7-7 7" />
-    </svg>
-  )
 }
 
 export default App;
