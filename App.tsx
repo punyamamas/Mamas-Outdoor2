@@ -253,7 +253,7 @@ const App: React.FC = () => {
 
       {/* MOBILE HEADER (IMPROVED: Shows Selected Date Context) */}
       <div className="md:hidden fixed top-0 left-0 right-0 bg-white/95 backdrop-blur-md z-50 border-b border-gray-100 shadow-sm transition-all duration-300">
-         <div className="flex justify-between items-center px-4 py-2.5">
+         <div className="flex justify-between items-center px-4 py-3">
             <div className="flex items-center gap-2" onClick={() => window.scrollTo({top:0, behavior:'smooth'})}>
                 <img src="https://imgur.com/iC8ycHT.png" alt="Logo" className="w-8 h-8"/>
                 <div>
@@ -267,14 +267,15 @@ const App: React.FC = () => {
             </div>
             <div className="flex items-center gap-2">
                 {isAdminMode ? null : (
+                    // Button diperbesar sedikit untuk touch target yang lebih baik
                     <button 
                         onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} // Scroll to Hero to change date
-                        className="bg-gray-100 text-gray-600 px-3 py-1.5 rounded-full text-[10px] font-bold flex items-center gap-1 border border-gray-200"
+                        className="bg-gray-100 text-gray-600 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1 border border-gray-200 active:scale-95 transition"
                     >
-                        <Clock size={12}/> Ganti Tgl
+                        <Clock size={14}/> Ganti Tgl
                     </button>
                 )}
-                {isAdminMode ? null : <button onClick={() => setIsAdminMode(true)} className="p-1"><Lock size={16} className="text-gray-300"/></button>}
+                {isAdminMode ? null : <button onClick={() => setIsAdminMode(true)} className="p-2"><Lock size={16} className="text-gray-300"/></button>}
             </div>
          </div>
       </div>

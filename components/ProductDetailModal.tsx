@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { X, ShoppingCart, Check, PackageOpen, Palette, Scissors, Clock, MessageSquare, BadgeCheck, Star, ShoppingBag, Layers, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { Product, Review } from '../types';
@@ -121,10 +122,18 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const isLongDescription = product.description.length > 150;
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 md:p-6">
+    // UX Update: Align items-end for mobile (Bottom Sheet) & items-center for desktop
+    <div className="fixed inset-0 z-[70] flex items-end md:items-center justify-center sm:p-4 md:p-6">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={onClose}></div>
-      <div className="relative bg-white w-full max-w-4xl max-h-[90vh] md:max-h-[85vh] overflow-hidden rounded-3xl shadow-2xl flex flex-col md:flex-row animate-scale-up">
+      
+      {/* Container: Rounded Top only on mobile, Rounded All on Desktop. Animate slide-up on mobile. */}
+      <div className="relative bg-white w-full max-w-4xl max-h-[85vh] md:max-h-[85vh] overflow-hidden rounded-t-3xl md:rounded-3xl shadow-2xl flex flex-col md:flex-row animate-slide-up md:animate-scale-up">
         
+        {/* Mobile Drag Handle Indicator */}
+        <div className="md:hidden absolute top-0 left-0 right-0 h-6 bg-white z-20 flex justify-center pt-2 rounded-t-3xl pointer-events-none">
+            <div className="w-12 h-1.5 bg-gray-300 rounded-full"></div>
+        </div>
+
         {/* Left: Image & Quick Stats */}
         <div className="w-full md:w-1/2 bg-gray-100 relative group h-48 md:h-auto shrink-0">
            <ImageLoader 
@@ -133,13 +142,13 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
              className="w-full h-full object-cover"
            />
            {/* Mobile Close Button */}
-           <button onClick={onClose} className="absolute top-4 left-4 bg-white/30 hover:bg-white/50 backdrop-blur-md p-2 rounded-full text-white transition md:hidden z-10">
+           <button onClick={onClose} className="absolute top-4 left-4 bg-white/30 hover:bg-white/50 backdrop-blur-md p-2 rounded-full text-white transition md:hidden z-10 mt-4">
              <X size={20} />
            </button>
            
            {/* Sale Badge */}
            {product.isSale && (
-             <div className="absolute top-4 right-4 bg-blue-600 text-white px-3 py-1 rounded-full font-bold text-[10px] shadow-lg uppercase tracking-wider">
+             <div className="absolute top-4 right-4 bg-blue-600 text-white px-3 py-1 rounded-full font-bold text-[10px] shadow-lg uppercase tracking-wider mt-4 md:mt-0">
                Dijual
              </div>
            )}
@@ -148,7 +157,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
         {/* Right: Details & Actions */}
         <div className="w-full md:w-1/2 flex flex-col bg-white min-h-0 flex-1">
            {/* Header */}
-           <div className="px-5 py-4 md:p-8 border-b border-gray-100 relative shrink-0">
+           <div className="px-5 py-4 md:p-8 border-b border-gray-100 relative shrink-0 pt-6 md:pt-8">
               <button onClick={onClose} className="absolute top-6 right-6 text-gray-400 hover:text-gray-600 transition hidden md:block">
                 <X size={24} />
               </button>
@@ -426,7 +435,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
            {/* Footer: Add to Cart - Fixed/Sticky at Bottom */}
            {activeTab === 'details' && (
-             <div className="p-4 md:p-6 border-t border-gray-100 bg-gray-50 flex items-center gap-4 shrink-0 z-10">
+             <div className="p-4 md:p-6 border-t border-gray-100 bg-gray-50 flex items-center gap-4 shrink-0 z-10 pb-safe md:pb-6">
                 <div className="hidden md:block">
                    <p className="text-xs text-gray-500 font-medium">Stok Ready</p>
                    <p className="text-xl font-black text-gray-900">{specificStock} Unit</p>
