@@ -306,20 +306,20 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity" onClick={onClose}></div>
       
       <div className="absolute inset-y-0 right-0 max-w-full flex">
-        <div className="w-screen max-w-md bg-white shadow-xl flex flex-col h-full animate-slide-in-right">
+        <div className="w-screen max-w-md bg-white shadow-xl flex flex-col h-full animate-slide-in-right pb-safe">
           
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-nature-50">
             <h2 className="text-lg font-bold text-gray-900">
               {step === 'cart' ? 'Keranjang Belanja' : 'Detail Penyewa'}
             </h2>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2 rounded-full hover:bg-white transition">
               <X size={24} />
             </button>
           </div>
 
           {/* Content */}
-          <div className="flex-1 overflow-y-auto p-6">
+          <div className="flex-1 overflow-y-auto p-6 scroll-smooth">
             {step === 'cart' ? (
               <>
                 {cartItems.length === 0 ? (
@@ -393,25 +393,28 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
                             
                             <div className="flex items-center justify-between mt-3">
                               <div className="flex items-center gap-3 bg-gray-50 rounded-lg px-2 py-1 border border-gray-200">
+                                {/* Increased Touch Target for Mobile Buttons (w-8 h-8) */}
                                 <button 
                                   onClick={() => onUpdateQuantity(item.id, -1, item.selectedSize, item.selectedColor)}
-                                  className="w-6 h-6 flex items-center justify-center bg-white rounded shadow-sm text-gray-600 hover:text-nature-600 text-xs"
+                                  className="w-8 h-8 flex items-center justify-center bg-white rounded shadow-sm text-gray-600 hover:text-nature-600 text-sm active:scale-95 transition"
+                                  aria-label="Kurangi jumlah"
                                 >-</button>
-                                <span className="text-sm font-medium w-4 text-center">{item.quantity}</span>
+                                <span className="text-sm font-bold w-6 text-center">{item.quantity}</span>
                                 <button 
                                   onClick={() => onUpdateQuantity(item.id, 1, item.selectedSize, item.selectedColor)}
                                   disabled={isMaxStock}
-                                  className={`w-6 h-6 flex items-center justify-center bg-white rounded shadow-sm text-xs transition ${
+                                  className={`w-8 h-8 flex items-center justify-center bg-white rounded shadow-sm text-sm active:scale-95 transition ${
                                     isMaxStock ? 'text-gray-300 cursor-not-allowed' : 'text-gray-600 hover:text-nature-600'
                                   }`}
+                                  aria-label="Tambah jumlah"
                                 >+</button>
                               </div>
-                              <button onClick={() => onRemoveItem(item.id, item.selectedSize, item.selectedColor)} className="text-red-400 hover:text-red-600 p-1">
-                                <Trash2 size={18} />
+                              <button onClick={() => onRemoveItem(item.id, item.selectedSize, item.selectedColor)} className="text-red-400 hover:text-red-600 p-2 rounded-full hover:bg-red-50 transition">
+                                <Trash2 size={20} />
                               </button>
                             </div>
                             {isMaxStock && (
-                              <p className="text-[10px] text-red-500 mt-1 italic">Stok maksimal</p>
+                              <p className="text-[10px] text-red-500 mt-1 italic font-medium">Stok maksimal tercapai</p>
                             )}
                           </div>
                         </div>
@@ -421,7 +424,7 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
                 )}
               </>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-5">
                 {hasRentalItems && (
                     <div className="bg-yellow-50 border border-yellow-200 p-3 rounded-lg flex items-start gap-3">
                     <AlertCircle size={18} className="text-yellow-600 mt-0.5" />
@@ -436,9 +439,10 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
                   <label className="block text-sm font-medium text-gray-700 mb-1">Nama Lengkap</label>
                   <div className="relative">
                     <User className="absolute left-3 top-3 text-gray-400" size={18} />
+                    {/* text-base prevents auto-zoom on iOS */}
                     <input 
                       type="text" 
-                      className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-nature-500 focus:border-transparent outline-none transition"
+                      className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-nature-500 focus:border-transparent outline-none transition text-base md:text-sm"
                       placeholder="Contoh: Budi Santoso"
                       value={userDetails.name}
                       onChange={e => setUserDetails({...userDetails, name: e.target.value})}
@@ -452,7 +456,7 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
                     <Phone className="absolute left-3 top-3 text-gray-400" size={18} />
                     <input 
                       type="tel" 
-                      className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-nature-500 focus:border-transparent outline-none transition"
+                      className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-nature-500 focus:border-transparent outline-none transition text-base md:text-sm"
                       placeholder="0812..."
                       value={userDetails.whatsapp}
                       onChange={e => setUserDetails({...userDetails, whatsapp: e.target.value})}
@@ -468,7 +472,7 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
                         <MapPin className="absolute left-3 top-3 text-gray-400" size={18} />
                         <input 
                           type="text" 
-                          className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-nature-500 focus:border-transparent outline-none transition"
+                          className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-nature-500 focus:border-transparent outline-none transition text-base md:text-sm"
                           placeholder="Kecamatan / Kota..."
                           value={userDetails.location}
                           onChange={e => setUserDetails({...userDetails, location: e.target.value})}
@@ -477,7 +481,7 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
                     <button 
                         onClick={detectLocation}
                         disabled={isLocating}
-                        className="bg-gray-100 hover:bg-gray-200 text-gray-600 px-3 py-2 rounded-lg border border-gray-200 transition disabled:opacity-50"
+                        className="bg-gray-100 hover:bg-gray-200 text-gray-600 px-4 rounded-lg border border-gray-200 transition disabled:opacity-50"
                         title="Deteksi Lokasi GPS"
                     >
                         {isLocating ? <Loader2 className="animate-spin" size={20}/> : <LocateFixed size={20}/>}
@@ -493,7 +497,7 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
                       <Calendar className="absolute left-3 top-3 text-gray-400" size={18} />
                       <input 
                         type="date" 
-                        className="w-full pl-10 pr-2 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-nature-500 focus:border-transparent outline-none transition text-sm"
+                        className="w-full pl-10 pr-2 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-nature-500 focus:border-transparent outline-none transition text-base md:text-sm font-medium"
                         value={userDetails.rentalDate}
                         onChange={e => setUserDetails({...userDetails, rentalDate: e.target.value})}
                       />
@@ -506,7 +510,7 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
                         <input 
                         type="number" 
                         min="2"
-                        className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-nature-500 focus:border-transparent outline-none transition font-bold text-center"
+                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-nature-500 focus:border-transparent outline-none transition font-bold text-center text-base md:text-sm"
                         value={userDetails.duration}
                         onChange={e => handleDurationChange(parseInt(e.target.value) || 2)}
                         />
@@ -514,7 +518,7 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
                   ) : (
                     <div>
                         <label className="block text-sm font-medium text-gray-400 mb-1">Durasi</label>
-                        <input disabled className="w-full px-4 py-2.5 bg-gray-100 border border-gray-200 rounded-lg text-gray-400 text-center" value="-" />
+                        <input disabled className="w-full px-4 py-3 bg-gray-100 border border-gray-200 rounded-lg text-gray-400 text-center text-base md:text-sm" value="-" />
                     </div>
                   )}
                 </div>
@@ -622,11 +626,11 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
           </div>
 
           {/* Footer Actions */}
-          <div className="p-6 border-t border-gray-100 bg-gray-50">
+          <div className="p-6 border-t border-gray-100 bg-gray-50 pb-safe">
              {step === 'cart' ? (
                <>
                  <div className="flex justify-between mb-4">
-                    <span className="text-gray-600 text-sm">Estimasi Total</span>
+                    <span className="text-gray-600 text-sm font-medium">Estimasi Total</span>
                     <span className="font-bold text-xl text-gray-900">
                       Rp{cartItems.reduce((acc, item) => {
                           const price = item.isSale ? (item.salePrice||0) : (item.price2Days || 0);
@@ -637,7 +641,7 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
                  <button 
                   onClick={() => setStep('details')}
                   disabled={cartItems.length === 0}
-                  className="w-full bg-nature-600 hover:bg-nature-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3.5 rounded-xl shadow-lg shadow-nature-200 transition flex items-center justify-center gap-2"
+                  className="w-full bg-nature-600 hover:bg-nature-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-4 rounded-2xl shadow-lg shadow-nature-200 transition flex items-center justify-center gap-2 active:scale-[0.98]"
                  >
                    Lanjut Isi Data <ArrowRight size={20} />
                  </button>
@@ -646,14 +650,14 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
                <div className="flex gap-3">
                  <button 
                    onClick={() => setStep('cart')}
-                   className="px-4 py-3.5 border border-gray-300 rounded-xl font-medium text-gray-700 hover:bg-gray-100 transition"
+                   className="px-4 py-4 border border-gray-300 rounded-2xl font-bold text-gray-700 hover:bg-gray-100 transition"
                  >
                    Kembali
                  </button>
                  <button 
                   onClick={handleCheckout}
                   disabled={!userDetails.name || !userDetails.whatsapp || isProcessing}
-                  className="flex-1 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-green-200 transition flex items-center justify-center gap-2"
+                  className="flex-1 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-bold py-4 rounded-2xl shadow-lg shadow-green-200 transition flex items-center justify-center gap-2 active:scale-[0.98]"
                  >
                    {isProcessing ? (
                      <>

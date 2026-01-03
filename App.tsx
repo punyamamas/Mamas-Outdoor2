@@ -251,15 +251,15 @@ const App: React.FC = () => {
         />
       </div>
 
-      {/* MOBILE HEADER (IMPROVED: Shows Selected Date Context) */}
-      <div className="md:hidden fixed top-0 left-0 right-0 bg-white/95 backdrop-blur-md z-50 border-b border-gray-100 shadow-sm transition-all duration-300">
-         <div className="flex justify-between items-center px-4 py-3">
+      {/* MOBILE HEADER (IMPROVED: Fixed Height h-[60px] for reliable sticky calc) */}
+      <div className="md:hidden fixed top-0 left-0 right-0 bg-white/95 backdrop-blur-md z-50 border-b border-gray-100 shadow-sm transition-all duration-300 h-[60px] flex items-center">
+         <div className="flex justify-between items-center w-full px-4">
             <div className="flex items-center gap-2" onClick={() => window.scrollTo({top:0, behavior:'smooth'})}>
                 <img src="https://imgur.com/iC8ycHT.png" alt="Logo" className="w-8 h-8"/>
                 <div>
                     <span className="font-extrabold text-base text-gray-900 leading-none block">Mamas<span className="text-nature-600">Outdoor</span></span>
                     {/* Booking Context Indicator */}
-                    <div className="flex items-center gap-1 text-[10px] text-gray-500 font-medium leading-none mt-0.5">
+                    <div className="flex items-center gap-1 text-[10px] text-gray-600 font-bold leading-none mt-0.5">
                         <CalendarDays size={10} className="text-nature-600"/>
                         <span>Sewa: {new Date(checkDate).toLocaleDateString('id-ID', {day:'numeric', month:'short'})} ({checkDuration} Hari)</span>
                     </div>
@@ -270,7 +270,7 @@ const App: React.FC = () => {
                     // Button diperbesar sedikit untuk touch target yang lebih baik
                     <button 
                         onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} // Scroll to Hero to change date
-                        className="bg-gray-100 text-gray-600 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1 border border-gray-200 active:scale-95 transition"
+                        className="bg-gray-100 text-gray-700 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1 border border-gray-200 active:scale-95 transition"
                     >
                         <Clock size={14}/> Ganti Tgl
                     </button>
@@ -378,7 +378,7 @@ const App: React.FC = () => {
           <div className="w-full md:w-auto">
             <span className="text-nature-600 font-black tracking-widest uppercase text-xs md:text-sm mb-2 block">KATALOG ALAT</span>
             <h2 className="text-2xl md:text-4xl font-black text-gray-900">Pilih Perlengkapanmu</h2>
-            <p className="text-xs md:text-sm text-gray-500 mt-1 font-medium">Stok tersedia untuk: <span className="text-nature-600 font-bold">{new Date(checkDate).toLocaleDateString('id-ID', {day: 'numeric', month:'long'})}</span></p>
+            <p className="text-xs md:text-sm text-gray-600 mt-1 font-medium">Stok tersedia untuk: <span className="text-nature-600 font-bold">{new Date(checkDate).toLocaleDateString('id-ID', {day: 'numeric', month:'long'})}</span></p>
           </div>
           
           <div className="w-full md:w-auto space-y-4">
@@ -388,7 +388,7 @@ const App: React.FC = () => {
               <input 
                 type="text" 
                 placeholder="Cari Tenda, Tas..." 
-                className="pl-10 pr-4 py-2.5 md:py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-nature-500 outline-none w-full md:w-64 transition text-sm"
+                className="pl-10 pr-4 py-2.5 md:py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-nature-500 outline-none w-full md:w-64 transition text-sm text-gray-700"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -396,8 +396,8 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        {/* STICKY CATEGORY PILLS (IMPROVED WITH SNAP & SCROLL PADDING) */}
-        <div className="sticky top-[53px] md:static z-40 bg-white/95 backdrop-blur-sm -mx-4 px-4 md:mx-0 md:px-0 py-3 mb-6 shadow-sm md:shadow-none border-b border-gray-100 md:border-none">
+        {/* STICKY CATEGORY PILLS (Align with fixed header height 60px) */}
+        <div className="sticky top-[60px] md:static z-40 bg-white/95 backdrop-blur-sm -mx-4 px-4 md:mx-0 md:px-0 py-3 mb-6 shadow-sm md:shadow-none border-b border-gray-100 md:border-none">
             <div className="overflow-x-auto no-scrollbar snap-x snap-mandatory">
                 <div className="flex gap-2 w-max">
                     {categoryPills.map(cat => (
@@ -475,7 +475,7 @@ const App: React.FC = () => {
                         
                         <div className="mt-auto pt-2 md:pt-4 flex items-end justify-between border-t border-gray-50">
                           <div>
-                              <p className="text-[10px] md:text-xs text-gray-400 font-medium">{product.isSale ? 'Harga Jual' : 'Sewa 2 Hari'}</p>
+                              <p className="text-[10px] md:text-xs text-gray-500 font-medium">{product.isSale ? 'Harga Jual' : 'Sewa 2 Hari'}</p>
                               <p className="text-sm md:text-xl font-black text-nature-700">
                                 Rp{product.isSale ? (product.salePrice||0).toLocaleString('id-ID') : product.price2Days.toLocaleString('id-ID')}
                               </p>
