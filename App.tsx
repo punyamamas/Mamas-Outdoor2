@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { ShoppingCart, Search, Filter, MapPin, MessageCircle, CalendarCheck, Smile, School, Sparkles, Award, Check, ThumbsUp, ShieldCheck, Instagram, Facebook, Phone, Globe, ChevronDown, Lock, CalendarDays, Clock, Package } from 'lucide-react';
+import { ShoppingCart, Search, Filter, MapPin, MessageCircle, CalendarCheck, Smile, School, Sparkles, Award, Check, ThumbsUp, ShieldCheck, Instagram, Facebook, Phone, Globe, ChevronDown, Lock, CalendarDays, Clock, Package, HeartHandshake, Map } from 'lucide-react';
 import Navbar from './components/Navbar';
 import GeminiAdvisor from './components/GeminiAdvisor';
 import CartDrawer from './components/CartDrawer';
@@ -577,6 +577,75 @@ const App: React.FC = () => {
          const p = products.find(prod => prod.id === id);
          if(p) openProductModal(p);
       }} />
+
+      {/* NEW: ABOUT STORE SECTION (Adapted from Nona Petualang) */}
+      <section className="py-20 bg-white border-t border-gray-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+              
+              {/* Left Content */}
+              <div className="space-y-6">
+                 <div>
+                    <span className="text-nature-600 font-black tracking-widest uppercase text-sm mb-2 block">TENTANG MAMAS OUTDOOR</span>
+                    <h2 className="text-3xl md:text-4xl font-black text-gray-900 leading-tight">
+                       Pusat Rental Outdoor Terlengkap di Purwokerto
+                    </h2>
+                 </div>
+                 
+                 <div className="prose prose-sm text-gray-600 space-y-4">
+                    <p>
+                       Mamas Outdoor merupakan jasa persewaan alat outdoor dan camping terbesar, terlengkap dan terpercaya di Purwokerto. Lokasi kami cukup strategis, yaitu di <strong>Jalan Cenderawasih, Grendeng, Purwokerto Utara</strong>. Tidak jauh dari Kampus UNSOED, UMP, Amikom, dan pusat kota Purwokerto.
+                    </p>
+                    <p>
+                       Kami buka setiap hari pada pukul <strong>08.30 - 22.00</strong>, namun untuk hari jumat pukul 11.30 - 13.00 tutup untuk shalat jumat. Untuk tanggal merah dan hari libur nasional kami tetap buka, sehingga disaat yang lain tutup kami siap melayani.
+                    </p>
+                    <p className="font-medium text-nature-700">
+                       Silahkan datang ke store kami. Jangan ragu untuk menghubungi dan menggunakan jasa kami. Dengan senang hati customer service kami akan melayani anda.
+                    </p>
+                 </div>
+
+                 <div className="flex flex-col sm:flex-row gap-4 pt-4">
+                    <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl border border-gray-100">
+                       <div className="bg-nature-100 text-nature-600 p-2 rounded-lg"><MapPin size={24}/></div>
+                       <div>
+                          <h4 className="font-bold text-gray-800 text-sm">Lokasi Strategis</h4>
+                          <p className="text-xs text-gray-500">Grendeng, Dekat UNSOED</p>
+                       </div>
+                    </div>
+                    <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl border border-gray-100">
+                       <div className="bg-blue-100 text-blue-600 p-2 rounded-lg"><Clock size={24}/></div>
+                       <div>
+                          <h4 className="font-bold text-gray-800 text-sm">Buka Setiap Hari</h4>
+                          <p className="text-xs text-gray-500">08:30 - 22:00 WIB</p>
+                       </div>
+                    </div>
+                    <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl border border-gray-100">
+                       <div className="bg-orange-100 text-orange-600 p-2 rounded-lg"><HeartHandshake size={24}/></div>
+                       <div>
+                          <h4 className="font-bold text-gray-800 text-sm">Pelayanan Ramah</h4>
+                          <p className="text-xs text-gray-500">Siap membantu anda</p>
+                       </div>
+                    </div>
+                 </div>
+              </div>
+
+              {/* Right Image */}
+              <div className="relative h-[400px] rounded-3xl overflow-hidden shadow-2xl group">
+                 <ImageLoader 
+                    src="https://images.unsplash.com/photo-1478131143081-80f7f84ca84d?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80" 
+                    alt="Suasana Camping" 
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                 />
+                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex flex-col justify-end p-8 text-white">
+                    <div className="bg-nature-600 w-fit px-3 py-1 rounded-full text-xs font-bold mb-2">Basecamp</div>
+                    <h3 className="text-2xl font-bold">Siap Menemani Petualanganmu</h3>
+                    <p className="text-sm text-gray-200 mt-1">Lengkap, Bersih, dan Terawat.</p>
+                 </div>
+              </div>
+
+           </div>
+        </div>
+      </section>
 
       {/* Footer */}
       <footer id="contact" className="bg-gray-900 text-white py-16 border-t border-gray-800">
