@@ -684,11 +684,11 @@ function App() {
               <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent"></div>
               <div className="absolute bottom-0 left-0 p-6 text-white w-full">
                  <span className="bg-nature-600 px-3 py-1 rounded-lg text-[10px] font-bold uppercase mb-3 inline-block shadow-lg">Official Partner</span>
-                 <h3 className="text-2xl font-bold leading-tight mb-1">Soedirman Expedition VII</h3>
+                 <h3 className="text-2xl font-bold leading-tight mb-1">Open House BEM Unsoed 2025</h3>
                  <div className="flex items-center gap-2 text-gray-300 text-sm">
-                    <Calendar size={14}/> <span>Agustus 2024</span>
+                    <Calendar size={14}/> <span>Agustus 2025</span>
                  </div>
-                 <p className="text-gray-400 text-xs mt-2 line-clamp-2">Support Tenda Dome & Logistik Tim SAR UNSOED.</p>
+                 <p className="text-gray-400 text-xs mt-2 line-clamp-2">Support Tenda Stand untuk Open House.</p>
               </div>
            </div>
 
