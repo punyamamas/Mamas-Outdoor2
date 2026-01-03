@@ -11,6 +11,9 @@ import FloatingWhatsApp from './components/FloatingWhatsApp';
 import ImageLoader from './components/ImageLoader';
 import Toast from './components/Toast'; 
 import MobileBottomNav from './components/MobileBottomNav'; 
+import WhyChooseUs from './components/WhyChooseUs'; // NEW
+import AboutSection from './components/AboutSection'; // NEW
+import Footer from './components/Footer'; // NEW
 import { Product, Category, CartItem, Transaction } from './types';
 import { getProducts, addProduct, updateProduct, deleteProduct } from './services/productService';
 import { getCategories, addCategory, updateCategory, deleteCategory } from './services/categoryService';
@@ -485,91 +488,20 @@ const App: React.FC = () => {
         )}
       </section>
 
+      {/* WHY CHOOSE US (ADDED BACK) */}
+      <WhyChooseUs />
+
       {/* Gemini AI Section */}
       <GeminiAdvisor products={products} onAddRecommended={(id) => {
          const p = products.find(prod => prod.id === id);
          if(p) openProductModal(p);
       }} />
 
-      {/* About Section (Simplified for Mobile) */}
-      <section className="py-12 md:py-20 bg-white border-t border-gray-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 items-center">
-              
-              <div className="space-y-4 md:space-y-6">
-                 <div>
-                    <span className="text-nature-600 font-black tracking-widest uppercase text-xs md:text-sm mb-2 block">TENTANG MAMAS OUTDOOR</span>
-                    <h2 className="text-2xl md:text-4xl font-black text-gray-900 leading-tight">
-                       Pusat Rental Outdoor Terlengkap
-                    </h2>
-                 </div>
-                 
-                 <div className="prose prose-sm text-gray-600 space-y-2 md:space-y-4 text-sm leading-relaxed">
-                    <p>
-                       Mamas Outdoor merupakan jasa persewaan alat outdoor dan camping terbesar, terlengkap dan terpercaya di Purwokerto. Lokasi kami strategis di <strong>Grendeng</strong>, dekat UNSOED.
-                    </p>
-                    <p className="font-medium text-nature-700">
-                       Buka Setiap Hari 08.30 - 22.00 WIB.
-                    </p>
-                 </div>
-              </div>
+      {/* About Section (REDESIGNED) */}
+      <AboutSection />
 
-              {/* Image Hidden on small mobile to save space/bandwidth */}
-              <div className="relative h-[200px] md:h-[400px] rounded-2xl md:rounded-3xl overflow-hidden shadow-2xl group hidden sm:block">
-                 <ImageLoader 
-                    src="https://images.unsplash.com/photo-1478131143081-80f7f84ca84d?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80" 
-                    alt="Suasana Camping" 
-                    className="w-full h-full object-cover"
-                 />
-              </div>
-
-           </div>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer id="contact" className="bg-gray-900 text-white py-12 md:py-16 border-t border-gray-800 pb-28 md:pb-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 md:gap-12 mb-8 md:mb-12">
-            <div>
-              <div className="flex items-center gap-2 mb-4 md:mb-6">
-                <img src="https://imgur.com/iC8ycHT.png" alt="Logo" className="w-6 h-6 md:w-8 md:h-8 grayscale brightness-200" />
-                <span className="text-lg md:text-xl font-black tracking-tight">MamasOutdoor</span>
-              </div>
-              <p className="text-gray-400 text-sm leading-relaxed mb-6">
-                Sahabat petualanganmu di Purwokerto.
-              </p>
-            </div>
-            
-            <div className="hidden md:block">
-              <h4 className="text-lg font-bold mb-6">Navigasi</h4>
-              <ul className="space-y-3 text-gray-400">
-                <li><a href="#" className="hover:text-nature-400 transition">Beranda</a></li>
-                <li><a href="#katalog" className="hover:text-nature-400 transition">Katalog Alat</a></li>
-                <li><button onClick={() => setIsTermsOpen(true)} className="hover:text-nature-400 transition">Syarat & Ketentuan</button></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="text-lg font-bold mb-4 md:mb-6">Kontak</h4>
-              <ul className="space-y-3 text-gray-400 text-sm">
-                <li className="flex gap-3">
-                  <MapPin className="flex-shrink-0 text-nature-500" size={18} />
-                  <span>{storeConfig.storeAddress}</span>
-                </li>
-                <li className="flex gap-3 items-center">
-                  <Phone className="flex-shrink-0 text-nature-500" size={18} />
-                  <span>{storeConfig.adminWhatsapp}</span>
-                </li>
-              </ul>
-            </div>
-          </div>
-          
-          <div className="pt-8 border-t border-gray-800 text-center text-xs text-gray-500">
-            <p>&copy; {new Date().getFullYear()} Mamas Outdoor. Purwokerto.</p>
-          </div>
-        </div>
-      </footer>
+      {/* Footer (IMPROVED PADDING) */}
+      <Footer />
 
       {/* MOBILE BOTTOM NAV */}
       <MobileBottomNav 
