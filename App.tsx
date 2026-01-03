@@ -48,6 +48,9 @@ const App: React.FC = () => {
   // Config
   const storeConfig = getStoreConfig();
 
+  // Helper to determine if any overlay is active
+  const isOverlayOpen = isCartOpen || isHistoryOpen || isTermsOpen || isProductModalOpen;
+
   // Initial Data Load
   useEffect(() => {
     refreshData();
@@ -607,9 +610,12 @@ const App: React.FC = () => {
         isInCart={selectedProduct ? cartItems.some(item => item.id === selectedProduct.id) : false}
       />
 
-      <div className="mb-16 md:mb-0">
-        <FloatingWhatsApp />
-      </div>
+      {/* Conditionally Render Floating WA Button */}
+      {!isOverlayOpen && (
+        <div className="mb-16 md:mb-0">
+          <FloatingWhatsApp />
+        </div>
+      )}
       
       <Toast 
         message={toastMessage} 
