@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { ShoppingCart, Search, Filter, MapPin, MessageCircle, CalendarCheck, Smile, School, Sparkles, Award, Check, ThumbsUp, ShieldCheck, Instagram, Facebook, Phone, Globe, ChevronDown, Lock, CalendarDays, Clock } from 'lucide-react';
+import { ShoppingCart, Search, Filter, MapPin, MessageCircle, CalendarCheck, Smile, School, Sparkles, Award, Check, ThumbsUp, ShieldCheck, Instagram, Facebook, Phone, Globe, ChevronDown, Lock, CalendarDays, Clock, Package } from 'lucide-react';
 import Navbar from './components/Navbar';
 import GeminiAdvisor from './components/GeminiAdvisor';
 import CartDrawer from './components/CartDrawer';
@@ -512,9 +512,14 @@ const App: React.FC = () => {
                         </span>
                       </div>
                     )}
-                    {!isOutOfStock && availableStock <= 3 && (
-                        <div className="absolute bottom-3 left-3 bg-red-100 text-red-700 text-[10px] font-bold px-2 py-1 rounded shadow-sm border border-red-200">
-                            Sisa {availableStock} Unit
+                    
+                    {/* STOCK BADGE (VISIBLE FOR USER) */}
+                    {!isOutOfStock && (
+                        <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-lg text-[10px] font-bold shadow-sm border border-gray-100 flex items-center gap-1">
+                            <div className={`w-1.5 h-1.5 rounded-full ${availableStock > 0 ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                            <span className="text-gray-700">
+                                Stok: {availableStock}
+                            </span>
                         </div>
                     )}
                  </div>

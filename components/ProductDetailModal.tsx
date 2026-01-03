@@ -1,15 +1,14 @@
-
-import React, { useState, useEffect, useMemo } from 'react';
-import { X, ShoppingCart, Check, Layers, Clock, Sparkles, Tag, ShieldCheck, Zap, Scissors, Palette, Heart, ShoppingBag, PackageOpen, Star, User, MessageSquare, BadgeCheck, ArrowRight } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, ShoppingCart, Check, PackageOpen, Palette, Scissors, Clock, MessageSquare, BadgeCheck, Star, ShoppingBag, Layers, AlertCircle } from 'lucide-react';
 import { Product, Review } from '../types';
-import ImageLoader from './ImageLoader';
 import { getReviewsForProduct } from '../services/reviewService';
+import ImageLoader from './ImageLoader';
 
 interface ProductDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   product: Product | null;
-  allProducts: Product[]; // Prop baru untuk lookup nama produk
+  allProducts: Product[];
   onAddToCart: (product: Product, size?: string, color?: string) => void;
   isInCart: boolean;
 }
@@ -18,321 +17,188 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   isOpen, 
   onClose, 
   product, 
-  allProducts = [], 
-  onAddToCart,
-  isInCart
+  allProducts,
+  onAddToCart, 
+  isInCart 
 }) => {
-  const [selectedSize, setSelectedSize] = useState<string | null>(null);
-  const [selectedColor, setSelectedColor] = useState<string | null>(null);
-  const [displayImage, setDisplayImage] = useState<string>('');
-  const [isWishlisted, setIsWishlisted] = useState(false);
-  
-  // Tab State
+  const [selectedSize, setSelectedSize] = useState<string | undefined>(undefined);
+  const [selectedColor, setSelectedColor] = useState<string | undefined>(undefined);
   const [activeTab, setActiveTab] = useState<'details' | 'reviews'>('details');
-  
-  // Review State
   const [reviews, setReviews] = useState<Review[]>([]);
   const [isLoadingReviews, setIsLoadingReviews] = useState(false);
 
-  // Reset selections when modal opens/product changes
   useEffect(() => {
-    if (product) {
-      setSelectedSize(null);
-      setSelectedColor(null);
-      setDisplayImage(product.image);
+    if (isOpen && product) {
+      // Reset state
+      setSelectedSize(undefined);
+      setSelectedColor(undefined);
       setActiveTab('details');
-      setReviews([]); // Reset reviews
       
-      // Load Reviews Realtime
-      loadReviews(product.id);
+      // Auto-select if only 1 option
+      if (product.colors && product.colors.length === 1) setSelectedColor(product.colors[0]);
+      // If sizes is object {S: 5}, keys are sizes.
+      const sizeKeys = product.sizes ? Object.keys(product.sizes) : [];
+      if (sizeKeys.length === 1) setSelectedSize(sizeKeys[0]);
 
-      // Check Wishlist Status from LocalStorage
-      const savedWishlist = localStorage.getItem('mamasWishlist');
-      if (savedWishlist) {
-        const items = JSON.parse(savedWishlist);
-        setIsWishlisted(items.some((item: Product) => item.id === product.id));
-      } else {
-        setIsWishlisted(false);
-      }
+      // Fetch reviews
+      fetchReviews(product.id);
     }
-  }, [product]);
+  }, [isOpen, product]);
 
-  const loadReviews = async (id: string) => {
+  const fetchReviews = async (productId: string) => {
     setIsLoadingReviews(true);
-    const data = await getReviewsForProduct(id);
+    const data = await getReviewsForProduct(productId);
     setReviews(data);
     setIsLoadingReviews(false);
   };
 
-  // Kalkulasi Rata-rata Rating
-  const averageRating = useMemo(() => {
-    if (reviews.length === 0) return 0;
-    const sum = reviews.reduce((acc, r) => acc + r.rating, 0);
-    return (sum / reviews.length).toFixed(1);
-  }, [reviews]);
-
-  // Effect: Update image when color changes
-  useEffect(() => {
-    if (product && selectedColor && product.colorImages) {
-      const specificImg = product.colorImages.find(ci => ci.color === selectedColor);
-      if (specificImg && specificImg.url) {
-        setDisplayImage(specificImg.url);
-      } else {
-        setDisplayImage(product.image); // Revert to default if no specific image
-      }
-    } else if (product) {
-      setDisplayImage(product.image);
-    }
-  }, [selectedColor, product]);
-
-  const toggleWishlist = () => {
-    if (!product) return;
-
-    const savedWishlist = localStorage.getItem('mamasWishlist');
-    let items = savedWishlist ? JSON.parse(savedWishlist) : [];
-
-    if (isWishlisted) {
-      // Remove
-      items = items.filter((item: Product) => item.id !== product.id);
-      setIsWishlisted(false);
-    } else {
-      // Add
-      items.push(product);
-      setIsWishlisted(true);
-    }
-
-    localStorage.setItem('mamasWishlist', JSON.stringify(items));
-  };
-
   if (!isOpen || !product) return null;
 
-  const fmt = (price: number) => `Rp${(price || 0).toLocaleString('id-ID')}`;
+  // Helpers
+  const fmt = (val: number) => `Rp${val.toLocaleString('id-ID')}`;
 
+  // Package Logic
+  const isPackage = (product.packageItems && product.packageItems.length > 0) || product.category === 'Paketan Sewa';
+  const packageContents = product.packageItems?.map(pi => {
+      const child = allProducts.find(p => p.id === pi.productId);
+      return child ? { name: child.name, qty: pi.quantity } : null;
+  }).filter(Boolean) || [];
+
+  // Variant Logic
+  const hasAdvancedVariants = product.variants && product.variants.length > 0;
+  const hasColors = (product.colors && product.colors.length > 0) || (hasAdvancedVariants && product.variants!.some(v => v.color));
+  const hasSizes = (product.sizes && Object.keys(product.sizes).length > 0) || (hasAdvancedVariants && product.variants!.some(v => v.size));
+
+  // Determine available options
+  let availableColors: string[] = [];
+  if (hasAdvancedVariants) {
+      availableColors = Array.from(new Set(product.variants!.map(v => v.color)));
+  } else if (product.colors) {
+      availableColors = product.colors;
+  }
+
+  let sortedSizes: string[] = [];
+  if (hasAdvancedVariants) {
+      // If color selected, show sizes for that color, else show all possible sizes
+      if (selectedColor) {
+          sortedSizes = product.variants!
+              .filter(v => v.color === selectedColor)
+              .map(v => v.size)
+              .sort((a,b) => {
+                  const sizeOrder = ['S', 'M', 'L', 'XL', 'XXL'];
+                  return sizeOrder.indexOf(a) - sizeOrder.indexOf(b);
+              });
+      } else {
+          sortedSizes = Array.from(new Set(product.variants!.map(v => v.size))).sort();
+      }
+  } else if (product.sizes) {
+      sortedSizes = Object.keys(product.sizes).sort();
+  }
+
+  // Calculate Specific Stock
+  let specificStock = product.stock;
+  if (hasAdvancedVariants && selectedColor && selectedSize) {
+      const v = product.variants!.find(x => x.color === selectedColor && x.size === selectedSize);
+      specificStock = v ? v.stock : 0;
+  } else if (!hasAdvancedVariants && selectedSize && product.sizes) {
+      specificStock = product.sizes[selectedSize] || 0;
+  }
+
+  const isReadyToAdd = (!hasColors || selectedColor) && (!hasSizes || selectedSize) && specificStock > 0;
+
+  // Price List for Rental
   const prices = [
-    { day: 2, price: product.price2Days, label: '2 Hari (Best Deal!)' },
-    { day: 3, price: product.price3Days, label: '3 Hari' },
-    { day: 4, price: product.price4Days, label: '4 Hari' },
-    { day: 5, price: product.price5Days, label: '5 Hari' },
-    { day: 6, price: product.price6Days, label: '6 Hari' },
-    { day: 7, price: product.price7Days, label: 'Seminggu (Auto Hemat)' },
+    { day: 2, label: '2 Hari', price: product.price2Days },
+    { day: 3, label: '3 Hari', price: product.price3Days },
+    { day: 4, label: '4 Hari', price: product.price4Days },
+    { day: 5, label: '5 Hari', price: product.price5Days },
+    { day: 6, label: '6 Hari', price: product.price6Days },
+    { day: 7, label: '7 Hari', price: product.price7Days },
   ];
 
-  // LOGIC: PACKAGE HANDLING
-  const isPackage = product.packageItems && product.packageItems.length > 0;
-  let packageContents: { name: string; qty: number; id: string; currentStock: number }[] = [];
-  let dynamicPackageStock = product.stock; // Default ke stok manual jika gagal hitung
-
-  if (isPackage && product.packageItems) {
-    // 1. Ambil detail item penyusun
-    packageContents = product.packageItems.map(pi => {
-        const child = allProducts.find(p => p.id === pi.productId);
-        return {
-            id: pi.productId,
-            name: child ? child.name : 'Unknown Item',
-            qty: pi.quantity,
-            currentStock: child ? child.stock : 0
-        };
-    });
-
-    // 2. Hitung stok paket berdasarkan ketersediaan item terkecil (Limiting Factor)
-    if (packageContents.length > 0) {
-        const possibleStocks = packageContents.map(item => Math.floor(item.currentStock / item.qty));
-        dynamicPackageStock = Math.min(...possibleStocks);
-    }
-  }
-  
-  // LOGIC FOR VARIANTS
-  const hasAdvancedVariants = product.variants && product.variants.length > 0;
-  
-  // Legacy Fallbacks
-  const legacySizes = product.sizes ? Object.keys(product.sizes) : [];
-  const legacyColors = product.colors || [];
-  const hasLegacySizes = legacySizes.length > 0;
-  const hasLegacyColors = legacyColors.length > 0;
-
-  // Determine available colors
-  const availableColors = hasAdvancedVariants 
-    ? Array.from(new Set(product.variants!.map(v => v.color))) 
-    : legacyColors;
-
-  // Determine available sizes based on selected color (if advanced)
-  let availableSizesForDisplay: string[] = [];
-  
-  if (hasAdvancedVariants) {
-    if (selectedColor) {
-      // Filter sizes for this color that have stock > 0
-      availableSizesForDisplay = product.variants!
-        .filter(v => v.color === selectedColor)
-        .map(v => v.size);
-    } else {
-      // Show all possible sizes if no color selected yet
-      availableSizesForDisplay = Array.from(new Set(product.variants!.map(v => v.size)));
-    }
-  } else {
-    availableSizesForDisplay = legacySizes;
-  }
-
-  // Sort sizes logic
-  const sortSizes = (sizes: string[]) => {
-    const isNumeric = sizes.some(k => !isNaN(parseInt(k)));
-    if (isNumeric) {
-      return sizes.sort((a, b) => parseInt(a) - parseInt(b));
-    } else {
-      const order = ['S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
-      return sizes.sort((a, b) => {
-         const idxA = order.indexOf(a);
-         const idxB = order.indexOf(b);
-         if (idxA === -1) return 1;
-         if (idxB === -1) return -1;
-         return idxA - idxB;
-      });
-    }
-  };
-  
-  const sortedSizes = sortSizes(availableSizesForDisplay);
-  const hasSizes = sortedSizes.length > 0;
-  const hasColors = availableColors.length > 0;
-
-  // Validation for Add to Cart
-  const canAddToCart = 
-    (!hasSizes || (hasSizes && selectedSize !== null)) && 
-    (!hasColors || (hasColors && selectedColor !== null));
-
-  // Get stock count for display
-  const getSpecificStock = () => {
-    // Priority 1: Package Dynamic Stock
-    if (isPackage) {
-        return dynamicPackageStock;
-    }
-    // Priority 2: Variant Stock
-    if (hasAdvancedVariants && selectedColor && selectedSize) {
-      const variant = product.variants!.find(v => v.color === selectedColor && v.size === selectedSize);
-      return variant ? variant.stock : 0;
-    }
-    // Priority 3: Legacy Size Stock
-    if (!hasAdvancedVariants && selectedSize && product.sizes) {
-      return product.sizes[selectedSize];
-    }
-    // Priority 4: Base Stock
-    return product.stock;
-  };
-
-  const specificStock = getSpecificStock();
-
   return (
-    <div className="fixed inset-0 z-[80] overflow-y-auto font-sans">
-      <div className="flex min-h-screen items-center justify-center p-4 sm:p-6 text-center">
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={onClose}></div>
+      <div className="relative bg-white w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-3xl shadow-2xl flex flex-col md:flex-row animate-scale-up">
         
-        <div 
-          className="fixed inset-0 bg-gray-900/80 backdrop-blur-md transition-opacity" 
-          onClick={onClose}
-        ></div>
-
-        <div className="relative w-full max-w-5xl transform overflow-hidden rounded-[2rem] bg-white text-left shadow-2xl transition-all animate-slide-in-right md:animate-none md:scale-100 flex flex-col md:flex-row max-h-[90vh]">
-          
-          <button 
-            onClick={onClose}
-            className="absolute top-4 right-4 z-20 p-2 bg-black/30 hover:bg-black/50 text-white rounded-full backdrop-blur-md transition md:hidden"
-          >
-            <X size={20} />
-          </button>
-
-          {/* Left Side: Image Area */}
-          <div className="w-full md:w-5/12 bg-gray-100 relative h-72 md:h-auto group">
-             <ImageLoader 
-               src={displayImage} 
-               alt={product.name} 
-               className="w-full h-full object-cover transition-all duration-500 group-hover:scale-105"
-             />
-             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-80"></div>
-             
-             <div className="absolute top-4 left-4 flex flex-col items-start gap-2">
-                <span className="bg-white/20 backdrop-blur-md border border-white/20 text-white px-4 py-1.5 rounded-full text-xs font-bold shadow-lg tracking-wide uppercase flex items-center gap-2">
-                  <Tag size={12} /> {product.category}
-                </span>
-                {isPackage && (
-                  <span className="bg-purple-500/90 text-white px-4 py-1.5 rounded-full text-xs font-bold shadow-lg flex items-center gap-2">
-                    <Layers size={12} /> Paket Hemat
-                  </span>
-                )}
-                {product.isSale && (
-                  <span className="bg-blue-600 text-white px-4 py-1.5 rounded-full text-xs font-bold shadow-lg flex items-center gap-2">
-                    <ShoppingBag size={12} /> DIJUAL
-                  </span>
-                )}
+        {/* Left: Image & Quick Stats */}
+        <div className="w-full md:w-1/2 bg-gray-100 relative group min-h-[300px] md:min-h-full">
+           <ImageLoader 
+             src={product.image} 
+             alt={product.name} 
+             className="w-full h-full object-cover"
+           />
+           <button onClick={onClose} className="absolute top-4 left-4 bg-white/20 hover:bg-white/40 backdrop-blur-md p-2 rounded-full text-white transition md:hidden z-10">
+             <X size={24} />
+           </button>
+           
+           {/* Sale Badge */}
+           {product.isSale && (
+             <div className="absolute top-4 right-4 bg-blue-600 text-white px-4 py-1.5 rounded-full font-bold text-xs shadow-lg uppercase tracking-wider">
+               Barang Dijual
              </div>
+           )}
+        </div>
 
-             <div className="absolute bottom-6 left-6 text-white">
-                <p className="text-xs font-medium opacity-80 mb-1">Status Barang</p>
-                <div className="flex items-center gap-2">
-                  <div className={`w-2.5 h-2.5 rounded-full ${specificStock > 0 ? 'bg-green-400 animate-pulse' : 'bg-red-500'}`}></div>
-                  <span className="font-bold text-sm tracking-wide">
-                    {specificStock > 0 ? `Tinggal ${specificStock} Lagi Nih` : 'Yah, Stok Habis!'}
-                  </span>
-                </div>
-             </div>
-          </div>
-
-          {/* Right Side: Details Area */}
-          <div className="w-full md:w-7/12 flex flex-col bg-white overflow-y-auto custom-scrollbar">
-            <div className="p-6 md:p-10 flex-1">
-              <div className="hidden md:flex justify-end mb-4">
-                 <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-full transition">
-                   <X size={24} />
-                 </button>
+        {/* Right: Details & Actions */}
+        <div className="w-full md:w-1/2 flex flex-col bg-white">
+           {/* Header */}
+           <div className="p-6 md:p-8 border-b border-gray-100 relative">
+              <button onClick={onClose} className="absolute top-6 right-6 text-gray-400 hover:text-gray-600 transition hidden md:block">
+                <X size={24} />
+              </button>
+              
+              <div className="text-xs font-bold text-nature-600 uppercase tracking-widest mb-2 flex items-center gap-2">
+                 <Layers size={14}/> {product.category}
               </div>
-
-              <h2 className="text-3xl md:text-4xl font-black text-gray-900 mb-3 leading-tight tracking-tight">
+              <h2 className="text-2xl md:text-3xl font-black text-gray-900 leading-tight mb-2">
                 {product.name}
               </h2>
               
-              <div className="flex flex-wrap gap-2 mb-6">
-                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-nature-50 text-nature-700 text-xs font-bold border border-nature-100">
-                    <ShieldCheck size={14} /> Good Condition
+              {/* Rating Summary */}
+              <div className="flex items-center gap-2 mb-4">
+                 <div className="flex text-yellow-400">
+                    {[1,2,3,4,5].map(i => <Star key={i} size={14} fill={reviews.length > 0 && i <= 4 ? "currentColor" : "none"} className={reviews.length === 0 ? "text-gray-300" : ""}/>)}
+                 </div>
+                 <span className="text-xs text-gray-500 font-medium">
+                    {reviews.length > 0 ? `${reviews.length} Ulasan` : 'Belum ada ulasan'}
                  </span>
-                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-blue-50 text-blue-700 text-xs font-bold border border-blue-100">
-                    <Zap size={14} /> MVP (Paling Laris)
-                 </span>
-                 {/* Rating Badge Clickable */}
-                 <button 
-                    onClick={() => setActiveTab('reviews')}
-                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-yellow-50 text-yellow-700 text-xs font-bold border border-yellow-100 hover:bg-yellow-100 transition cursor-pointer"
-                 >
-                    <Star size={14} className="fill-current" /> {reviews.length > 0 ? `${averageRating} (${reviews.length} Ulasan)` : 'Jadilah Reviewer Pertama'}
-                 </button>
               </div>
 
-              {/* TABS NAVIGATION */}
-              <div className="flex border-b border-gray-100 mb-6">
-                 <button 
-                   onClick={() => setActiveTab('details')}
-                   className={`pb-3 px-4 text-sm font-bold transition border-b-2 ${activeTab === 'details' ? 'border-nature-600 text-nature-700' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
-                 >
-                   Detail Produk
-                 </button>
-                 <button 
-                   onClick={() => setActiveTab('reviews')}
-                   className={`pb-3 px-4 text-sm font-bold transition border-b-2 ${activeTab === 'reviews' ? 'border-nature-600 text-nature-700' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
-                 >
-                   Ulasan ({reviews.length})
-                 </button>
+              {/* Price */}
+              <div className="flex items-end gap-2">
+                 <span className="text-3xl font-black text-nature-700">
+                    {fmt(product.isSale ? (product.salePrice||0) : product.price2Days)}
+                 </span>
+                 {!product.isSale && <span className="text-gray-400 text-sm font-bold mb-1">/ 2 hari</span>}
               </div>
+           </div>
 
+           {/* Tabs */}
+           <div className="flex border-b border-gray-100">
+              <button 
+                onClick={() => setActiveTab('details')}
+                className={`flex-1 py-3 text-sm font-bold text-center transition border-b-2 ${activeTab === 'details' ? 'border-nature-600 text-nature-700' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
+              >
+                Detail & Sewa
+              </button>
+              <button 
+                onClick={() => setActiveTab('reviews')}
+                className={`flex-1 py-3 text-sm font-bold text-center transition border-b-2 ${activeTab === 'reviews' ? 'border-nature-600 text-nature-700' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
+              >
+                Ulasan ({reviews.length})
+              </button>
+           </div>
+
+           {/* Content Area */}
+           <div className="flex-1 overflow-y-auto p-6 md:p-8 custom-scrollbar">
               {activeTab === 'details' ? (
                 <>
-                  <div className="bg-gray-50 p-5 rounded-2xl border border-gray-100 mb-8 relative overflow-hidden group hover:border-nature-200 transition animate-slide-in-right">
-                    <div className="absolute -right-4 -top-4 text-gray-200 opacity-50 transform rotate-12 group-hover:rotate-0 transition duration-500">
-                      <Sparkles size={80} strokeWidth={1} />
-                    </div>
-                    <h3 className="relative z-10 flex items-center gap-2 text-sm font-black text-gray-900 uppercase tracking-widest mb-3">
-                      <Sparkles className="text-adventure-500" size={16} /> Deskripsi
-                    </h3>
-                    <p className="relative z-10 text-gray-600 leading-relaxed text-sm md:text-base font-medium whitespace-pre-line">
-                      {product.description}
-                    </p>
+                  <div className="prose prose-sm text-gray-600 mb-8">
+                    <p>{product.description}</p>
                   </div>
 
-                  {/* NEW: DISPLAY PACKAGE CONTENTS */}
+                  {/* PACKAGE CONTENTS */}
                   {isPackage && packageContents.length > 0 && (
                     <div className="mb-8">
                         <h3 className="flex items-center gap-2 text-sm font-black text-purple-800 uppercase tracking-widest mb-4 bg-purple-50 p-2 rounded-lg w-fit">
@@ -340,16 +206,13 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                         </h3>
                         <div className="bg-white border border-purple-100 rounded-xl p-4 shadow-sm">
                             <ul className="space-y-3">
-                                {packageContents.map((item, idx) => (
+                                {packageContents.map((item: any, idx: number) => (
                                     <li key={idx} className="flex items-center justify-between text-sm">
                                         <div className="flex items-center gap-3">
                                             <span className="bg-purple-100 text-purple-700 font-bold px-2 py-1 rounded text-xs">
                                                 {item.qty}x
                                             </span>
                                             <span className="font-medium text-gray-700">{item.name}</span>
-                                        </div>
-                                        <div className="text-xs text-gray-400">
-                                            (Stok Gudang: {item.currentStock})
                                         </div>
                                     </li>
                                 ))}
@@ -375,10 +238,10 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                               key={color}
                               onClick={() => {
                                 setSelectedColor(color);
-                                // If switching color and curr size is invalid for new color, reset size
+                                // Reset size if not valid for new color
                                 if (hasAdvancedVariants && selectedSize) {
                                     const isValidSize = product.variants!.some(v => v.color === color && v.size === selectedSize && v.stock > 0);
-                                    if (!isValidSize) setSelectedSize(null);
+                                    if (!isValidSize) setSelectedSize(undefined);
                                 }
                               }}
                               className={`
@@ -408,21 +271,17 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       )}
                       <div className="flex flex-wrap gap-3">
                         {sortedSizes.map((size) => {
-                          // Determine availability
                           let isAvailable = true;
-                          let stockForThis = 0;
-
+                          
                           if (hasAdvancedVariants) {
                             if (selectedColor) {
                               const v = product.variants!.find(x => x.color === selectedColor && x.size === size);
-                              stockForThis = v ? v.stock : 0;
-                              isAvailable = stockForThis > 0;
+                              isAvailable = (v?.stock || 0) > 0;
                             } else {
-                              isAvailable = false; // Force user to pick color first
+                              isAvailable = false;
                             }
-                          } else {
-                            stockForThis = product.sizes![size] || 0;
-                            isAvailable = stockForThis > 0;
+                          } else if (product.sizes) {
+                            isAvailable = (product.sizes[size] || 0) > 0;
                           }
 
                           const isSelected = selectedSize === size;
@@ -549,63 +408,39 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                    )}
                 </div>
               )}
-            </div>
+           </div>
 
-            <div className="p-6 md:p-8 border-t border-gray-100 bg-gray-50/50 md:rounded-br-[2rem] backdrop-blur-sm">
-              <div className="flex items-center justify-between gap-6">
-                <div className="hidden sm:flex flex-col">
-                  <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">{product.isSale ? 'Harga Jual' : 'Mulai Dari'}</span>
-                  <span className="text-3xl font-black text-gray-900 tracking-tight">
-                    {product.isSale ? fmt(product.salePrice || 0) : fmt(product.price2Days || 0)}
-                  </span>
+           {/* Footer: Add to Cart */}
+           {activeTab === 'details' && (
+             <div className="p-6 border-t border-gray-100 bg-gray-50 flex items-center gap-4">
+                <div className="hidden md:block">
+                   <p className="text-xs text-gray-500 font-medium">Stok Ready</p>
+                   <p className="text-xl font-black text-gray-900">{specificStock} Unit</p>
                 </div>
                 <button 
-                  disabled={!canAddToCart || specificStock <= 0}
-                  onClick={() => {
-                    onAddToCart(product, selectedSize || undefined, selectedColor || undefined);
-                  }}
+                  onClick={() => onAddToCart(product, selectedSize, selectedColor)}
+                  disabled={!isReadyToAdd}
                   className={`
-                    flex-1 py-4 px-8 rounded-2xl font-bold text-white shadow-xl transition-all duration-300 transform active:scale-95 flex items-center justify-center gap-3 text-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none
-                    ${isInCart && !hasSizes && !hasColors 
-                      ? 'bg-green-600 hover:bg-green-700 shadow-green-200' 
-                      : 'bg-gradient-to-r from-nature-600 to-nature-700 hover:from-nature-500 hover:to-nature-600 shadow-nature-200 hover:shadow-2xl hover:-translate-y-1'
-                    }
+                    flex-1 h-14 rounded-2xl font-bold text-lg flex items-center justify-center gap-3 transition-all shadow-xl
+                    ${isReadyToAdd 
+                      ? 'bg-nature-600 hover:bg-nature-700 text-white shadow-nature-200 hover:shadow-nature-300 hover:scale-[1.02]' 
+                      : 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none'}
                   `}
                 >
-                  {specificStock <= 0 ? (
-                    <>Stok Habis, Gan!</>
-                  ) : !canAddToCart ? (
-                    <>Pilih Varian Dulu Bro!</>
-                  ) : isInCart && !hasSizes && !hasColors ? (
+                  {isReadyToAdd ? (
                     <>
-                      <Check size={24} strokeWidth={3} /> Masuk Tas!
+                      {isInCart ? <Check size={24} strokeWidth={3} /> : <ShoppingCart size={24} strokeWidth={3} />}
+                      {isInCart ? 'Tambah Lagi' : 'Masuk Keranjang'}
                     </>
                   ) : (
                     <>
-                      <ShoppingCart size={24} strokeWidth={3} /> {product.isSale ? 'Beli Sekarang' : 'Angkut Sekarang'}
+                      <AlertCircle size={24} />
+                      {specificStock <= 0 ? 'Stok Habis' : 'Pilih Varian'}
                     </>
                   )}
                 </button>
-              </div>
-
-              {/* Wishlist Button */}
-              <button
-                onClick={toggleWishlist}
-                className={`
-                   mt-5 w-full flex items-center justify-center gap-2 font-bold transition-all duration-300 py-2 rounded-xl border border-transparent hover:bg-gray-100
-                   ${isWishlisted ? 'text-red-500' : 'text-gray-400 hover:text-gray-600'}
-                `}
-              >
-                <Heart 
-                  size={20} 
-                  className={`transition-all duration-300 ${isWishlisted ? "fill-current scale-110" : "scale-100"}`} 
-                />
-                <span>{isWishlisted ? 'Udah ke simpen nih' : 'Simpen Dulu Aja'}</span>
-              </button>
-
-            </div>
-          </div>
-
+             </div>
+           )}
         </div>
       </div>
     </div>
