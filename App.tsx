@@ -406,9 +406,13 @@ const App: React.FC = () => {
         </div>
 
         {/* STICKY CATEGORY PILLS (Align with fixed header height 60px) */}
-        <div className="sticky top-[60px] md:static z-40 bg-white/95 backdrop-blur-sm -mx-4 px-4 md:mx-0 md:px-0 py-3 mb-6 shadow-sm md:shadow-none border-b border-gray-100 md:border-none">
-            <div className="overflow-x-auto no-scrollbar snap-x snap-mandatory">
-                <div className="flex gap-2 w-max">
+        {/* ADDED: Gradient Mask for Visual Hint of Horizontal Scroll */}
+        <div className="sticky top-[60px] md:static z-40 bg-white/95 backdrop-blur-sm -mx-4 px-4 md:mx-0 md:px-0 py-3 mb-6 shadow-sm md:shadow-none border-b border-gray-100 md:border-none relative group">
+            {/* GRADIENT FADE RIGHT */}
+            <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-white to-transparent pointer-events-none md:hidden z-10"></div>
+            
+            <div className="overflow-x-auto no-scrollbar snap-x snap-mandatory relative">
+                <div className="flex gap-2 w-max px-2 md:px-0">
                     {categoryPills.map(cat => (
                         <button
                             key={cat}
@@ -426,6 +430,8 @@ const App: React.FC = () => {
                             {cat}
                         </button>
                     ))}
+                    {/* SPACER FOR SCROLL PADDING */}
+                    <div className="w-4 md:hidden"></div>
                 </div>
             </div>
         </div>

@@ -28,6 +28,9 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const [reviews, setReviews] = useState<Review[]>([]);
   const [isLoadingReviews, setIsLoadingReviews] = useState(false);
   const [isDescExpanded, setIsDescExpanded] = useState(false);
+  
+  // NEW: State for displaying dynamic image
+  const [displayImage, setDisplayImage] = useState('');
 
   useEffect(() => {
     if (isOpen && product) {
@@ -36,6 +39,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       setSelectedColor(undefined);
       setActiveTab('details');
       setIsDescExpanded(false);
+      setDisplayImage(product.image); // Reset to main image
       
       // Auto-select if only 1 option
       if (product.colors && product.colors.length === 1) setSelectedColor(product.colors[0]);
@@ -47,6 +51,21 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       fetchReviews(product.id);
     }
   }, [isOpen, product]);
+
+  // Effect to update image when color is selected
+  useEffect(() => {
+      if (product && selectedColor && product.colorImages) {
+          const variantImg = product.colorImages.find(ci => ci.color === selectedColor);
+          if (variantImg) {
+              setDisplayImage(variantImg.url);
+          } else {
+              // Fallback if no specific image for color
+              setDisplayImage(product.image);
+          }
+      } else if (product) {
+          setDisplayImage(product.image);
+      }
+  }, [selectedColor, product]);
 
   const fetchReviews = async (productId: string) => {
     setIsLoadingReviews(true);
@@ -137,9 +156,9 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
         {/* Left: Image & Quick Stats - INCREASED HEIGHT FOR MOBILE */}
         <div className="w-full md:w-1/2 bg-gray-100 relative group h-72 md:h-auto shrink-0">
            <ImageLoader 
-             src={product.image} 
+             src={displayImage} 
              alt={product.name} 
-             className="w-full h-full object-cover"
+             className="w-full h-full object-cover transition-opacity duration-300"
            />
            
            {/* Mobile Close Button - Enhanced Visibility */}
@@ -442,7 +461,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
            {/* Footer: Add to Cart - Fixed/Sticky at Bottom */}
            {activeTab === 'details' && (
-             <div className="p-4 md:p-6 border-t border-gray-100 bg-gray-50 flex items-center gap-4 shrink-0 z-10 pb-safe md:pb-6">
+             <div className="p-4 md:p-6 border-t border-gray-100 bg-gray-50 flex items-center gap-4 shrink-0 z-10 pb-safe md:pb-6 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
                 <div className="hidden md:block">
                    <p className="text-xs text-gray-500 font-medium">Stok Ready</p>
                    <p className="text-xl font-black text-gray-900">{specificStock} Unit</p>
