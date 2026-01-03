@@ -470,6 +470,80 @@ function App() {
         </div>
       </section>
 
+      {/* NEW SECTION: About Us (Tentang Mamas Outdoor) */}
+      <section className="py-20 bg-white border-b border-gray-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col lg:flex-row items-center gap-12">
+            {/* Image Side */}
+            <div className="w-full lg:w-1/2 relative group">
+              <div className="absolute -inset-4 bg-nature-100 rounded-3xl transform rotate-2 group-hover:rotate-1 transition duration-500"></div>
+              <img 
+                src="https://images.unsplash.com/photo-1478131143081-80f7f84ca84d?q=80&w=800&auto=format&fit=crop" 
+                alt="Mamas Outdoor Store Atmosphere" 
+                className="relative rounded-2xl shadow-xl w-full h-[400px] object-cover"
+              />
+              <div className="absolute bottom-6 right-6 bg-white p-4 rounded-xl shadow-lg border border-gray-100 max-w-xs">
+                 <div className="flex items-center gap-3 mb-2">
+                    <div className="p-2 bg-green-100 text-green-600 rounded-full"><Clock size={18}/></div>
+                    <div>
+                       <p className="text-xs text-gray-500 font-bold uppercase">Buka Setiap Hari</p>
+                       <p className="text-sm font-black text-gray-800">08.00 - 22.00 WIB</p>
+                    </div>
+                 </div>
+                 <p className="text-[10px] text-gray-500 italic">*Jumat tutup 11.30-13.00 (Jumatan)</p>
+              </div>
+            </div>
+
+            {/* Text Side */}
+            <div className="w-full lg:w-1/2">
+              <span className="text-nature-600 font-bold tracking-widest uppercase text-sm mb-2 block">Tentang Kami</span>
+              <h2 className="text-3xl md:text-4xl font-black text-gray-900 mb-6 leading-tight">
+                Rental Outdoor Terlengkap di <span className="text-nature-600 underline decoration-wavy decoration-nature-200">Purwokerto</span>
+              </h2>
+              
+              <div className="space-y-6 text-gray-600 text-lg leading-relaxed">
+                <p>
+                  <span className="font-bold text-gray-800">Mamas Outdoor</span> merupakan jasa persewaan alat outdoor dan camping terbesar dan terpercaya di Purwokerto. 
+                  Lokasi kami cukup strategis, yaitu di <span className="font-bold text-gray-800">Jl. Cenderawasih, Grendeng</span>, Purwokerto Utara. 
+                  Sangat dekat dengan kampus <span className="font-bold text-nature-600">UNSOED Pusat</span>, GOR Soesilo Soedarman, dan area kost mahasiswa Grendeng.
+                </p>
+                
+                <p>
+                  Kami buka setiap hari mulai pukul <span className="font-bold text-gray-800">08.00 - 22.00</span>. 
+                  Khusus hari Jumat, kami istirahat sejenak pukul 11.30 - 13.00 untuk Shalat Jumat. 
+                  Untuk tanggal merah dan hari libur nasional <span className="font-bold text-nature-600">kami tetap buka</span>, 
+                  sehingga disaat yang lain tutup, kami siap melayani petualanganmu.
+                </p>
+
+                <p>
+                  Silahkan datang ke store kami! Jangan ragu untuk menghubungi dan menggunakan jasa kami. 
+                  Dengan senang hati customer service kami akan melayani persiapan pendakian Anda.
+                </p>
+              </div>
+
+              <div className="mt-8 flex flex-col sm:flex-row gap-4">
+                 <a 
+                   href="https://maps.google.com/?q=Mamas+Outdoor+Purwokerto" 
+                   target="_blank"
+                   rel="noreferrer"
+                   className="inline-flex items-center justify-center gap-2 bg-gray-900 hover:bg-gray-800 text-white px-6 py-3 rounded-xl font-bold transition shadow-lg hover:-translate-y-1"
+                 >
+                    <MapPin size={20} /> Lihat Lokasi Gmaps
+                 </a>
+                 <a 
+                   href="https://wa.me/6285137411145?text=Halo%20Mamas%20Outdoor,%20saya%20mau%20tanya%20alamat..." 
+                   target="_blank"
+                   rel="noreferrer"
+                   className="inline-flex items-center justify-center gap-2 bg-white border-2 border-gray-200 hover:border-nature-600 text-gray-700 hover:text-nature-600 px-6 py-3 rounded-xl font-bold transition"
+                 >
+                    <MessageCircle size={20} /> Hubungi Kami
+                 </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Catalog Section */}
       <section id="katalog" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 bg-white">
         <div className="text-center mb-8">
