@@ -476,7 +476,7 @@ const App: React.FC = () => {
                           </div>
                           
                           <button 
-                            className={`w-9 h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center transition shadow-sm ${
+                            className={`w-9 h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center transition shadow-sm touch-manipulation ${
                               isInCart 
                                 ? 'bg-green-100 text-green-600' 
                                 : isOutOfStock 

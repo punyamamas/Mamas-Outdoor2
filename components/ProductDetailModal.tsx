@@ -160,7 +160,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={onClose}></div>
       
       {/* Container: Rounded Top only on mobile, Rounded All on Desktop. Animate slide-up on mobile. */}
-      <div className="relative bg-white w-full max-w-4xl max-h-[95vh] md:max-h-[85vh] overflow-hidden rounded-t-3xl md:rounded-3xl shadow-2xl flex flex-col md:flex-row animate-slide-up md:animate-scale-up">
+      <div className="relative bg-white w-full max-w-4xl max-h-[90vh] md:max-h-[85vh] overflow-hidden rounded-t-3xl md:rounded-3xl shadow-2xl flex flex-col md:flex-row animate-slide-up md:animate-scale-up">
         
         {/* Mobile Drag Handle Indicator */}
         <div className="md:hidden absolute top-0 left-0 right-0 h-6 z-20 flex justify-center pt-2 pointer-events-none">

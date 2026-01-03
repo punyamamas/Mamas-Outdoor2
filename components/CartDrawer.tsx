@@ -288,7 +288,7 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
           </div>
 
           {/* Content */}
-          <div className="flex-1 overflow-y-auto p-6 scroll-smooth">
+          <div className="flex-1 overflow-y-auto p-6 scroll-smooth pb-32">
             {step === 'cart' ? (
               <>
                 {cartItems.length === 0 ? (
@@ -404,7 +404,7 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
                     <User className="absolute left-3 top-3 text-gray-400" size={18} />
                     <input 
                       type="text" 
-                      className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-nature-500 focus:border-transparent outline-none transition text-base md:text-sm"
+                      className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-nature-500 focus:border-transparent outline-none transition text-base"
                       placeholder="Contoh: Budi Santoso"
                       value={userDetails.name}
                       onChange={e => setUserDetails({...userDetails, name: e.target.value})}
@@ -418,7 +418,7 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
                     <Phone className="absolute left-3 top-3 text-gray-400" size={18} />
                     <input 
                       type="tel" 
-                      className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-nature-500 focus:border-transparent outline-none transition text-base md:text-sm"
+                      className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-nature-500 focus:border-transparent outline-none transition text-base"
                       placeholder="0812..."
                       value={userDetails.whatsapp}
                       onChange={e => setUserDetails({...userDetails, whatsapp: e.target.value})}
@@ -433,7 +433,7 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
                         <MapPin className="absolute left-3 top-3 text-gray-400" size={18} />
                         <input 
                           type="text" 
-                          className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-nature-500 focus:border-transparent outline-none transition text-base md:text-sm"
+                          className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-nature-500 focus:border-transparent outline-none transition text-base"
                           placeholder="Kecamatan / Kota..."
                           value={userDetails.location}
                           onChange={e => setUserDetails({...userDetails, location: e.target.value})}
@@ -458,7 +458,7 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
                       <Calendar className="absolute left-3 top-3 text-gray-400" size={18} />
                       <input 
                         type="date" 
-                        className="w-full pl-10 pr-2 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-nature-500 focus:border-transparent outline-none transition text-base md:text-sm font-medium"
+                        className="w-full pl-10 pr-2 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-nature-500 focus:border-transparent outline-none transition text-base font-medium"
                         value={userDetails.rentalDate}
                         onChange={e => setUserDetails({...userDetails, rentalDate: e.target.value})}
                       />
@@ -471,7 +471,7 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
                         <input 
                         type="number" 
                         min="2"
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-nature-500 focus:border-transparent outline-none transition font-bold text-center text-base md:text-sm"
+                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-nature-500 focus:border-transparent outline-none transition font-bold text-center text-base"
                         value={userDetails.duration}
                         onChange={e => handleDurationChange(parseInt(e.target.value) || 2)}
                         />
@@ -479,7 +479,7 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
                   ) : (
                     <div>
                         <label className="block text-sm font-medium text-gray-400 mb-1">Durasi</label>
-                        <input disabled className="w-full px-4 py-3 bg-gray-100 border border-gray-200 rounded-lg text-gray-400 text-center text-base md:text-sm" value="-" />
+                        <input disabled className="w-full px-4 py-3 bg-gray-100 border border-gray-200 rounded-lg text-gray-400 text-center text-base" value="-" />
                     </div>
                   )}
                 </div>
@@ -605,13 +605,13 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
             )}
           </div>
 
-          {/* Footer Actions */}
-          <div className="p-6 border-t border-gray-100 bg-gray-50 pb-safe">
+          {/* Footer Actions (Sticky Bottom) */}
+          <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 border-t border-gray-100 bg-white/95 backdrop-blur-md pb-safe shadow-[0_-4px_10px_-4px_rgba(0,0,0,0.1)] z-20">
              {step === 'cart' ? (
-               <>
-                 <div className="flex justify-between mb-4">
-                    <span className="text-gray-600 text-sm font-medium">Estimasi Total</span>
-                    <span className="font-bold text-xl text-gray-900">
+               <div className="flex gap-4 items-center">
+                 <div className="flex-1">
+                    <span className="text-gray-500 text-xs font-bold uppercase block mb-0.5">Estimasi</span>
+                    <span className="font-black text-xl text-gray-900">
                       Rp{cartItems.reduce((acc, item) => {
                           const price = item.isSale ? (item.salePrice||0) : (item.price2Days || 0);
                           return acc + (price * item.quantity);
@@ -621,11 +621,11 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
                  <button 
                   onClick={() => setStep('details')}
                   disabled={cartItems.length === 0}
-                  className="w-full bg-nature-600 hover:bg-nature-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-4 rounded-2xl shadow-lg shadow-nature-200 transition flex items-center justify-center gap-2 active:scale-[0.98]"
+                  className="bg-nature-600 hover:bg-nature-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3.5 px-6 rounded-2xl shadow-lg shadow-nature-200 transition flex items-center gap-2 active:scale-95"
                  >
-                   Lanjut Isi Data <ArrowRight size={20} />
+                   Isi Data <ArrowRight size={20} />
                  </button>
-               </>
+               </div>
              ) : (
                <div className="flex gap-3">
                  <button 
