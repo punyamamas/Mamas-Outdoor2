@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { X, ShoppingCart, Check, PackageOpen, Palette, Scissors, Clock, MessageSquare, BadgeCheck, Star, ShoppingBag, Layers, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { X, ShoppingCart, Check, PackageOpen, Palette, Scissors, Clock, MessageSquare, BadgeCheck, Star, ShoppingBag, Layers, AlertCircle, ChevronDown, ChevronUp, Share2 } from 'lucide-react';
 import { Product, Review } from '../types';
 import { getReviewsForProduct } from '../services/reviewService';
 import ImageLoader from './ImageLoader';
@@ -72,6 +72,20 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     const data = await getReviewsForProduct(productId);
     setReviews(data);
     setIsLoadingReviews(false);
+  };
+
+  const handleShare = async () => {
+    if (navigator.share && product) {
+      try {
+        await navigator.share({
+          title: product.name,
+          text: `Sewa ${product.name} murah di Mamas Outdoor Purwokerto!`,
+          url: window.location.href
+        });
+      } catch (err) {
+        console.error("Share failed", err);
+      }
+    }
   };
 
   if (!isOpen || !product) return null;
@@ -146,35 +160,49 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={onClose}></div>
       
       {/* Container: Rounded Top only on mobile, Rounded All on Desktop. Animate slide-up on mobile. */}
-      <div className="relative bg-white w-full max-w-4xl max-h-[90vh] md:max-h-[85vh] overflow-hidden rounded-t-3xl md:rounded-3xl shadow-2xl flex flex-col md:flex-row animate-slide-up md:animate-scale-up">
+      <div className="relative bg-white w-full max-w-4xl max-h-[95vh] md:max-h-[85vh] overflow-hidden rounded-t-3xl md:rounded-3xl shadow-2xl flex flex-col md:flex-row animate-slide-up md:animate-scale-up">
         
         {/* Mobile Drag Handle Indicator */}
         <div className="md:hidden absolute top-0 left-0 right-0 h-6 z-20 flex justify-center pt-2 pointer-events-none">
             <div className="w-12 h-1.5 bg-white/80 rounded-full shadow-sm backdrop-blur-sm"></div>
         </div>
 
-        {/* Left: Image & Quick Stats - INCREASED HEIGHT FOR MOBILE */}
-        <div className="w-full md:w-1/2 bg-gray-100 relative group h-72 md:h-auto shrink-0">
+        {/* Left: Image & Quick Stats - MOBILE ASPECT RATIO TWEAK */}
+        <div className="w-full md:w-1/2 bg-gray-100 relative group h-64 md:h-auto shrink-0">
            <ImageLoader 
              src={displayImage} 
              alt={product.name} 
              className="w-full h-full object-cover transition-opacity duration-300"
            />
            
-           {/* Mobile Close Button - Enhanced Visibility */}
-           <button 
-             onClick={onClose} 
-             className="absolute top-4 left-4 bg-black/20 hover:bg-black/40 backdrop-blur-md p-2 rounded-full text-white transition md:hidden z-10 mt-2"
-           >
+           {/* Mobile Top Controls */}
+           <div className="absolute top-4 left-0 right-0 px-4 flex justify-between items-center md:hidden z-20">
+              <button 
+                onClick={onClose} 
+                className="bg-black/30 hover:bg-black/50 backdrop-blur-md p-2 rounded-full text-white transition"
+              >
+                <ChevronDown size={22} />
+              </button>
+              
+              <button 
+                onClick={handleShare}
+                className="bg-black/30 hover:bg-black/50 backdrop-blur-md p-2 rounded-full text-white transition"
+              >
+                <Share2 size={20} />
+              </button>
+           </div>
+           
+           {/* Desktop Close Button */}
+           <button onClick={onClose} className="absolute top-4 left-4 bg-black/10 hover:bg-black/30 backdrop-blur-md p-2 rounded-full text-white transition hidden md:block z-10">
              <X size={20} />
            </button>
-           
-           {/* Gradient Overlay for better text visibility */}
-           <div className="absolute top-0 left-0 right-0 h-20 bg-gradient-to-b from-black/30 to-transparent pointer-events-none md:hidden"></div>
+
+           {/* Gradient Overlay */}
+           <div className="absolute top-0 left-0 right-0 h-24 bg-gradient-to-b from-black/40 to-transparent pointer-events-none md:hidden"></div>
 
            {/* Sale Badge */}
            {product.isSale && (
-             <div className="absolute top-4 right-4 bg-blue-600 text-white px-3 py-1 rounded-full font-bold text-[10px] shadow-lg uppercase tracking-wider mt-4 md:mt-0">
+             <div className="absolute bottom-4 left-4 bg-blue-600 text-white px-3 py-1 rounded-full font-bold text-[10px] shadow-lg uppercase tracking-wider">
                Dijual
              </div>
            )}
@@ -183,7 +211,8 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
         {/* Right: Details & Actions */}
         <div className="w-full md:w-1/2 flex flex-col bg-white min-h-0 flex-1">
            {/* Header */}
-           <div className="px-5 py-4 md:p-8 border-b border-gray-100 relative shrink-0 pt-6 md:pt-8">
+           <div className="px-5 py-4 md:p-8 border-b border-gray-100 relative shrink-0 pt-4 md:pt-8">
+              {/* Desktop Close Button (Top Right) */}
               <button onClick={onClose} className="absolute top-6 right-6 text-gray-400 hover:text-gray-600 transition hidden md:block">
                 <X size={24} />
               </button>
@@ -231,7 +260,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
            </div>
 
            {/* Content Area - Scrollable */}
-           <div className="flex-1 overflow-y-auto p-5 md:p-8 custom-scrollbar">
+           <div className="flex-1 overflow-y-auto p-5 md:p-8 custom-scrollbar pb-24 md:pb-8">
               {activeTab === 'details' ? (
                 <>
                   <div className="mb-6 md:mb-8">
@@ -294,9 +323,9 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                                 }
                               }}
                               className={`
-                                px-3 py-1.5 md:px-4 md:py-2 rounded-full font-bold border text-xs md:text-sm transition-all relative flex items-center gap-2
+                                px-4 py-2 rounded-full font-bold border text-sm transition-all relative flex items-center gap-2 touch-manipulation
                                 ${isSelected
-                                    ? 'bg-gray-800 border-gray-800 text-white shadow-lg transform scale-105'
+                                    ? 'bg-gray-900 border-gray-900 text-white shadow-lg transform scale-105'
                                     : 'bg-white border-gray-200 text-gray-700 hover:border-nature-400 hover:text-nature-600'
                                 }
                               `}
@@ -341,9 +370,9 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                               disabled={!isAvailable}
                               onClick={() => setSelectedSize(size)}
                               className={`
-                                min-w-[40px] px-3 py-1.5 md:min-w-[50px] md:px-4 md:py-2 rounded-xl font-bold border text-xs md:text-sm transition-all relative overflow-hidden
+                                min-w-[48px] h-12 px-3 rounded-xl font-bold border text-sm transition-all relative overflow-hidden touch-manipulation
                                 ${!isAvailable 
-                                  ? 'bg-gray-100 text-gray-300 border-gray-200 cursor-not-allowed decoration-slice' 
+                                  ? 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed decoration-slice' 
                                   : isSelected
                                     ? 'bg-nature-600 border-nature-600 text-white shadow-lg scale-110'
                                     : 'bg-white border-gray-200 text-gray-700 hover:border-nature-400 hover:text-nature-600'
@@ -387,7 +416,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                             `}
                             >
                             {p.day === 2 && (
-                                <span className="absolute -top-2 md:-top-3 bg-adventure-500 text-white text-[8px] md:text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wide">
+                                <span className="absolute -top-2 md:-top-3 bg-adventure-500 text-white text-[8px] md:text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wide shadow-sm">
                                 Paling Laris
                                 </span>
                             )}
@@ -445,14 +474,6 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                               <p className="text-sm text-gray-600 leading-relaxed italic">"{review.comment}"</p>
                             </div>
                         ))}
-                        <div className="text-center p-4 bg-blue-50 rounded-xl border border-blue-100 mt-4">
-                            <p className="text-xs font-bold text-blue-800 flex items-center justify-center gap-2">
-                              <ShoppingBag size={14}/> Pernah sewa alat ini?
-                            </p>
-                            <p className="text-[10px] text-blue-600 mt-1">
-                              Buka menu <strong>Riwayat Sewa</strong> di pojok kanan atas untuk memberikan ulasanmu!
-                            </p>
-                        </div>
                       </>
                    )}
                 </div>
@@ -461,7 +482,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
            {/* Footer: Add to Cart - Fixed/Sticky at Bottom */}
            {activeTab === 'details' && (
-             <div className="p-4 md:p-6 border-t border-gray-100 bg-gray-50 flex items-center gap-4 shrink-0 z-10 pb-safe md:pb-6 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+             <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 border-t border-gray-100 bg-white/95 backdrop-blur-md flex items-center gap-4 z-20 pb-safe shadow-[0_-4px_15px_-3px_rgba(0,0,0,0.1)]">
                 <div className="hidden md:block">
                    <p className="text-xs text-gray-500 font-medium">Stok Ready</p>
                    <p className="text-xl font-black text-gray-900">{specificStock} Unit</p>
@@ -470,10 +491,10 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   onClick={() => onAddToCart(product, selectedSize, selectedColor)}
                   disabled={!isReadyToAdd}
                   className={`
-                    flex-1 h-12 md:h-14 rounded-2xl font-bold text-base md:text-lg flex items-center justify-center gap-2 md:gap-3 transition-all shadow-xl
+                    flex-1 h-14 rounded-2xl font-bold text-base md:text-lg flex items-center justify-center gap-2 md:gap-3 transition-all shadow-xl active:scale-95
                     ${isReadyToAdd 
-                      ? 'bg-nature-600 hover:bg-nature-700 text-white shadow-nature-200 hover:shadow-nature-300 hover:scale-[1.02]' 
-                      : 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none'}
+                      ? 'bg-nature-600 hover:bg-nature-700 text-white shadow-nature-200' 
+                      : 'bg-gray-100 text-gray-400 cursor-not-allowed shadow-none'}
                   `}
                 >
                   {isReadyToAdd ? (

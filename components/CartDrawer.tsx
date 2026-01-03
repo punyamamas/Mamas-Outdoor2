@@ -4,14 +4,14 @@ import { X, Trash2, Calendar, Phone, User, ArrowRight, AlertCircle, Loader2, Clo
 import { CartItem, UserDetails, Transaction, Product } from '../types';
 import { processStockReduction } from '../services/productService';
 import { createTransaction, uploadPaymentProof } from '../services/transactionService';
-import { getStoreConfig } from '../utils/storeConfig'; // Import Config
+import { getStoreConfig } from '../utils/storeConfig';
 import ImageLoader from './ImageLoader';
 
 interface CartDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   cartItems: CartItem[];
-  products: Product[]; // Received for stock calculation
+  products: Product[]; 
   onUpdateQuantity: (id: string, delta: number, size?: string, color?: string) => void;
   onRemoveItem: (id: string, size?: string, color?: string) => void;
   onClearCart: () => void;
@@ -22,7 +22,7 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
   isOpen, 
   onClose, 
   cartItems, 
-  products = [], // Default empty array if not passed
+  products = [], 
   onUpdateQuantity, 
   onRemoveItem, 
   onClearCart,
@@ -32,30 +32,26 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
   
-  // State Upload Bukti
   const [proofFile, setProofFile] = useState<File | null>(null);
   
   const [userDetails, setUserDetails] = useState<UserDetails>({
     name: '',
     whatsapp: '',
-    location: '', // Default kosong, user bisa isi atau auto-detect
+    location: '', 
     rentalDate: new Date().toISOString().split('T')[0],
     duration: 2,
     paymentMethod: 'cash' 
   });
 
-  // STORE CONFIG
   const storeConfig = getStoreConfig();
 
-  // Reset form saat ditutup
   useEffect(() => {
     if (!isOpen) {
         setStep('cart');
-        setProofFile(null); // Reset file
+        setProofFile(null); 
     }
   }, [isOpen]);
 
-  // Fungsi Deteksi Lokasi Akurat (GPS + OpenStreetMap)
   const detectLocation = () => {
     setIsLocating(true);
     
@@ -69,12 +65,10 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
         async (position) => {
             try {
                 const { latitude, longitude } = position.coords;
-                // Gunakan OpenStreetMap Nominatim (Gratis & Akurat untuk level Kecamatan)
                 const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=14&addressdetails=1`);
                 const data = await response.json();
                 
                 if (data && data.address) {
-                    // Susun alamat yang enak dibaca
                     const district = data.address.suburb || data.address.village || data.address.town || '';
                     const city = data.address.city || data.address.regency || data.address.county || '';
                     const state = data.address.state || '';
@@ -82,7 +76,6 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
                     const formattedLocation = [district, city, state].filter(Boolean).join(', ');
                     setUserDetails(prev => ({ ...prev, location: formattedLocation }));
                 } else {
-                    // Fallback jika API gagal decode
                     setUserDetails(prev => ({ ...prev, location: `${latitude.toFixed(4)}, ${longitude.toFixed(4)}` }));
                 }
             } catch (error) {
@@ -94,7 +87,6 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
         },
         (error) => {
             console.warn("GPS Error:", error.code);
-            // Fallback ke IP jika GPS ditolak (Kurang akurat, tapi lebih baik daripada kosong)
             fetch('https://ipapi.co/json/')
                 .then(res => res.json())
                 .then(data => {
@@ -108,7 +100,6 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
   };
 
   const getItemPriceForDuration = (item: CartItem, days: number): number => {
-    // JIKA BARANG JUAL, HARGA TETAP (TIDAK DIKALI DURASI SEWA)
     if (item.isSale) return item.salePrice || 0;
 
     const p2 = item.price2Days || 0;
@@ -130,8 +121,6 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
   };
 
   const getAvailableStock = (item: CartItem): number => {
-    // 1. Logic PAKET Dinamis
-    // Cari produk asli di database 'products' karena 'item' adalah copy di cart
     const originalProduct = products.find(p => p.id === item.id) || item;
 
     if (originalProduct.packageItems && originalProduct.packageItems.length > 0) {
@@ -143,16 +132,13 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
         return possibleStocks.length > 0 ? Math.min(...possibleStocks) : 0;
     }
 
-    // 2. Variants
     if (item.variants && item.variants.length > 0 && item.selectedSize && item.selectedColor) {
       const variant = item.variants.find(v => v.size === item.selectedSize && v.color === item.selectedColor);
       return variant ? variant.stock : 0;
     }
-    // 3. Sizes
     if (item.sizes && item.selectedSize && Object.keys(item.sizes).length > 0) {
        return item.sizes[item.selectedSize] || 0;
     }
-    // 4. Base Stock
     return originalProduct.stock || 0;
   };
 
@@ -173,9 +159,6 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
 
   const calculateTotal = () => {
     return cartItems.reduce((sum, item) => {
-      // Jika JUAL: Harga x Qty
-      // Jika SEWA: Harga Durasi x Qty
-      // getItemPriceForDuration sudah handle logika isSale (return salePrice)
       const price = getItemPriceForDuration(item, userDetails.duration);
       return sum + (price * item.quantity);
     }, 0);
@@ -202,35 +185,27 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
       const returnDateObj = getReturnDate(userDetails.rentalDate, userDetails.duration);
       const returnDateFormatted = formatReturnDate(returnDateObj);
 
-      // 1. Simpan Transaksi ke Database (Supabase) + Location dari State Form
       const createdTrx = await createTransaction(userDetails, cartItems, total, userDetails.location);
 
       if (!createdTrx) {
         throw new Error("Gagal membuat transaksi di database.");
       }
 
-      // 2. Upload Bukti Bayar (Jika Ada File)
       let uploadedProofUrl = '';
       if (proofFile && userDetails.paymentMethod === 'transfer') {
          uploadedProofUrl = await uploadPaymentProof(createdTrx.id, proofFile) || '';
       }
 
-      // 3. Process Stock Reduction (Database Update)
       await processStockReduction(cartItems);
-
-      // 4. Refresh Data Global (agar stok di katalog berkurang realtime)
       await onRefreshData();
 
-      // 5. Save Transaction to Local History
       const existingHistory = localStorage.getItem('mamasHistory');
       const history = existingHistory ? JSON.parse(existingHistory) : [];
-      // Update local object with proof url if needed for display immediately
       if(uploadedProofUrl) createdTrx.paymentProofUrl = uploadedProofUrl;
       history.push(createdTrx);
       localStorage.setItem('mamasHistory', JSON.stringify(history));
 
-      // 6. Construct WhatsApp Message (DYNAMIC FROM CONFIG)
-      const dpAmount = Math.ceil(total * 0.5); // DP 50%
+      const dpAmount = Math.ceil(total * 0.5); 
       const remainingAmount = total - dpAmount;
       const trxIdShort = createdTrx.id.slice(0, 8); 
 
@@ -241,9 +216,7 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
         const priceForDuration = getItemPriceForDuration(item, userDetails.duration);
         const sizeLabel = item.selectedSize ? ` [Size: ${item.selectedSize}]` : '';
         const colorLabel = item.selectedColor ? ` [Warna: ${item.selectedColor}]` : '';
-        
         const typeLabel = item.isSale ? '(BELI)' : `(SEWA ${userDetails.duration} Hari)`;
-        
         return `${idx + 1}. ${item.name}${sizeLabel}${colorLabel} (${item.quantity}x)\n   @ Rp${priceForDuration.toLocaleString('id-ID')} ${typeLabel}`;
       }).join('\n');
 
@@ -269,11 +242,8 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
       
       const fullMessage = encodeURIComponent(header + buyerInfo + "*List Barang:*\n" + itemsList + footer);
       
-      // 7. Open WhatsApp (DYNAMIC NUMBER)
       setTimeout(() => {
         window.open(`https://wa.me/${storeConfig.adminWhatsapp}?text=${fullMessage}`, '_blank');
-        
-        // 8. Reset & Close
         onClearCart();
         setStep('cart');
         setProofFile(null);
@@ -297,16 +267,15 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
 
   const returnDateDisplay = formatReturnDate(getReturnDate(userDetails.rentalDate, userDetails.duration));
   const dpValue = Math.ceil(total * 0.5);
-  
-  // Cek apakah ada barang sewa di cart. Jika semua barang jual, sembunyikan durasi.
   const hasRentalItems = cartItems.some(i => !i.isSale);
 
   return (
     <div className="fixed inset-0 z-[60] overflow-hidden">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity" onClick={onClose}></div>
       
-      <div className="absolute inset-y-0 right-0 max-w-full flex">
-        <div className="w-screen max-w-md bg-white shadow-xl flex flex-col h-full animate-slide-in-right pb-safe">
+      {/* Drawer: Full width on mobile, max-md on desktop */}
+      <div className="absolute inset-y-0 right-0 max-w-full flex w-full md:w-auto">
+        <div className="w-full md:w-screen md:max-w-md bg-white shadow-xl flex flex-col h-full animate-slide-in-right pb-safe">
           
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-nature-50">
@@ -337,12 +306,10 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
                     {cartItems.map(item => {
                       const displayPrice = item.isSale ? (item.salePrice || 0) : (item.price2Days || 0);
                       const itemKey = `${item.id}-${item.selectedSize || 'default'}-${item.selectedColor || 'default'}`;
-                      
                       const maxStock = getAvailableStock(item);
                       const isMaxStock = item.quantity >= maxStock;
-                      
-                      // Check for Package Contents to display
                       const isPackage = item.packageItems && item.packageItems.length > 0;
+                      
                       let packageContentString = '';
                       if (isPackage) {
                           const contents = item.packageItems?.map(pi => {
@@ -378,7 +345,6 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
                               )}
                             </div>
                             
-                            {/* NEW: Show Package Contents */}
                             {isPackage && packageContentString && (
                                 <div className="text-[10px] text-gray-500 mt-1 flex items-start gap-1">
                                     <Layers size={10} className="mt-0.5 shrink-0"/>
@@ -393,11 +359,9 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
                             
                             <div className="flex items-center justify-between mt-3">
                               <div className="flex items-center gap-3 bg-gray-50 rounded-lg px-2 py-1 border border-gray-200">
-                                {/* Increased Touch Target for Mobile Buttons (w-8 h-8) */}
                                 <button 
                                   onClick={() => onUpdateQuantity(item.id, -1, item.selectedSize, item.selectedColor)}
                                   className="w-8 h-8 flex items-center justify-center bg-white rounded shadow-sm text-gray-600 hover:text-nature-600 text-sm active:scale-95 transition"
-                                  aria-label="Kurangi jumlah"
                                 >-</button>
                                 <span className="text-sm font-bold w-6 text-center">{item.quantity}</span>
                                 <button 
@@ -406,7 +370,6 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
                                   className={`w-8 h-8 flex items-center justify-center bg-white rounded shadow-sm text-sm active:scale-95 transition ${
                                     isMaxStock ? 'text-gray-300 cursor-not-allowed' : 'text-gray-600 hover:text-nature-600'
                                   }`}
-                                  aria-label="Tambah jumlah"
                                 >+</button>
                               </div>
                               <button onClick={() => onRemoveItem(item.id, item.selectedSize, item.selectedColor)} className="text-red-400 hover:text-red-600 p-2 rounded-full hover:bg-red-50 transition">
@@ -439,7 +402,6 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
                   <label className="block text-sm font-medium text-gray-700 mb-1">Nama Lengkap</label>
                   <div className="relative">
                     <User className="absolute left-3 top-3 text-gray-400" size={18} />
-                    {/* text-base prevents auto-zoom on iOS */}
                     <input 
                       type="text" 
                       className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-nature-500 focus:border-transparent outline-none transition text-base md:text-sm"
@@ -464,7 +426,6 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
                   </div>
                 </div>
 
-                {/* NEW: Input Lokasi dengan Auto Detect */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Domisili / Lokasi</label>
                   <div className="relative flex gap-2">
@@ -523,7 +484,6 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
                   )}
                 </div>
 
-                {/* Bagian Pilihan Pembayaran */}
                 <div className="mt-4">
                   <label className="block text-sm font-medium text-gray-700 mb-2">Metode Pembayaran</label>
                   <div className="grid grid-cols-2 gap-3">
@@ -552,7 +512,6 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
                     </button>
                   </div>
                   
-                  {/* Info Rekening jika pilih Transfer */}
                   {userDetails.paymentMethod === 'transfer' && (
                     <div className="mt-3 bg-blue-50 p-3 rounded-lg border border-blue-100 text-sm text-blue-800 animate-slide-in-right">
                        <p className="font-bold mb-1">Rekening Pembayaran DP:</p>
@@ -565,7 +524,6 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
                             Wajib DP (50%): Rp{dpValue.toLocaleString('id-ID')}
                          </li>
                          
-                         {/* FILE UPLOAD INPUT - ENHANCED UX */}
                          <li className="mt-3 pt-2 border-t border-blue-200 list-none -ml-4">
                             <label className="block text-[10px] font-bold uppercase tracking-wide text-blue-900 mb-2 flex items-center gap-1">
                                 <Upload size={12} /> Upload Bukti Transfer
@@ -631,7 +589,6 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
                     })}
                   </div>
                   
-                  {/* Tanggal Kembali Section (Only if Rental Items Exist) */}
                   {hasRentalItems && (
                     <div className="flex justify-between text-sm text-blue-900 font-medium pt-2 border-t border-blue-200">
                         <span className="flex items-center gap-1"><Clock size={14} /> Wajib Kembali</span>

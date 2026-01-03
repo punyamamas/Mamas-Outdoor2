@@ -27,7 +27,7 @@ const App: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true); // Added Loading State
+  const [isLoading, setIsLoading] = useState(true); 
   
   // UI State
   const [isAdminMode, setIsAdminMode] = useState(false);
@@ -35,7 +35,7 @@ const App: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
-  // Availability State (Booking Engine)
+  // Availability State
   const [checkDate, setCheckDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [checkDuration, setCheckDuration] = useState(2);
 
@@ -53,18 +53,14 @@ const App: React.FC = () => {
   // Config
   const storeConfig = getStoreConfig();
 
-  // Helper to determine if any overlay is active
   const isOverlayOpen = isCartOpen || isHistoryOpen || isTermsOpen || isProductModalOpen;
 
-  // Initial Data Load
   useEffect(() => {
     refreshData();
-    // Load cart from local storage
     const savedCart = localStorage.getItem('mamasCart');
     if (savedCart) setCartItems(JSON.parse(savedCart));
   }, []);
 
-  // Sync Cart to LocalStorage
   useEffect(() => {
     localStorage.setItem('mamasCart', JSON.stringify(cartItems));
   }, [cartItems]);
@@ -82,7 +78,6 @@ const App: React.FC = () => {
     setIsLoading(false);
   };
 
-  // --- REAL-TIME STOCK LOGIC ---
   const bookedStockMap = useMemo(() => {
     const bookedMap: Record<string, number> = {}; 
     const userStart = new Date(checkDate).getTime();
@@ -121,7 +116,6 @@ const App: React.FC = () => {
     return Math.max(0, product.stock - bookedQty);
   };
 
-  // Cart Handlers
   const handleAddToCart = (product: Product, size?: string, color?: string) => {
     const available = getAvailableStock(product);
     const existingItem = cartItems.find(item => 
@@ -216,10 +210,8 @@ const App: React.FC = () => {
     );
   }
 
-  // Generate Pill Categories (Static 'Semua' + dynamic)
   const categoryPills = ['Semua', ...categories.map(c => c.name)];
 
-  // SKELETON LOADER COMPONENT (Inline)
   const ProductSkeleton = () => (
     <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
         <div className="aspect-[4/3] bg-gray-200 animate-pulse"></div>
@@ -236,10 +228,8 @@ const App: React.FC = () => {
   );
 
   return (
-    // Updated padding-bottom to 32 (128px) to clear floating buttons and safe area
     <div className="min-h-screen bg-gray-50 font-sans text-gray-900 scroll-smooth pb-32 md:pb-0">
       
-      {/* HIDE DESKTOP NAVBAR ON MOBILE (Since we have bottom nav) but keep Logo visible via custom header or simplified nav */}
       <div className="hidden md:block">
         <Navbar 
             cartCount={cartTotalItems}
@@ -251,37 +241,35 @@ const App: React.FC = () => {
         />
       </div>
 
-      {/* MOBILE HEADER (IMPROVED: Fixed Height h-[60px] for reliable sticky calc) */}
-      <div className="md:hidden fixed top-0 left-0 right-0 bg-white/95 backdrop-blur-md z-50 border-b border-gray-100 shadow-sm transition-all duration-300 h-[60px] flex items-center">
+      {/* MOBILE HEADER - Fixed & Clean */}
+      <div className="md:hidden fixed top-0 left-0 right-0 bg-white/95 backdrop-blur-md z-50 border-b border-gray-100 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] transition-all duration-300 h-[60px] flex items-center">
          <div className="flex justify-between items-center w-full px-4">
             <div className="flex items-center gap-2" onClick={() => window.scrollTo({top:0, behavior:'smooth'})}>
-                <img src="https://imgur.com/iC8ycHT.png" alt="Logo" className="w-8 h-8"/>
+                <img src="https://imgur.com/iC8ycHT.png" alt="Logo" className="w-8 h-8 object-contain"/>
                 <div>
                     <span className="font-extrabold text-base text-gray-900 leading-none block">Mamas<span className="text-nature-600">Outdoor</span></span>
-                    {/* Booking Context Indicator */}
-                    <div className="flex items-center gap-1 text-[10px] text-gray-600 font-bold leading-none mt-0.5">
-                        <CalendarDays size={10} className="text-nature-600"/>
-                        <span>Sewa: {new Date(checkDate).toLocaleDateString('id-ID', {day:'numeric', month:'short'})} ({checkDuration} Hari)</span>
+                    <div className="flex items-center gap-1 text-[10px] text-gray-500 font-medium leading-none mt-0.5">
+                        <CalendarDays size={10} className="text-nature-500"/>
+                        <span>{new Date(checkDate).toLocaleDateString('id-ID', {day:'numeric', month:'short'})} • {checkDuration} Hari</span>
                     </div>
                 </div>
             </div>
             <div className="flex items-center gap-2">
                 {isAdminMode ? null : (
-                    // Button diperbesar sedikit untuk touch target yang lebih baik
                     <button 
-                        onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} // Scroll to Hero to change date
-                        className="bg-gray-100 text-gray-700 px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1 border border-gray-200 active:scale-95 transition"
+                        onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} 
+                        className="bg-gray-100 text-gray-700 px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1 border border-gray-200 active:bg-gray-200 transition"
                     >
-                        <Clock size={14}/> Ganti Tgl
+                        <Clock size={12}/> Ubah
                     </button>
                 )}
-                {isAdminMode ? null : <button onClick={() => setIsAdminMode(true)} className="p-2"><Lock size={16} className="text-gray-300"/></button>}
+                {isAdminMode ? null : <button onClick={() => setIsAdminMode(true)} className="p-2 rounded-full active:bg-gray-100 transition"><Lock size={16} className="text-gray-300"/></button>}
             </div>
          </div>
       </div>
 
-      {/* Hero Section - UPDATED PADDING FOR TABLET */}
-      <section className="relative pt-24 pb-12 md:pt-36 md:pb-32 overflow-hidden">
+      {/* Hero Section */}
+      <section className="relative pt-20 pb-12 md:pt-36 md:pb-32 overflow-hidden">
         <div className="absolute inset-0 z-0">
           <ImageLoader 
             src="https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?ixlib=rb-1.2.1&auto=format&fit=crop&w=1950&q=80" 
@@ -317,14 +305,12 @@ const App: React.FC = () => {
             </div>
           </div>
 
-          {/* BOOKING WIDGET (Compact Grid on Mobile) */}
+          {/* BOOKING WIDGET */}
           <div className="bg-white p-3 rounded-2xl md:rounded-3xl shadow-2xl border border-gray-200 w-full max-w-4xl transform translate-y-4 md:translate-y-8 animate-slide-in-right">
               <div className="flex flex-col md:flex-row items-center p-1 md:p-2 gap-2">
                   
-                  {/* Container Input: Grid on Mobile, Flex on Desktop */}
                   <div className="grid grid-cols-2 md:flex md:flex-1 gap-2 w-full">
-                      {/* Date Input */}
-                      <div className="bg-gray-50 rounded-xl md:rounded-2xl p-2 md:p-3 w-full border border-transparent cursor-pointer">
+                      <div className="bg-gray-50 rounded-xl md:rounded-2xl p-2 md:p-3 w-full border border-transparent cursor-pointer hover:bg-gray-100 transition">
                           <label className="text-[10px] uppercase font-bold text-gray-500 tracking-widest mb-1 block">Mulai Tgl</label>
                           <div className="flex items-center gap-1 md:gap-2">
                               <CalendarDays className="text-nature-600" size={16} />
@@ -337,8 +323,7 @@ const App: React.FC = () => {
                           </div>
                       </div>
 
-                      {/* Duration Input */}
-                      <div className="bg-gray-50 rounded-xl md:rounded-2xl p-2 md:p-3 w-full border border-transparent">
+                      <div className="bg-gray-50 rounded-xl md:rounded-2xl p-2 md:p-3 w-full border border-transparent hover:bg-gray-100 transition">
                           <label className="text-[10px] uppercase font-bold text-gray-500 tracking-widest mb-1 block">Durasi</label>
                           <div className="flex items-center gap-1 md:gap-2">
                               <Clock className="text-nature-600" size={16} />
@@ -347,7 +332,7 @@ const App: React.FC = () => {
                                   value={checkDuration}
                                   onChange={(e) => setCheckDuration(Number(e.target.value))}
                               >
-                                  <option value={2}>2 Hari</option>
+                                  <option value={2}>2 Hari (Min)</option>
                                   <option value={3}>3 Hari</option>
                                   <option value={4}>4 Hari</option>
                                   <option value={5}>5 Hari</option>
@@ -361,7 +346,7 @@ const App: React.FC = () => {
 
                   <button 
                       onClick={() => document.getElementById('katalog')?.scrollIntoView({ behavior: 'smooth' })}
-                      className="bg-nature-600 hover:bg-nature-700 text-white font-bold py-3 md:py-4 px-6 md:px-8 rounded-xl md:rounded-2xl shadow-lg transition-all w-full md:w-auto flex items-center justify-center gap-2 text-sm md:text-base"
+                      className="bg-nature-600 hover:bg-nature-700 text-white font-bold py-3 md:py-4 px-6 md:px-8 rounded-xl md:rounded-2xl shadow-lg transition-all w-full md:w-auto flex items-center justify-center gap-2 text-sm md:text-base active:scale-95"
                   >
                       <Search size={18} />
                       Cek Alat
@@ -382,7 +367,6 @@ const App: React.FC = () => {
           </div>
           
           <div className="w-full md:w-auto space-y-4">
-            {/* Search */}
             <div className="relative group w-full">
               <Search className="absolute left-3 top-3 text-gray-400" size={18} />
               <input 
@@ -392,7 +376,6 @@ const App: React.FC = () => {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
-              {/* CLEAR BUTTON */}
               {searchTerm && (
                 <button 
                   onClick={() => setSearchTerm('')}
@@ -405,10 +388,8 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        {/* STICKY CATEGORY PILLS (Align with fixed header height 60px) */}
-        {/* ADDED: Gradient Mask for Visual Hint of Horizontal Scroll */}
+        {/* STICKY CATEGORY PILLS */}
         <div className="sticky top-[60px] md:static z-40 bg-white/95 backdrop-blur-sm -mx-4 px-4 md:mx-0 md:px-0 py-3 mb-6 shadow-sm md:shadow-none border-b border-gray-100 md:border-none relative group">
-            {/* GRADIENT FADE RIGHT */}
             <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-white to-transparent pointer-events-none md:hidden z-10"></div>
             
             <div className="overflow-x-auto no-scrollbar snap-x snap-mandatory relative">
@@ -421,7 +402,7 @@ const App: React.FC = () => {
                                 window.scrollTo({ top: document.getElementById('katalog')?.offsetTop ? document.getElementById('katalog')!.offsetTop - 120 : 0, behavior: 'smooth' });
                             }}
                             className={`
-                                snap-center px-4 py-2 rounded-full text-xs md:text-sm font-bold whitespace-nowrap transition-all
+                                snap-center px-4 py-2 rounded-full text-xs md:text-sm font-bold whitespace-nowrap transition-all duration-300
                                 ${activeCategory === cat 
                                     ? 'bg-nature-600 text-white shadow-md shadow-nature-200 scale-105' 
                                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200'}
@@ -430,16 +411,14 @@ const App: React.FC = () => {
                             {cat}
                         </button>
                     ))}
-                    {/* SPACER FOR SCROLL PADDING */}
                     <div className="w-4 md:hidden"></div>
                 </div>
             </div>
         </div>
 
-        {/* Product Grid - OPTIMIZED FOR TABLETS (md:grid-cols-3) */}
+        {/* Product Grid - Enhanced for Mobile Touch */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6">
           {isLoading ? (
-             // SKELETON LOADER
              [...Array(4)].map((_, i) => <ProductSkeleton key={i} />)
           ) : (
              filteredProducts.map(product => {
@@ -451,7 +430,7 @@ const App: React.FC = () => {
                 return (
                   <div 
                     key={product.id} 
-                    className="bg-white rounded-xl md:rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 group flex flex-col overflow-hidden cursor-pointer active:scale-95 md:active:scale-100"
+                    className="bg-white rounded-xl md:rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 group flex flex-col overflow-hidden cursor-pointer active:scale-[0.98] md:active:scale-100 touch-manipulation"
                     onClick={() => openProductModal(product)}
                   >
                     {/* Image */}
@@ -496,9 +475,8 @@ const App: React.FC = () => {
                               </p>
                           </div>
                           
-                          {/* Enhanced Mobile Button: 40px minimum touch target */}
                           <button 
-                            className={`w-10 h-10 md:w-10 md:h-10 rounded-full flex items-center justify-center transition shadow-md ${
+                            className={`w-9 h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center transition shadow-sm ${
                               isInCart 
                                 ? 'bg-green-100 text-green-600' 
                                 : isOutOfStock 
@@ -515,7 +493,7 @@ const App: React.FC = () => {
                             disabled={isOutOfStock}
                             aria-label={isInCart ? "Sudah di keranjang" : "Tambah ke keranjang"}
                           >
-                            {isInCart ? <Check size={20} /> : <ShoppingCart size={20} />}
+                            {isInCart ? <Check size={18} /> : <ShoppingCart size={18} />}
                           </button>
                         </div>
                     </div>
@@ -536,22 +514,17 @@ const App: React.FC = () => {
         )}
       </section>
 
-      {/* WHY CHOOSE US (ADDED BACK) */}
       <WhyChooseUs />
 
-      {/* Gemini AI Section */}
       <GeminiAdvisor products={products} onAddRecommended={(id) => {
          const p = products.find(prod => prod.id === id);
          if(p) openProductModal(p);
       }} />
 
-      {/* About Section (REDESIGNED) */}
       <AboutSection />
 
-      {/* Footer (IMPROVED PADDING) */}
       <Footer />
 
-      {/* MOBILE BOTTOM NAV */}
       <MobileBottomNav 
         cartCount={cartTotalItems}
         onOpenCart={() => setIsCartOpen(true)}
@@ -590,7 +563,6 @@ const App: React.FC = () => {
         isInCart={selectedProduct ? cartItems.some(item => item.id === selectedProduct.id) : false}
       />
 
-      {/* Conditionally Render Floating WA Button */}
       {!isOverlayOpen && (
         <div className="mb-16 md:mb-0">
           <FloatingWhatsApp />
