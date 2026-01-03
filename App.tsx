@@ -11,9 +11,9 @@ import FloatingWhatsApp from './components/FloatingWhatsApp';
 import ImageLoader from './components/ImageLoader';
 import Toast from './components/Toast'; 
 import MobileBottomNav from './components/MobileBottomNav'; 
-import WhyChooseUs from './components/WhyChooseUs'; // NEW
-import AboutSection from './components/AboutSection'; // NEW
-import Footer from './components/Footer'; // NEW
+import WhyChooseUs from './components/WhyChooseUs'; 
+import AboutSection from './components/AboutSection'; 
+import Footer from './components/Footer'; 
 import { Product, Category, CartItem, Transaction } from './types';
 import { getProducts, addProduct, updateProduct, deleteProduct } from './services/productService';
 import { getCategories, addCategory, updateCategory, deleteCategory } from './services/categoryService';
@@ -259,8 +259,8 @@ const App: React.FC = () => {
          </div>
       </div>
 
-      {/* Hero Section */}
-      <section className="relative pt-24 pb-12 md:pt-48 md:pb-40 overflow-hidden">
+      {/* Hero Section - UPDATED PADDING FOR TABLET */}
+      <section className="relative pt-24 pb-12 md:pt-36 md:pb-32 overflow-hidden">
         <div className="absolute inset-0 z-0">
           <ImageLoader 
             src="https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?ixlib=rb-1.2.1&auto=format&fit=crop&w=1950&q=80" 
@@ -396,8 +396,8 @@ const App: React.FC = () => {
             </div>
         </div>
 
-        {/* Product Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
+        {/* Product Grid - OPTIMIZED FOR TABLETS (md:grid-cols-3) */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6">
           {filteredProducts.map(product => {
              const isInCart = cartItems.some(item => item.id === product.id);
              const availableStock = getAvailableStock(product);
