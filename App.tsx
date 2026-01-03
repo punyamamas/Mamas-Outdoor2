@@ -469,10 +469,10 @@ function App() {
       <section id="katalog" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 bg-white">
         <div className="text-center mb-8">
           <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-4 tracking-tight">
-            Pilih <span className="text-transparent bg-clip-text bg-gradient-to-r from-nature-600 to-red-500">Gear Andalan</span>
+            Spill <span className="text-transparent bg-clip-text bg-gradient-to-r from-nature-600 to-red-500">Alat Andalan</span>
           </h2>
           <p className="text-gray-500 text-lg max-w-2xl mx-auto">
-            Koleksi lengkap, bersih, dan terawat. Stok di bawah ini otomatis menyesuaikan tanggal yang kamu pilih di atas.
+            Mulai dari tenda sampe printilan kecil ada. List ini real-time sesuai tanggal main lo ya, tinggal checkout!.
           </p>
         </div>
 
@@ -482,7 +482,7 @@ function App() {
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-nature-600 transition" size={20} />
               <input
                 type="text"
-                placeholder="Cari nama alat (misal: Tenda, Carrier)..."
+                placeholder="Lagi nyari apa nih? Tenda, Carrier..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-12 pr-10 py-3 bg-gray-50 border border-gray-200 rounded-full focus:ring-2 focus:ring-nature-500 focus:border-transparent outline-none transition text-gray-800 font-medium"
