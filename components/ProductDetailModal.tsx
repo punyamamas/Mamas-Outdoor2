@@ -109,12 +109,12 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const fmt = (price: number) => `Rp${(price || 0).toLocaleString('id-ID')}`;
 
   const prices = [
-    { day: 2, price: product.price2Days, label: 'Min. 2 Hari' },
+    { day: 2, price: product.price2Days, label: '2 Hari (Best Deal!)' },
     { day: 3, price: product.price3Days, label: '3 Hari' },
     { day: 4, price: product.price4Days, label: '4 Hari' },
     { day: 5, price: product.price5Days, label: '5 Hari' },
     { day: 6, price: product.price6Days, label: '6 Hari' },
-    { day: 7, price: product.price7Days, label: 'Seminggu (Hemat)' },
+    { day: 7, price: product.price7Days, label: 'Seminggu (Auto Hemat)' },
   ];
 
   // LOGIC: PACKAGE HANDLING
@@ -288,17 +288,17 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               
               <div className="flex flex-wrap gap-2 mb-6">
                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-nature-50 text-nature-700 text-xs font-bold border border-nature-100">
-                    <ShieldCheck size={14} /> Terawat
+                    <ShieldCheck size={14} /> Good Condition
                  </span>
                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-blue-50 text-blue-700 text-xs font-bold border border-blue-100">
-                    <Zap size={14} /> Best Seller
+                    <Zap size={14} /> MVP (Paling Laris)
                  </span>
                  {/* Rating Badge Clickable */}
                  <button 
                     onClick={() => setActiveTab('reviews')}
                     className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-yellow-50 text-yellow-700 text-xs font-bold border border-yellow-100 hover:bg-yellow-100 transition cursor-pointer"
                  >
-                    <Star size={14} className="fill-current" /> {reviews.length > 0 ? `${averageRating} (${reviews.length} Ulasan)` : 'Belum ada ulasan'}
+                    <Star size={14} className="fill-current" /> {reviews.length > 0 ? `${averageRating} (${reviews.length} Ulasan)` : 'Jadilah Reviewer Pertama'}
                  </button>
               </div>
 
@@ -464,7 +464,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   {!product.isSale && (
                     <div className="mb-6">
                         <h3 className="flex items-center gap-2 text-sm font-black text-gray-900 uppercase tracking-widest mb-4">
-                        <Clock className="text-nature-600" size={16} /> Durasi & Mahar
+                        <Clock className="text-nature-600" size={16} /> Mau Healing Berapa Lama?
                         </h3>
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                         {prices.map((p) => (
