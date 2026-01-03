@@ -795,35 +795,37 @@ function App() {
                 Sedia alat tempur buat naklukin Slamet, Prau, Sindoro, Sumbing. 
                 <br/><br/>
                 <span className="text-white font-bold">#SalamLestari</span>
-              </p>
+                 <span className="text-white font-bold">#GasHealing</span>              </p>
             </div>
             <div>
-              <h3 className="text-lg font-bold mb-6 text-nature-500">Services</h3>
+              <h3 className="text-lg font-bold mb-6 text-nature-500">Menyediakan</h3>
               <ul className="space-y-3 text-gray-400 font-medium">
-                <li><a href="#" className="hover:text-white transition">Sewa Tenda Dome</a></li>
-                <li><a href="#" className="hover:text-white transition">Sewa Carrier</a></li>
-                <li><a href="#" className="hover:text-white transition">Paket Open Trip</a></li>
-                <li><button onClick={() => setCurrentPage('admin')} className="text-left hover:text-white transition text-nature-800">Admin Login</button></li>
+                <li><a href="#" className="hover:text-white transition">Sewa Alat Camping</a></li>
+                <li><a href="#" className="hover:text-white transition">Sewa Alat Event</a></li>
+                <li><a href="#" className="hover:text-white transition">Sponsorship Event</a></li>
+                <li><button onClick={() => setCurrentPage('admin')} className="text-left hover:text-white transition text-nature-800">Portal Mimin</button></li>
               </ul>
             </div>
             <div>
-              <h3 className="text-lg font-bold mb-6 text-nature-500">Contact Us</h3>
+              <h3 className="text-lg font-bold mb-6 text-nature-500">Merapat Sini</h3>
               <ul className="space-y-3 text-gray-400 font-medium">
-                <li>Jl. Kampus Grendeng No. 123</li>
+                <li>Jl. Cendrawasih Rt 03/07 Grendeng</li>
+                <li>Depan Warmindo WBC</li>
                 <li>Purwokerto Utara</li>
-                <li>WA: 0812-3456-7890</li>
-                <li>IG: @mamasoutdoor</li>
+                <li>WA: 0851-3741-1145</li>
+                <li>IG: @mamas.outdoor</li>
+                <li>Tiktok: @mamas.outdoor</li>
               </ul>
             </div>
           </div>
           <div className="border-t border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center text-gray-500 text-sm">
-            <p>&copy; 2024 Mamas Outdoor. All rights reserved.</p>
+            <p>&copy; 2025 Mamas Outdoor. All rights reserved.</p>
             <div className="flex items-center gap-6">
               <a href="#" className="flex items-center gap-2 hover:text-white transition">
                 <Github size={18} />
                 <span>Source Code</span>
               </a>
-              <p className="font-medium text-nature-500">Made with ❤️ for Nature Lovers</p>
+              <p className="font-medium text-nature-500">Made with ❤️ for You</p>
             </div>
           </div>
         </div>
