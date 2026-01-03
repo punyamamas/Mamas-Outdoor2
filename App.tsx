@@ -9,6 +9,7 @@ import ProductDetailModal from './components/ProductDetailModal';
 import { AdminDashboard } from './components/AdminDashboard';
 import FloatingWhatsApp from './components/FloatingWhatsApp';
 import ImageLoader from './components/ImageLoader';
+import Toast from './components/Toast'; // Import Toast
 import { Product, Category, CartItem, Transaction } from './types';
 import { getProducts, addProduct, updateProduct, deleteProduct } from './services/productService';
 import { getCategories, addCategory, updateCategory, deleteCategory } from './services/categoryService';
@@ -38,6 +39,10 @@ const App: React.FC = () => {
   const [isTermsOpen, setIsTermsOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
+
+  // Toast State
+  const [isToastOpen, setIsToastOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
 
   // Config
   const storeConfig = getStoreConfig();
@@ -137,8 +142,14 @@ const App: React.FC = () => {
       }
       return [...prev, { ...product, quantity: 1, selectedSize: size, selectedColor: color }];
     });
+    
+    // UX Update: Close Modal & Show Toast instead of Opening Cart
     setIsProductModalOpen(false);
-    setIsCartOpen(true);
+    // setIsCartOpen(true); // <-- Removed auto open
+    
+    // Show Toast
+    setToastMessage(`${product.name} masuk keranjang!`);
+    setIsToastOpen(true);
   };
 
   const handleUpdateCartQuantity = (id: string, delta: number, size?: string, color?: string) => {
@@ -334,8 +345,7 @@ const App: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            
-            {/* Feature 1 */}
+            {/* Features (Sama seperti sebelumnya) */}
             <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition hover:-translate-y-1 group">
                <div className="w-12 h-12 bg-red-100 text-red-600 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition">
                   <CalendarCheck size={24} />
@@ -345,8 +355,7 @@ const App: React.FC = () => {
                   Tanggal merah & hari libur nasional <span className="font-bold text-red-600">TETAP BUKA</span>. Nanjak kapanpun gas terus tanpa halangan.
                </p>
             </div>
-
-            {/* Feature 2 */}
+            {/* ... other features ... */}
             <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition hover:-translate-y-1 group">
                <div className="w-12 h-12 bg-orange-100 text-orange-600 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition">
                   <Smile size={24} />
@@ -356,8 +365,6 @@ const App: React.FC = () => {
                   Admin ramah, cepat, dan responsif. Enak diajak diskusi soal alat atau jalur pendakian.
                </p>
             </div>
-
-            {/* Feature 3 */}
             <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition hover:-translate-y-1 group">
                <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition">
                   <MapPin size={24} />
@@ -367,8 +374,6 @@ const App: React.FC = () => {
                   Pinggir jalan raya Grendeng. Dekat banget sama kampus UNSOED. Gampang dicari gampang dijangkau.
                </p>
             </div>
-
-            {/* Feature 4 */}
             <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition hover:-translate-y-1 group">
                <div className="w-12 h-12 bg-green-100 text-green-600 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition">
                   <School size={24} />
@@ -378,51 +383,6 @@ const App: React.FC = () => {
                   Harga sangat kompetitif dan bersahabat untuk kantong mahasiswa & pelajar Purwokerto.
                </p>
             </div>
-
-            {/* Feature 5 */}
-            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition hover:-translate-y-1 group">
-               <div className="w-12 h-12 bg-purple-100 text-purple-600 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition">
-                  <Sparkles size={24} />
-               </div>
-               <h3 className="font-bold text-gray-900 text-lg mb-2">Bersih & Wangi</h3>
-               <p className="text-sm text-gray-600 leading-relaxed">
-                  Alat jaminan bersih, sudah dicuci, dan wangi. Tenda ga bau apek, sleeping bag higienis.
-               </p>
-            </div>
-
-            {/* Feature 6 */}
-            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition hover:-translate-y-1 group">
-               <div className="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition">
-                  <Award size={24} />
-               </div>
-               <h3 className="font-bold text-gray-900 text-lg mb-2">Brand Ternama</h3>
-               <p className="text-sm text-gray-600 leading-relaxed">
-                  Eiger, Rei, Consina, Naturehike, dll. Stok banyak pilihan warna & model. Kualitas terjamin.
-               </p>
-            </div>
-
-            {/* Feature 7 */}
-            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition hover:-translate-y-1 group">
-               <div className="w-12 h-12 bg-teal-100 text-teal-600 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition">
-                  <Check size={24} />
-               </div>
-               <h3 className="font-bold text-gray-900 text-lg mb-2">Free Item</h3>
-               <p className="text-sm text-gray-600 leading-relaxed">
-                  Gratis sewa sajadah lipat untuk rombongan (selama persediaan ada).
-               </p>
-            </div>
-
-            {/* Feature 8 */}
-            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition hover:-translate-y-1 group">
-               <div className="w-12 h-12 bg-pink-100 text-pink-600 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition">
-                  <ThumbsUp size={24} />
-               </div>
-               <h3 className="font-bold text-gray-900 text-lg mb-2">Bebas Pilih</h3>
-               <p className="text-sm text-gray-600 leading-relaxed">
-                  Bebas cek, pilih, dan coba alat suka-suka saat pengambilan biar pas dan nyaman dipakai.
-               </p>
-            </div>
-
           </div>
 
           {/* Guarantee Note */}
@@ -486,6 +446,11 @@ const App: React.FC = () => {
              // Calculate real-time stock
              const availableStock = getAvailableStock(product);
              const isOutOfStock = availableStock <= 0;
+             
+             // Check for variants
+             const hasVariants = (product.colors && product.colors.length > 0) || 
+                                 (product.sizes && Object.keys(product.sizes).length > 0) || 
+                                 (product.variants && product.variants.length > 0);
 
              return (
                <div 
@@ -547,8 +512,14 @@ const App: React.FC = () => {
                                 : 'bg-nature-600 text-white hover:bg-nature-700 hover:scale-110'
                          }`}
                          onClick={(e) => {
-                           e.stopPropagation();
-                           if (!isOutOfStock) openProductModal(product);
+                           e.stopPropagation(); // Prevent opening detailed view when clicking button
+                           if (!isOutOfStock) {
+                               if (hasVariants) {
+                                   openProductModal(product); // Needs variant selection
+                               } else {
+                                   handleAddToCart(product); // Add directly
+                               }
+                           }
                          }}
                          disabled={isOutOfStock}
                        >
@@ -754,6 +725,12 @@ const App: React.FC = () => {
       />
 
       <FloatingWhatsApp />
+      
+      <Toast 
+        message={toastMessage} 
+        isVisible={isToastOpen} 
+        onClose={() => setIsToastOpen(false)} 
+      />
     </div>
   );
 };
