@@ -9,7 +9,8 @@ import ProductDetailModal from './components/ProductDetailModal';
 import { AdminDashboard } from './components/AdminDashboard';
 import FloatingWhatsApp from './components/FloatingWhatsApp';
 import ImageLoader from './components/ImageLoader';
-import Toast from './components/Toast'; // Import Toast
+import Toast from './components/Toast'; 
+import MobileBottomNav from './components/MobileBottomNav'; // Import Bottom Nav
 import { Product, Category, CartItem, Transaction } from './types';
 import { getProducts, addProduct, updateProduct, deleteProduct } from './services/productService';
 import { getCategories, addCategory, updateCategory, deleteCategory } from './services/categoryService';
@@ -78,14 +79,11 @@ const App: React.FC = () => {
     const userEnd = new Date(checkDate).getTime() + (checkDuration * 24 * 60 * 60 * 1000);
 
     transactions.forEach(trx => {
-        // Abaikan transaksi yang batal atau selesai (barang sudah balik)
-        // NOTE: Completed biasanya berarti sudah dikembalikan, jadi stok aman.
         if (trx.status === 'cancelled' || trx.status === 'completed') return;
         
         const trxStart = new Date(trx.rentalDate).getTime();
         const trxEnd = new Date(trx.rentalDate).getTime() + (trx.duration * 24 * 60 * 60 * 1000);
         
-        // Cek irisan waktu (Overlapping)
         const isOverlapping = (userStart < trxEnd) && (userEnd > trxStart);
 
         if (isOverlapping) {
@@ -98,7 +96,6 @@ const App: React.FC = () => {
   }, [transactions, checkDate, checkDuration]);
 
   const getAvailableStock = (product: Product): number => {
-    // 1. Paket: Cek ketersediaan item terkecil di dalamnya
     if (product.packageItems && product.packageItems.length > 0) {
         const possibleStocks = product.packageItems.map(pi => {
             const child = products.find(p => p.id === pi.productId);
@@ -110,11 +107,6 @@ const App: React.FC = () => {
         });
         return possibleStocks.length > 0 ? Math.min(...possibleStocks) : 0;
     } 
-    
-    // 2. Produk Biasa / Varian
-    // Catatan: Untuk varian spesifik (size/warna), logika ini menyederhanakan ke level ID produk utama
-    // karena transaksi menyimpan ID produk. 
-    // Idealnya booking map juga mencatat varian, tapi untuk MVP ID cukup.
     const bookedQty = bookedStockMap[product.id] || 0;
     return Math.max(0, product.stock - bookedQty);
   };
@@ -143,17 +135,12 @@ const App: React.FC = () => {
       return [...prev, { ...product, quantity: 1, selectedSize: size, selectedColor: color }];
     });
     
-    // UX Update: Close Modal & Show Toast instead of Opening Cart
     setIsProductModalOpen(false);
-    // setIsCartOpen(true); // <-- Removed auto open
-    
-    // Show Toast
     setToastMessage(`${product.name} masuk keranjang!`);
     setIsToastOpen(true);
   };
 
   const handleUpdateCartQuantity = (id: string, delta: number, size?: string, color?: string) => {
-    // Cek stok saat update
     if (delta > 0) {
         const product = products.find(p => p.id === id);
         const itemInCart = cartItems.find(i => i.id === id && i.selectedSize === size && i.selectedColor === color);
@@ -180,13 +167,11 @@ const App: React.FC = () => {
 
   const handleClearCart = () => setCartItems([]);
 
-  // Product Modal Handler
   const openProductModal = (product: Product) => {
     setSelectedProduct(product);
     setIsProductModalOpen(true);
   };
 
-  // Filtering & Sorting (UPDATED: Category then Name)
   const filteredProducts = useMemo(() => {
     return products
       .filter(product => {
@@ -195,11 +180,8 @@ const App: React.FC = () => {
         return matchesCategory && matchesSearch;
       })
       .sort((a, b) => {
-        // 1. Sort by Category
         const catCompare = a.category.localeCompare(b.category);
         if (catCompare !== 0) return catCompare;
-        
-        // 2. Sort by Name
         return a.name.localeCompare(b.name);
       });
   }, [products, activeCategory, searchTerm]);
@@ -224,19 +206,38 @@ const App: React.FC = () => {
     );
   }
 
+  // Generate Pill Categories (Static 'Semua' + dynamic)
+  const categoryPills = ['Semua', ...categories.map(c => c.name)];
+
   return (
-    <div className="min-h-screen bg-gray-50 font-sans text-gray-900 scroll-smooth">
-      <Navbar 
-        cartCount={cartTotalItems}
-        onOpenCart={() => setIsCartOpen(true)}
-        onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-        isMobileMenuOpen={isMobileMenuOpen}
-        onOpenHistory={() => setIsHistoryOpen(true)}
-        onOpenTerms={() => setIsTermsOpen(true)}
-      />
+    // Added pb-20 to make space for MobileBottomNav
+    <div className="min-h-screen bg-gray-50 font-sans text-gray-900 scroll-smooth pb-20 md:pb-0">
+      
+      {/* HIDE DESKTOP NAVBAR ON MOBILE (Since we have bottom nav) but keep Logo visible via custom header or simplified nav */}
+      <div className="hidden md:block">
+        <Navbar 
+            cartCount={cartTotalItems}
+            onOpenCart={() => setIsCartOpen(true)}
+            onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            isMobileMenuOpen={isMobileMenuOpen}
+            onOpenHistory={() => setIsHistoryOpen(true)}
+            onOpenTerms={() => setIsTermsOpen(true)}
+        />
+      </div>
+
+      {/* MOBILE HEADER (Simple) */}
+      <div className="md:hidden fixed top-0 left-0 right-0 bg-white/90 backdrop-blur-md z-50 px-4 py-3 border-b border-gray-100 flex justify-between items-center shadow-sm">
+         <div className="flex items-center gap-2" onClick={() => window.scrollTo({top:0, behavior:'smooth'})}>
+            <img src="https://imgur.com/iC8ycHT.png" alt="Logo" className="w-8 h-8"/>
+            <span className="font-extrabold text-lg text-gray-900">Mamas<span className="text-nature-600">Outdoor</span></span>
+         </div>
+         <div className="flex items-center gap-2">
+            {isAdminMode ? null : <button onClick={() => setIsAdminMode(true)} className="p-1"><Lock size={16} className="text-gray-400"/></button>}
+         </div>
+      </div>
 
       {/* Hero Section */}
-      <section className="relative pt-32 pb-20 md:pt-48 md:pb-40 overflow-hidden">
+      <section className="relative pt-24 pb-12 md:pt-48 md:pb-40 overflow-hidden">
         <div className="absolute inset-0 z-0">
           <ImageLoader 
             src="https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?ixlib=rb-1.2.1&auto=format&fit=crop&w=1950&q=80" 
@@ -248,47 +249,38 @@ const App: React.FC = () => {
         
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-3xl animate-slide-in-right text-white mb-8">
-            <span className="inline-block px-4 py-1.5 rounded-full bg-nature-600/90 text-nature-100 text-sm font-bold mb-6 backdrop-blur-sm border border-nature-500 shadow-lg">
+            <span className="inline-block px-4 py-1.5 rounded-full bg-nature-600/90 text-nature-100 text-xs md:text-sm font-bold mb-4 md:mb-6 backdrop-blur-sm border border-nature-500 shadow-lg">
               #1 Sewa Alat Outdoor Purwokerto
             </span>
-            <h1 className="text-4xl md:text-6xl font-black leading-tight mb-6 tracking-tight drop-shadow-lg">
+            <h1 className="text-3xl md:text-6xl font-black leading-tight mb-4 md:mb-6 tracking-tight drop-shadow-lg">
               Jelajahi Alam <br/>
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-yellow-500">Tanpa Batas.</span>
             </h1>
-            <p className="text-lg md:text-xl text-gray-200 mb-8 leading-relaxed max-w-2xl drop-shadow-md">
+            <p className="text-sm md:text-xl text-gray-200 mb-6 md:mb-8 leading-relaxed max-w-2xl drop-shadow-md">
               Sewa peralatan camping & hiking lengkap, bersih, dan berkualitas. 
               Siap temani petualanganmu di Gunung Slamet, Prau, dan sekitarnya.
             </p>
 
-            {/* BUTTONS RESTORED */}
             <div className="flex flex-col sm:flex-row gap-4 mb-8">
                  <a 
                    href="https://maps.google.com/?q=Mamas+Outdoor+Purwokerto" 
                    target="_blank"
                    rel="noreferrer"
-                   className="inline-flex items-center justify-center gap-2 bg-nature-600 hover:bg-nature-700 text-white px-6 py-3 rounded-xl font-bold transition shadow-lg hover:-translate-y-1"
+                   className="inline-flex items-center justify-center gap-2 bg-nature-600 hover:bg-nature-700 text-white px-6 py-3 rounded-xl font-bold transition shadow-lg text-sm md:text-base"
                  >
-                    <MapPin size={20} /> Lihat Lokasi Gmaps
-                 </a>
-                 <a 
-                   href={`https://wa.me/${storeConfig.adminWhatsapp}?text=Halo%20Mamas%20Outdoor,%20saya%20mau%20tanya%20sewa%20alat...`} 
-                   target="_blank"
-                   rel="noreferrer"
-                   className="inline-flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white border border-white/30 px-6 py-3 rounded-xl font-bold transition backdrop-blur-sm"
-                 >
-                    <MessageCircle size={20} /> Chat WhatsApp
+                    <MapPin size={18} /> Lihat Lokasi Gmaps
                  </a>
             </div>
           </div>
 
-          {/* BOOKING WIDGET (RESTORED) */}
-          <div className="bg-white p-3 rounded-3xl shadow-2xl border border-gray-200 w-full max-w-4xl transform translate-y-8 animate-slide-in-right">
-              <div className="flex flex-col md:flex-row items-center p-2 gap-2">
+          {/* BOOKING WIDGET (Compact on Mobile) */}
+          <div className="bg-white p-3 rounded-2xl md:rounded-3xl shadow-2xl border border-gray-200 w-full max-w-4xl transform translate-y-4 md:translate-y-8 animate-slide-in-right">
+              <div className="flex flex-col md:flex-row items-center p-1 md:p-2 gap-2">
                   {/* Date Input */}
-                  <div className="flex-1 bg-gray-50 rounded-2xl p-3 w-full border border-transparent hover:border-nature-200 transition group cursor-pointer relative">
+                  <div className="flex-1 bg-gray-50 rounded-xl md:rounded-2xl p-2 md:p-3 w-full border border-transparent cursor-pointer">
                       <label className="text-[10px] uppercase font-bold text-gray-500 tracking-widest mb-1 block">Mulai Tanggal</label>
                       <div className="flex items-center gap-2">
-                          <CalendarDays className="text-nature-600" size={20} />
+                          <CalendarDays className="text-nature-600" size={18} />
                           <input 
                               type="date" 
                               className="bg-transparent font-bold text-gray-800 text-sm outline-none w-full cursor-pointer"
@@ -299,10 +291,10 @@ const App: React.FC = () => {
                   </div>
 
                   {/* Duration Input */}
-                  <div className="flex-1 bg-gray-50 rounded-2xl p-3 w-full border border-transparent hover:border-nature-200 transition group">
+                  <div className="flex-1 bg-gray-50 rounded-xl md:rounded-2xl p-2 md:p-3 w-full border border-transparent">
                       <label className="text-[10px] uppercase font-bold text-gray-500 tracking-widest mb-1 block">Durasi Sewa</label>
                       <div className="flex items-center gap-2">
-                          <Clock className="text-nature-600" size={20} />
+                          <Clock className="text-nature-600" size={18} />
                           <select 
                               className="bg-transparent font-bold text-gray-800 text-sm outline-none w-full cursor-pointer appearance-none"
                               value={checkDuration}
@@ -319,12 +311,11 @@ const App: React.FC = () => {
                       </div>
                   </div>
 
-                  {/* Search Button */}
                   <button 
                       onClick={() => document.getElementById('katalog')?.scrollIntoView({ behavior: 'smooth' })}
-                      className="bg-nature-600 hover:bg-nature-700 text-white font-bold py-4 px-8 rounded-2xl shadow-lg transition-all hover:scale-105 active:scale-95 w-full md:w-auto flex items-center justify-center gap-2"
+                      className="bg-nature-600 hover:bg-nature-700 text-white font-bold py-3 md:py-4 px-6 md:px-8 rounded-xl md:rounded-2xl shadow-lg transition-all w-full md:w-auto flex items-center justify-center gap-2 text-sm md:text-base"
                   >
-                      <Search size={20} />
+                      <Search size={18} />
                       Cek Alat Ready
                   </button>
               </div>
@@ -333,129 +324,62 @@ const App: React.FC = () => {
         </div>
       </section>
 
-      {/* Why Choose Us Section */}
-      <section className="pt-32 pb-20 bg-nature-50/50 border-b border-gray-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <span className="text-nature-600 font-black tracking-widest uppercase text-sm mb-2 block">KEUNGGULAN KAMI</span>
-            <h2 className="text-3xl md:text-4xl font-black text-gray-900">Kenapa Harus Sewa di Mamas?</h2>
-            <p className="text-gray-500 mt-2 max-w-2xl mx-auto">
-              Bukan sekadar rental biasa. Berikut alasan kenapa anak-anak gunung Purwokerto langganan di sini:
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {/* Features (Sama seperti sebelumnya) */}
-            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition hover:-translate-y-1 group">
-               <div className="w-12 h-12 bg-red-100 text-red-600 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition">
-                  <CalendarCheck size={24} />
-               </div>
-               <h3 className="font-bold text-gray-900 text-lg mb-2">Buka Setiap Hari</h3>
-               <p className="text-sm text-gray-600 leading-relaxed">
-                  Tanggal merah & hari libur nasional <span className="font-bold text-red-600">TETAP BUKA</span>. Nanjak kapanpun gas terus tanpa halangan.
-               </p>
-            </div>
-            {/* ... other features ... */}
-            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition hover:-translate-y-1 group">
-               <div className="w-12 h-12 bg-orange-100 text-orange-600 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition">
-                  <Smile size={24} />
-               </div>
-               <h3 className="font-bold text-gray-900 text-lg mb-2">Pelayanan Bestie</h3>
-               <p className="text-sm text-gray-600 leading-relaxed">
-                  Admin ramah, cepat, dan responsif. Enak diajak diskusi soal alat atau jalur pendakian.
-               </p>
-            </div>
-            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition hover:-translate-y-1 group">
-               <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition">
-                  <MapPin size={24} />
-               </div>
-               <h3 className="font-bold text-gray-900 text-lg mb-2">Lokasi Strategis</h3>
-               <p className="text-sm text-gray-600 leading-relaxed">
-                  Pinggir jalan raya Grendeng. Dekat banget sama kampus UNSOED. Gampang dicari gampang dijangkau.
-               </p>
-            </div>
-            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition hover:-translate-y-1 group">
-               <div className="w-12 h-12 bg-green-100 text-green-600 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition">
-                  <School size={24} />
-               </div>
-               <h3 className="font-bold text-gray-900 text-lg mb-2">Harga Mahasiswa</h3>
-               <p className="text-sm text-gray-600 leading-relaxed">
-                  Harga sangat kompetitif dan bersahabat untuk kantong mahasiswa & pelajar Purwokerto.
-               </p>
-            </div>
-          </div>
-
-          {/* Guarantee Note */}
-          <div className="mt-12 bg-nature-600 rounded-3xl p-8 text-center text-white relative overflow-hidden shadow-xl shadow-nature-200">
-             <div className="absolute top-0 left-0 w-full h-full opacity-10" style={{backgroundImage: 'radial-gradient(#fff 2px, transparent 2px)', backgroundSize: '20px 20px'}}></div>
-             <div className="relative z-10 max-w-3xl mx-auto">
-                <ShieldCheck size={48} className="mx-auto mb-4 text-yellow-400" />
-                <h3 className="text-xl md:text-2xl font-black mb-4">Jaminan Kualitas Mamas Outdoor</h3>
-                <p className="text-nature-100 text-sm md:text-base leading-relaxed">
-                   Demi memberikan pelayanan yang terbaik, kami menjamin bahwa barang yang kami sewakan adalah <span className="text-white font-bold underline decoration-yellow-400">bersih, layak pakai, dan berkualitas</span>. 
-                   Dan tentunya telah memenuhi standart keamanan demi kenyamanan bersama. Keistimewaan itu semua bisa Anda dapatkan dengan harga yang sangat kompetitif.
-                </p>
-             </div>
-          </div>
-        </div>
-      </section>
-
       {/* Catalog Section */}
-      <section id="katalog" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 bg-white">
-        <div className="flex flex-col md:flex-row justify-between items-end mb-10 gap-6">
-          <div>
-            <span className="text-nature-600 font-black tracking-widest uppercase text-sm mb-2 block">KATALOG ALAT</span>
-            <h2 className="text-3xl md:text-4xl font-black text-gray-900">Pilih Perlengkapanmu</h2>
-            <p className="text-sm text-gray-500 mt-1 font-medium">Menampilkan ketersediaan untuk tanggal: <span className="text-nature-600 font-bold">{new Date(checkDate).toLocaleDateString('id-ID', {day: 'numeric', month:'long'})}</span></p>
+      <section id="katalog" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-20 bg-white">
+        <div className="flex flex-col md:flex-row justify-between items-end mb-6 md:mb-10 gap-4 md:gap-6">
+          <div className="w-full md:w-auto">
+            <span className="text-nature-600 font-black tracking-widest uppercase text-xs md:text-sm mb-2 block">KATALOG ALAT</span>
+            <h2 className="text-2xl md:text-4xl font-black text-gray-900">Pilih Perlengkapanmu</h2>
+            <p className="text-xs md:text-sm text-gray-500 mt-1 font-medium">Stok tersedia untuk: <span className="text-nature-600 font-bold">{new Date(checkDate).toLocaleDateString('id-ID', {day: 'numeric', month:'long'})}</span></p>
           </div>
           
-          <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+          <div className="w-full md:w-auto space-y-4">
             {/* Search */}
-            <div className="relative group">
-              <Search className="absolute left-3 top-3 text-gray-400 group-focus-within:text-nature-600 transition" size={20} />
+            <div className="relative group w-full">
+              <Search className="absolute left-3 top-3 text-gray-400" size={18} />
               <input 
                 type="text" 
                 placeholder="Cari Tenda, Tas..." 
-                className="pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-nature-500 focus:border-transparent outline-none w-full sm:w-64 transition"
+                className="pl-10 pr-4 py-2.5 md:py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-nature-500 outline-none w-full md:w-64 transition text-sm"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            
-            {/* Category Dropdown (Mobile/Desktop Unified) */}
-            <div className="relative group">
-               <div className="absolute left-3 top-3 text-gray-400"><Filter size={20}/></div>
-               <select 
-                 className="pl-10 pr-10 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-nature-500 outline-none w-full sm:w-auto appearance-none cursor-pointer font-bold text-gray-600"
-                 value={activeCategory}
-                 onChange={(e) => setActiveCategory(e.target.value)}
-               >
-                 {['Semua', ...categories.map(c => c.name)].map(cat => (
-                   <option key={cat} value={cat}>{cat}</option>
-                 ))}
-               </select>
-               <ChevronDown className="absolute right-3 top-3 text-gray-400 pointer-events-none" size={20} />
-            </div>
           </div>
         </div>
 
+        {/* REPLACEMENT: CATEGORY PILLS (Horizontal Scroll) */}
+        <div className="mb-6 md:mb-8 -mx-4 px-4 md:mx-0 md:px-0 overflow-x-auto no-scrollbar pb-2">
+            <div className="flex gap-2 w-max">
+                {categoryPills.map(cat => (
+                    <button
+                        key={cat}
+                        onClick={() => setActiveCategory(cat)}
+                        className={`
+                            px-4 py-2 rounded-full text-xs md:text-sm font-bold whitespace-nowrap transition-all
+                            ${activeCategory === cat 
+                                ? 'bg-nature-600 text-white shadow-md shadow-nature-200 scale-105' 
+                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200'}
+                        `}
+                    >
+                        {cat}
+                    </button>
+                ))}
+            </div>
+        </div>
+
         {/* Product Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
           {filteredProducts.map(product => {
              const isInCart = cartItems.some(item => item.id === product.id);
-             // Calculate real-time stock
              const availableStock = getAvailableStock(product);
              const isOutOfStock = availableStock <= 0;
-             
-             // Check for variants
-             const hasVariants = (product.colors && product.colors.length > 0) || 
-                                 (product.sizes && Object.keys(product.sizes).length > 0) || 
-                                 (product.variants && product.variants.length > 0);
+             const hasVariants = (product.colors && product.colors.length > 0) || (product.sizes && Object.keys(product.sizes).length > 0) || (product.variants && product.variants.length > 0);
 
              return (
                <div 
                  key={product.id} 
-                 className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 group flex flex-col overflow-hidden cursor-pointer"
+                 className="bg-white rounded-xl md:rounded-2xl border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 group flex flex-col overflow-hidden cursor-pointer"
                  onClick={() => openProductModal(product)}
                >
                  {/* Image */}
@@ -466,45 +390,41 @@ const App: React.FC = () => {
                       className={`w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ${isOutOfStock ? 'grayscale' : ''}`}
                     />
                     {product.isSale && (
-                      <div className="absolute top-3 right-3 bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">
+                      <div className="absolute top-2 right-2 md:top-3 md:right-3 bg-blue-600 text-white text-[10px] md:text-xs font-bold px-2 py-0.5 md:px-3 md:py-1 rounded-full shadow-lg">
                         DIJUAL
                       </div>
                     )}
                     {isOutOfStock && (
                       <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                        <span className="bg-red-600 text-white font-bold px-4 py-2 rounded-lg transform -rotate-6 shadow-lg border border-white">
-                            HABIS DI TANGGAL INI
+                        <span className="bg-red-600 text-white font-bold text-[10px] md:text-sm px-2 py-1 rounded shadow-lg border border-white -rotate-6">
+                            HABIS
                         </span>
                       </div>
                     )}
-                    
-                    {/* STOCK BADGE (VISIBLE FOR USER) */}
                     {!isOutOfStock && (
-                        <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-lg text-[10px] font-bold shadow-sm border border-gray-100 flex items-center gap-1">
+                        <div className="absolute top-2 left-2 bg-white/90 backdrop-blur-sm px-1.5 py-0.5 md:px-2 md:py-1 rounded text-[9px] md:text-[10px] font-bold shadow-sm border border-gray-100 flex items-center gap-1">
                             <div className={`w-1.5 h-1.5 rounded-full ${availableStock > 0 ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                            <span className="text-gray-700">
-                                Stok: {availableStock}
-                            </span>
+                            <span className="text-gray-700">Sisa {availableStock}</span>
                         </div>
                     )}
                  </div>
 
                  {/* Content */}
-                 <div className="p-5 flex flex-col flex-1">
-                    <div className="text-xs font-bold text-gray-400 mb-1">{product.category}</div>
-                    <h3 className="font-bold text-gray-900 text-lg leading-tight mb-2 line-clamp-2 group-hover:text-nature-600 transition">
+                 <div className="p-3 md:p-5 flex flex-col flex-1">
+                    <div className="text-[10px] md:text-xs font-bold text-gray-400 mb-0.5 md:mb-1">{product.category}</div>
+                    <h3 className="font-bold text-gray-900 text-sm md:text-lg leading-tight mb-2 line-clamp-2 group-hover:text-nature-600 transition">
                       {product.name}
                     </h3>
                     
-                    <div className="mt-auto pt-4 flex items-end justify-between border-t border-gray-50">
+                    <div className="mt-auto pt-2 md:pt-4 flex items-end justify-between border-t border-gray-50">
                        <div>
-                          <p className="text-xs text-gray-400 font-medium">{product.isSale ? 'Harga Jual' : 'Sewa 2 Hari'}</p>
-                          <p className="text-xl font-black text-nature-700">
+                          <p className="text-[10px] md:text-xs text-gray-400 font-medium">{product.isSale ? 'Harga Jual' : 'Sewa 2 Hari'}</p>
+                          <p className="text-sm md:text-xl font-black text-nature-700">
                             Rp{product.isSale ? (product.salePrice||0).toLocaleString('id-ID') : product.price2Days.toLocaleString('id-ID')}
                           </p>
                        </div>
                        <button 
-                         className={`w-10 h-10 rounded-full flex items-center justify-center transition shadow-md ${
+                         className={`w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center transition shadow-md ${
                            isInCart 
                              ? 'bg-green-100 text-green-600' 
                              : isOutOfStock 
@@ -512,18 +432,15 @@ const App: React.FC = () => {
                                 : 'bg-nature-600 text-white hover:bg-nature-700 hover:scale-110'
                          }`}
                          onClick={(e) => {
-                           e.stopPropagation(); // Prevent opening detailed view when clicking button
+                           e.stopPropagation();
                            if (!isOutOfStock) {
-                               if (hasVariants) {
-                                   openProductModal(product); // Needs variant selection
-                               } else {
-                                   handleAddToCart(product); // Add directly
-                               }
+                               if (hasVariants) openProductModal(product);
+                               else handleAddToCart(product);
                            }
                          }}
                          disabled={isOutOfStock}
                        >
-                         {isInCart ? <Check size={20} /> : <ShoppingCart size={20} />}
+                         {isInCart ? <Check size={16} /> : <ShoppingCart size={16} />}
                        </button>
                     </div>
                  </div>
@@ -549,69 +466,36 @@ const App: React.FC = () => {
          if(p) openProductModal(p);
       }} />
 
-      {/* NEW: ABOUT STORE SECTION (Adapted from Nona Petualang) */}
-      <section className="py-20 bg-white border-t border-gray-100">
+      {/* About Section (Simplified for Mobile) */}
+      <section className="py-12 md:py-20 bg-white border-t border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 items-center">
               
-              {/* Left Content */}
-              <div className="space-y-6">
+              <div className="space-y-4 md:space-y-6">
                  <div>
-                    <span className="text-nature-600 font-black tracking-widest uppercase text-sm mb-2 block">TENTANG MAMAS OUTDOOR</span>
-                    <h2 className="text-3xl md:text-4xl font-black text-gray-900 leading-tight">
-                       Pusat Rental Outdoor Terlengkap di Purwokerto
+                    <span className="text-nature-600 font-black tracking-widest uppercase text-xs md:text-sm mb-2 block">TENTANG MAMAS OUTDOOR</span>
+                    <h2 className="text-2xl md:text-4xl font-black text-gray-900 leading-tight">
+                       Pusat Rental Outdoor Terlengkap
                     </h2>
                  </div>
                  
-                 <div className="prose prose-sm text-gray-600 space-y-4">
+                 <div className="prose prose-sm text-gray-600 space-y-2 md:space-y-4 text-sm leading-relaxed">
                     <p>
-                       Mamas Outdoor merupakan jasa persewaan alat outdoor dan camping terbesar, terlengkap dan terpercaya di Purwokerto. Lokasi kami cukup strategis, yaitu di <strong>Jalan Cenderawasih, Grendeng, Purwokerto Utara</strong>. Tidak jauh dari Kampus UNSOED, UMP, Amikom, dan pusat kota Purwokerto.
-                    </p>
-                    <p>
-                       Kami buka setiap hari pada pukul <strong>08.30 - 22.00</strong>, namun untuk hari jumat pukul 11.30 - 13.00 tutup untuk shalat jumat. Untuk tanggal merah dan hari libur nasional kami tetap buka, sehingga disaat yang lain tutup kami siap melayani.
+                       Mamas Outdoor merupakan jasa persewaan alat outdoor dan camping terbesar, terlengkap dan terpercaya di Purwokerto. Lokasi kami strategis di <strong>Grendeng</strong>, dekat UNSOED.
                     </p>
                     <p className="font-medium text-nature-700">
-                       Silahkan datang ke store kami. Jangan ragu untuk menghubungi dan menggunakan jasa kami. Dengan senang hati customer service kami akan melayani anda.
+                       Buka Setiap Hari 08.30 - 22.00 WIB.
                     </p>
-                 </div>
-
-                 <div className="flex flex-col sm:flex-row gap-4 pt-4">
-                    <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl border border-gray-100">
-                       <div className="bg-nature-100 text-nature-600 p-2 rounded-lg"><MapPin size={24}/></div>
-                       <div>
-                          <h4 className="font-bold text-gray-800 text-sm">Lokasi Strategis</h4>
-                          <p className="text-xs text-gray-500">Grendeng, Dekat UNSOED</p>
-                       </div>
-                    </div>
-                    <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl border border-gray-100">
-                       <div className="bg-blue-100 text-blue-600 p-2 rounded-lg"><Clock size={24}/></div>
-                       <div>
-                          <h4 className="font-bold text-gray-800 text-sm">Buka Setiap Hari</h4>
-                          <p className="text-xs text-gray-500">08:30 - 22:00 WIB</p>
-                       </div>
-                    </div>
-                    <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl border border-gray-100">
-                       <div className="bg-orange-100 text-orange-600 p-2 rounded-lg"><HeartHandshake size={24}/></div>
-                       <div>
-                          <h4 className="font-bold text-gray-800 text-sm">Pelayanan Ramah</h4>
-                          <p className="text-xs text-gray-500">Siap membantu anda</p>
-                       </div>
-                    </div>
                  </div>
               </div>
 
-              {/* Right Image */}
-              <div className="relative h-[400px] rounded-3xl overflow-hidden shadow-2xl group">
+              {/* Image Hidden on small mobile to save space/bandwidth */}
+              <div className="relative h-[200px] md:h-[400px] rounded-2xl md:rounded-3xl overflow-hidden shadow-2xl group hidden sm:block">
                  <ImageLoader 
                     src="https://images.unsplash.com/photo-1478131143081-80f7f84ca84d?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80" 
                     alt="Suasana Camping" 
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                    className="w-full h-full object-cover"
                  />
-                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex flex-col justify-end p-8 text-white">
-                    <div className="bg-nature-600 w-fit px-3 py-1 rounded-full text-xs font-bold mb-2">Basecamp</div>
-                    <h3 className="text-2xl font-bold">Siap Menemani Petualanganmu</h3>
-                    <p className="text-sm text-gray-200 mt-1">Lengkap, Bersih, dan Terawat.</p>
-                 </div>
               </div>
 
            </div>
@@ -619,79 +503,56 @@ const App: React.FC = () => {
       </section>
 
       {/* Footer */}
-      <footer id="contact" className="bg-gray-900 text-white py-16 border-t border-gray-800">
+      <footer id="contact" className="bg-gray-900 text-white py-12 md:py-16 border-t border-gray-800 pb-28 md:pb-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-12">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 md:gap-12 mb-8 md:mb-12">
             <div>
-              <div className="flex items-center gap-2 mb-6">
-                <img src="https://imgur.com/iC8ycHT.png" alt="Logo" className="w-8 h-8 grayscale brightness-200" />
-                <span className="text-xl font-black tracking-tight">MamasOutdoor</span>
+              <div className="flex items-center gap-2 mb-4 md:mb-6">
+                <img src="https://imgur.com/iC8ycHT.png" alt="Logo" className="w-6 h-6 md:w-8 md:h-8 grayscale brightness-200" />
+                <span className="text-lg md:text-xl font-black tracking-tight">MamasOutdoor</span>
               </div>
-              <p className="text-gray-400 leading-relaxed mb-6">
-                Sahabat petualanganmu di Purwokerto. Menyediakan peralatan outdoor berkualitas untuk pengalaman mendaki yang aman dan nyaman.
+              <p className="text-gray-400 text-sm leading-relaxed mb-6">
+                Sahabat petualanganmu di Purwokerto.
               </p>
-              <div className="flex gap-4">
-                <a href="#" className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center hover:bg-nature-600 transition"><Instagram size={20}/></a>
-                <a href="#" className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center hover:bg-blue-600 transition"><Facebook size={20}/></a>
-                <a href="#" className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center hover:bg-green-600 transition"><Phone size={20}/></a>
-              </div>
             </div>
             
-            <div>
+            <div className="hidden md:block">
               <h4 className="text-lg font-bold mb-6">Navigasi</h4>
               <ul className="space-y-3 text-gray-400">
                 <li><a href="#" className="hover:text-nature-400 transition">Beranda</a></li>
                 <li><a href="#katalog" className="hover:text-nature-400 transition">Katalog Alat</a></li>
-                <li><a href="#ai-guide" className="hover:text-nature-400 transition">Tanya Mamas AI</a></li>
                 <li><button onClick={() => setIsTermsOpen(true)} className="hover:text-nature-400 transition">Syarat & Ketentuan</button></li>
               </ul>
             </div>
 
             <div>
-              <h4 className="text-lg font-bold mb-6">Kontak & Lokasi</h4>
-              <ul className="space-y-4 text-gray-400">
+              <h4 className="text-lg font-bold mb-4 md:mb-6">Kontak</h4>
+              <ul className="space-y-3 text-gray-400 text-sm">
                 <li className="flex gap-3">
-                  <MapPin className="flex-shrink-0 text-nature-500" size={20} />
-                  <span className="text-sm">{storeConfig.storeAddress}</span>
+                  <MapPin className="flex-shrink-0 text-nature-500" size={18} />
+                  <span>{storeConfig.storeAddress}</span>
                 </li>
                 <li className="flex gap-3 items-center">
-                  <Phone className="flex-shrink-0 text-nature-500" size={20} />
+                  <Phone className="flex-shrink-0 text-nature-500" size={18} />
                   <span>{storeConfig.adminWhatsapp}</span>
-                </li>
-                <li className="flex gap-3 items-center">
-                  <Globe className="flex-shrink-0 text-nature-500" size={20} />
-                  <span>mamasoutdoor.com</span>
                 </li>
               </ul>
             </div>
-
-            <div>
-              <h4 className="text-lg font-bold mb-6">Jam Operasional</h4>
-              <div className="bg-gray-800 p-4 rounded-xl border border-gray-700">
-                <div className="flex justify-between mb-2 text-sm">
-                  <span className="text-gray-400">Senin - Minggu</span>
-                  <span className="font-bold text-white">08:30 - 22:00</span>
-                </div>
-                <div className="h-px bg-gray-700 my-2"></div>
-                <p className="text-xs text-nature-400 italic">
-                  *Buka setiap hari termasuk tanggal merah.
-                </p>
-              </div>
-              <button 
-                onClick={() => setIsAdminMode(true)}
-                className="mt-6 flex items-center gap-2 text-xs text-gray-600 hover:text-gray-400 transition"
-              >
-                <Lock size={12}/> Admin Login
-              </button>
-            </div>
           </div>
           
-          <div className="pt-8 border-t border-gray-800 text-center md:text-left flex flex-col md:flex-row justify-between items-center text-sm text-gray-500">
-            <p>&copy; {new Date().getFullYear()} Mamas Outdoor. All rights reserved.</p>
-            <p>Made with ❤️ in Purwokerto</p>
+          <div className="pt-8 border-t border-gray-800 text-center text-xs text-gray-500">
+            <p>&copy; {new Date().getFullYear()} Mamas Outdoor. Purwokerto.</p>
           </div>
         </div>
       </footer>
+
+      {/* MOBILE BOTTOM NAV */}
+      <MobileBottomNav 
+        cartCount={cartTotalItems}
+        onOpenCart={() => setIsCartOpen(true)}
+        onOpenHistory={() => setIsHistoryOpen(true)}
+        activeTab="home"
+      />
 
       {/* Modals */}
       <CartDrawer 
@@ -724,7 +585,9 @@ const App: React.FC = () => {
         isInCart={selectedProduct ? cartItems.some(item => item.id === selectedProduct.id) : false}
       />
 
-      <FloatingWhatsApp />
+      <div className="mb-16 md:mb-0">
+        <FloatingWhatsApp />
+      </div>
       
       <Toast 
         message={toastMessage} 
