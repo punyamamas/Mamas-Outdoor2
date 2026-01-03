@@ -412,7 +412,7 @@ function App() {
                         className="bg-nature-600 hover:bg-nature-700 text-white font-bold py-4 px-8 rounded-2xl shadow-lg transition-all hover:scale-105 active:scale-95 w-full md:w-auto flex items-center justify-center gap-2"
                     >
                         <Search size={20} />
-                        Cek Ketersediaan
+                        Spill Yang Ready
                     </button>
                 </div>
             </div>
@@ -426,9 +426,9 @@ function App() {
       <section className="bg-nature-50 py-20 border-b border-nature-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
-            <span className="text-nature-600 font-black tracking-widest uppercase text-sm mb-2 block">Panduan Pemula</span>
-            <h2 className="text-3xl font-black text-gray-900">Cara Sewa Gampang Banget!</h2>
-            <p className="text-gray-600 mt-2">Cuma butuh 3 langkah buat dapetin gear impianmu.</p>
+            <span className="text-nature-600 font-black tracking-widest uppercase text-sm mb-2 block">TUTORIAL SEWA</span>
+            <h2 className="text-3xl font-black text-gray-900">Cara Sewa Sat-Set Anti Ribet!</h2>
+            <p className="text-gray-600 mt-2">Cuma 3 step doang, langsung gas healing tanpa pusing.</p>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -436,9 +436,9 @@ function App() {
                 <div className="w-16 h-16 bg-nature-100 rounded-2xl flex items-center justify-center mb-6 text-nature-600 group-hover:scale-110 transition">
                   <ClipboardList size={32} />
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">1. Pilih & Cek Stok</h3>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">1. Cek Stok & Pilih Alat</h3>
                 <p className="text-gray-500 text-sm leading-relaxed">
-                  Masukkan tanggal naik gunung kamu di atas. Sistem akan otomatis menyaring alat yang tersedia. Masukkan ke keranjang.
+                  Input tanggal kapan lo mau muncak di atas. Biar sistem yang milihin gear yang ready. Kalo cocok, langsung add to cart aja!
                 </p>
             </div>
 
@@ -446,9 +446,9 @@ function App() {
                 <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center mb-6 text-blue-600 group-hover:scale-110 transition">
                   <MessageCircle size={32} />
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">2. Chat WhatsApp</h3>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">2. Chat MasMin (Mamas Admin)</h3>
                 <p className="text-gray-500 text-sm leading-relaxed">
-                  Klik tombol pesan. Admin Mamas akan konfirmasi total harga & ketersediaan tanggal. DP 50% untuk booking.
+                  Klik tombol pesan, terus konfirm ke Mamas. Mamas totalin biayanya, trus DP 50% dulu biar alat inceranmu gak ditikung orang.
                 </p>
             </div>
 
@@ -456,9 +456,9 @@ function App() {
                 <div className="w-16 h-16 bg-green-100 rounded-2xl flex items-center justify-center mb-6 text-green-600 group-hover:scale-110 transition">
                   <Truck size={32} />
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">3. Ambil & Gas!</h3>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">3. Ambil & OTW!</h3>
                 <p className="text-gray-500 text-sm leading-relaxed">
-                  Datang ke basecamp Grendeng (Dekat UNSOED), titip KTP Asli, lunasi pembayaran, dan langsung berangkat muncak!
+                  Merapat ke basecamp Mamas (depan warmino WBC). Titip identitas asli, lunasin sisa sewa, langsung tancap gas naik gunung!
                 </p>
             </div>
           </div>
