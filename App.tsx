@@ -354,15 +354,15 @@ function App() {
           <div className="text-center max-w-5xl mx-auto relative z-20 px-4 flex flex-col items-center">
             <div className="inline-flex items-center gap-2 bg-nature-600/90 backdrop-blur-md px-5 py-2 rounded-full text-white text-xs md:text-sm font-bold mb-8 border border-white/10 uppercase tracking-widest shadow-xl shadow-nature-900/50 hover:bg-nature-700 hover:scale-105 transition duration-300 cursor-default">
               <Flame size={16} className="text-yellow-400 fill-current animate-pulse" />
-              <span>Sewa Alat Outdoor Terlengkap di Purwokerto</span>
+              <span>Sewa Alat Outdoor Terfavorit di Purwokerto</span>
             </div>
 
             <h1 className="font-black text-white mb-8 tracking-tight drop-shadow-2xl">
               <span className="block text-4xl sm:text-5xl md:text-6xl lg:text-7xl mb-4 hover:tracking-wide transition-all duration-500 ease-out cursor-default">
-                ANAK UNSOED
+                SEWA SAT SET
               </span>
               <span className="block text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 text-5xl sm:text-6xl md:text-7xl lg:text-8xl py-2 animate-gradient-x bg-[length:200%_auto] cursor-default">
-                WAJIB TAHU!
+                ANTI RIBET!
               </span>
             </h1>
 
@@ -773,14 +773,14 @@ function App() {
               <MapPin className="fill-current" size={28} />
             </div>
             <h3 className="text-xl font-bold text-gray-900 mb-2">Lokasi Strategis</h3>
-            <p className="text-gray-500">Basecamp di Grendeng (Dekat Pintu Belakang UNSOED). Gas ambil alat sambil ngampus.</p>
+            <p className="text-gray-500">Basecamp di Grendeng (Depan Warmindo WBC). Gas ambil alat sambil ngampus.</p>
           </div>
           <div className="flex flex-col items-center text-center p-8 bg-white rounded-2xl shadow-sm border border-gray-100 hover:border-nature-200 transition group">
              <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl rotate-3 group-hover:rotate-6 transition duration-300 flex items-center justify-center mb-6">
               <School className="fill-current" size={28} />
             </div>
             <h3 className="text-xl font-bold text-gray-900 mb-2">Harga Mahasiswa</h3>
-            <p className="text-gray-500">Tunjukkan KTM sakti mu, dapatkan harga spesial kawan.</p>
+            <p className="text-gray-500">Harga terjangkau cocok untuk teman-teman pelajar dan mahasiswa .</p>
           </div>
         </div>
       </section>
@@ -801,9 +801,8 @@ function App() {
             <div>
               <h3 className="text-lg font-bold mb-6 text-nature-500">Layanan</h3>
               <ul className="space-y-3 text-gray-400 font-medium">
-                <li><a href="#" className="hover:text-white transition">Sewa Tenda Dome</a></li>
-                <li><a href="#" className="hover:text-white transition">Sewa Carrier & Tas</a></li>
-                <li><a href="#" className="hover:text-white transition">Paket Open Trip</a></li>
+                <li><a href="#" className="hover:text-white transition">Sewa Tenda Event</a></li>
+                <li><a href="#" className="hover:text-white transition">Sewa Alat Camping</a></li>
                 <li><button onClick={() => setCurrentPage('admin')} className="text-left hover:text-white transition text-nature-800">Admin Login</button></li>
               </ul>
             </div>
@@ -813,7 +812,7 @@ function App() {
                 <li>Jl. Cenderawasih, Grendeng</li>
                 <li>Purwokerto Utara, 53122</li>
                 <li>WA: 0851-3741-1145</li>
-                <li>IG: @mamasoutdoor</li>
+                <li>IG: @mamas.outdoor</li>
               </ul>
             </div>
           </div>
@@ -824,7 +823,7 @@ function App() {
                 <Github size={18} />
                 <span>Source Code</span>
               </a>
-              <p className="font-medium text-nature-500">Made with ❤️ for Nature Lovers</p>
+              <p className="font-medium text-nature-500">Made with ❤️ for You</p>
             </div>
           </div>
         </div>
