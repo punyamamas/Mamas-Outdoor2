@@ -127,25 +127,32 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={onClose}></div>
       
       {/* Container: Rounded Top only on mobile, Rounded All on Desktop. Animate slide-up on mobile. */}
-      <div className="relative bg-white w-full max-w-4xl max-h-[85vh] md:max-h-[85vh] overflow-hidden rounded-t-3xl md:rounded-3xl shadow-2xl flex flex-col md:flex-row animate-slide-up md:animate-scale-up">
+      <div className="relative bg-white w-full max-w-4xl max-h-[90vh] md:max-h-[85vh] overflow-hidden rounded-t-3xl md:rounded-3xl shadow-2xl flex flex-col md:flex-row animate-slide-up md:animate-scale-up">
         
         {/* Mobile Drag Handle Indicator */}
-        <div className="md:hidden absolute top-0 left-0 right-0 h-6 bg-white z-20 flex justify-center pt-2 rounded-t-3xl pointer-events-none">
-            <div className="w-12 h-1.5 bg-gray-300 rounded-full"></div>
+        <div className="md:hidden absolute top-0 left-0 right-0 h-6 z-20 flex justify-center pt-2 pointer-events-none">
+            <div className="w-12 h-1.5 bg-white/80 rounded-full shadow-sm backdrop-blur-sm"></div>
         </div>
 
-        {/* Left: Image & Quick Stats */}
-        <div className="w-full md:w-1/2 bg-gray-100 relative group h-48 md:h-auto shrink-0">
+        {/* Left: Image & Quick Stats - INCREASED HEIGHT FOR MOBILE */}
+        <div className="w-full md:w-1/2 bg-gray-100 relative group h-72 md:h-auto shrink-0">
            <ImageLoader 
              src={product.image} 
              alt={product.name} 
              className="w-full h-full object-cover"
            />
-           {/* Mobile Close Button */}
-           <button onClick={onClose} className="absolute top-4 left-4 bg-white/30 hover:bg-white/50 backdrop-blur-md p-2 rounded-full text-white transition md:hidden z-10 mt-4">
+           
+           {/* Mobile Close Button - Enhanced Visibility */}
+           <button 
+             onClick={onClose} 
+             className="absolute top-4 left-4 bg-black/20 hover:bg-black/40 backdrop-blur-md p-2 rounded-full text-white transition md:hidden z-10 mt-2"
+           >
              <X size={20} />
            </button>
            
+           {/* Gradient Overlay for better text visibility */}
+           <div className="absolute top-0 left-0 right-0 h-20 bg-gradient-to-b from-black/30 to-transparent pointer-events-none md:hidden"></div>
+
            {/* Sale Badge */}
            {product.isSale && (
              <div className="absolute top-4 right-4 bg-blue-600 text-white px-3 py-1 rounded-full font-bold text-[10px] shadow-lg uppercase tracking-wider mt-4 md:mt-0">

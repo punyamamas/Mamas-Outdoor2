@@ -564,22 +564,45 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
                          <li className="text-nature-600 font-black">
                             Wajib DP (50%): Rp{dpValue.toLocaleString('id-ID')}
                          </li>
-                         {/* FILE UPLOAD INPUT */}
-                         <li className="mt-2 pt-2 border-t border-blue-200">
-                            <label className="block text-[10px] font-bold uppercase tracking-wide text-blue-900 mb-1 flex items-center gap-1">
-                                <Upload size={10} /> Upload Bukti Transfer (Sekarang)
+                         
+                         {/* FILE UPLOAD INPUT - ENHANCED UX */}
+                         <li className="mt-3 pt-2 border-t border-blue-200 list-none -ml-4">
+                            <label className="block text-[10px] font-bold uppercase tracking-wide text-blue-900 mb-2 flex items-center gap-1">
+                                <Upload size={12} /> Upload Bukti Transfer
                             </label>
-                            <input 
-                                type="file" 
-                                accept="image/*"
-                                onChange={handleFileChange}
-                                className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200"
-                            />
-                            {proofFile && (
-                                <p className="text-[10px] text-green-600 font-bold mt-1 flex items-center gap-1">
-                                    <CheckCircle size={10}/> File Siap: {proofFile.name}
-                                </p>
-                            )}
+                            
+                            <div className="relative group">
+                                <input 
+                                    type="file" 
+                                    accept="image/*"
+                                    onChange={handleFileChange}
+                                    id="proof-upload"
+                                    className="hidden" 
+                                />
+                                <label 
+                                    htmlFor="proof-upload" 
+                                    className={`
+                                        flex flex-col items-center justify-center w-full p-4 border-2 border-dashed rounded-xl cursor-pointer transition-all
+                                        ${proofFile 
+                                            ? 'border-green-400 bg-green-50 text-green-700' 
+                                            : 'border-blue-300 bg-white hover:bg-blue-50 hover:border-blue-400 text-blue-500'}
+                                    `}
+                                >
+                                    {proofFile ? (
+                                        <>
+                                            <CheckCircle size={28} className="mb-1 text-green-600" />
+                                            <span className="text-xs font-bold">{proofFile.name}</span>
+                                            <span className="text-[9px] mt-1 text-green-600">Klik untuk ganti file</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <ImageIcon size={28} className="mb-2 opacity-70" />
+                                            <span className="text-xs font-bold">Pilih Foto / Ambil Gambar</span>
+                                            <span className="text-[9px] mt-1 opacity-70">Format: JPG, PNG (Max 5MB)</span>
+                                        </>
+                                    )}
+                                </label>
+                            </div>
                          </li>
                        </ul>
                     </div>

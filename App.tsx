@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { ShoppingCart, Search, Filter, MapPin, MessageCircle, CalendarCheck, Smile, School, Sparkles, Award, Check, ThumbsUp, ShieldCheck, Instagram, Facebook, Phone, Globe, ChevronDown, Lock, CalendarDays, Clock, Package, HeartHandshake, Map } from 'lucide-react';
+import { ShoppingCart, Search, Filter, MapPin, MessageCircle, CalendarCheck, Smile, School, Sparkles, Award, Check, ThumbsUp, ShieldCheck, Instagram, Facebook, Phone, Globe, ChevronDown, Lock, CalendarDays, Clock, Package, HeartHandshake, Map, X } from 'lucide-react';
 import Navbar from './components/Navbar';
 import GeminiAdvisor from './components/GeminiAdvisor';
 import CartDrawer from './components/CartDrawer';
@@ -388,10 +388,19 @@ const App: React.FC = () => {
               <input 
                 type="text" 
                 placeholder="Cari Tenda, Tas..." 
-                className="pl-10 pr-4 py-2.5 md:py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-nature-500 outline-none w-full md:w-64 transition text-sm text-gray-700"
+                className="pl-10 pr-10 py-2.5 md:py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-nature-500 outline-none w-full md:w-64 transition text-sm text-gray-700"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
+              {/* CLEAR BUTTON */}
+              {searchTerm && (
+                <button 
+                  onClick={() => setSearchTerm('')}
+                  className="absolute right-3 top-3 text-gray-400 hover:text-gray-600 transition"
+                >
+                  <X size={18} />
+                </button>
+              )}
             </div>
           </div>
         </div>
