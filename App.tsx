@@ -487,7 +487,7 @@ function App() {
                     <div className="p-2 bg-green-100 text-green-600 rounded-full"><Clock size={18}/></div>
                     <div>
                        <p className="text-xs text-gray-500 font-bold uppercase">Buka Setiap Hari</p>
-                       <p className="text-sm font-black text-gray-800">08.00 - 22.00 WIB</p>
+                       <p className="text-sm font-black text-gray-800">08.30 - 22.00 WIB</p>
                     </div>
                  </div>
                  <p className="text-[10px] text-gray-500 italic">*Jumat tutup 11.30-13.00 (Jumatan)</p>
@@ -509,7 +509,7 @@ function App() {
                 </p>
                 
                 <p>
-                  Kami buka setiap hari mulai pukul <span className="font-bold text-gray-800">08.00 - 22.00</span>. 
+                  Kami buka setiap hari mulai pukul <span className="font-bold text-gray-800">08.30 - 22.00</span>. 
                   Khusus hari Jumat, kami istirahat sejenak pukul 11.30 - 13.00 untuk Shalat Jumat. 
                   Untuk tanggal merah dan hari libur nasional <span className="font-bold text-nature-600">kami tetap buka</span>, 
                   sehingga disaat yang lain tutup, kami siap melayani petualanganmu.
