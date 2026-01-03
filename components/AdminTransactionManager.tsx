@@ -6,7 +6,7 @@ import { updateTransactionPayment, updateTransactionItems, updateTransactionDeta
 import { processStockReduction, processStockRestoration } from '../services/productService';
 import { printTransactionReceipt } from '../services/bluetoothPrinterService';
 import QRScannerModal from './QRScannerModal'; 
-import ImageLoader from './ImageLoader'; // Import ImageLoader
+import ImageLoader from './ImageLoader';
 
 interface AdminTransactionManagerProps {
   transactions: Transaction[];
@@ -57,6 +57,9 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
     items: CartItem[]; 
   }>({ customerName: '', customerWhatsapp: '', customerIdentity: '', rentalDate: '', duration: 0, fineAmount: 0, items: [] });
   
+  // Edit Mode: Add Item Search
+  const [addItemSearch, setAddItemSearch] = useState('');
+  
   // Scanner State
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [scannerContext, setScannerContext] = useState<'search_trx' | 'add_item_create' | 'add_item_edit'>('search_trx');
@@ -71,7 +74,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
   const [newTrxStatus, setNewTrxStatus] = useState('booked');
   const [newTrxPaid, setNewTrxPaid] = useState<number>(0);
   const [isCreating, setIsCreating] = useState(false);
-  const [posCategory, setPosCategory] = useState('Semua'); // NEW: POS Category Filter
+  const [posCategory, setPosCategory] = useState('Semua'); 
 
   // Payment Recording State
   const [newPaymentAmount, setNewPaymentAmount] = useState<number>(0);
@@ -101,6 +104,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
         items: JSON.parse(JSON.stringify(trx.items)) 
     });
     setNewPaymentAmount(0); // Reset Payment Input
+    setAddItemSearch('');
     setIsEditModalOpen(true);
   };
 
@@ -197,9 +201,9 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
         }
         return { ...prev, items: newItems };
     });
+    setAddItemSearch('');
   };
 
-  // Helper untuk update varian di Edit Mode
   const updateEditItemVariant = (idx: number, field: 'selectedSize' | 'selectedColor', val: string) => {
       setEditForm(prev => {
           const items = [...prev.items];
@@ -239,7 +243,6 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
     if (!selectedTransaction) return;
     if (editForm.items.length === 0) return alert("Transaksi tidak boleh kosong (tanpa barang).");
 
-    // Validasi Varian
     const invalidItems = editForm.items.filter(i => {
         const prod = products.find(p => p.id === i.id);
         if (!prod) return false;
@@ -254,6 +257,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
 
     const newTotalPrice = calculateEditTotal();
     
+    // Only adjust stock if transaction is active
     const shouldUpdateStock = ['booked', 'rented', 'pending', 'partial_payment'].includes(selectedTransaction.status);
     
     if (shouldUpdateStock) {
@@ -306,7 +310,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
     const url = await uploadIdentityProof(selectedTransaction.id, file);
     if (url) {
         setSelectedTransaction({ ...selectedTransaction, identityPhotoUrl: url });
-        await onRefreshData(); // Sync DB
+        await onRefreshData(); 
     }
     setIsUploadingIdentity(false);
   };
@@ -340,7 +344,6 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
     if (existing && !hasVariants) {
         setNewTrxItems(prev => prev.map(i => i.id === product.id ? { ...i, quantity: i.quantity + 1 } : i));
     } else {
-        // Auto select first variant if available? No, user should pick.
         setNewTrxItems(prev => [...prev, { ...product, quantity: 1, selectedSize: '', selectedColor: '' }]);
     }
     setNewTrxSearch('');
@@ -416,13 +419,11 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
 
         await onRefreshData();
         setIsCreateModalOpen(false);
-        // Reset POS State
         setNewTrxDetails({ name: '', whatsapp: '', location: '', rentalDate: new Date().toISOString().split('T')[0], duration: 2, paymentMethod: 'cash' });
         setNewTrxItems([]);
         setNewTrxPaid(0);
         setNewTrxStatus('booked');
         
-        // Open Print/View Modal
         setSelectedTransaction(newTrx);
         setIsEditModalOpen(true);
     } else {
@@ -437,8 +438,6 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
       const url = `https://wa.me/${p}?text=Halo Kak ${name}, kami dari Mamas Outdoor...`;
       window.open(url, '_blank');
   };
-
-  // --- RENDER HELPERS ---
 
   const renderItemRow = (item: CartItem, idx: number, mode: 'edit' | 'create') => {
       const product = products.find(p => p.id === item.id);
@@ -458,7 +457,6 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
           availableSizes = Object.keys(product!.sizes!);
       }
 
-      // Calculate unit price for display based on duration
       const duration = mode === 'edit' ? editForm.duration : newTrxDetails.duration;
       const unitPrice = calculateItemPriceForDuration(item, duration);
 
@@ -473,7 +471,6 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
             </div>
             
             <div className="flex items-center justify-between gap-2">
-                {/* VARIANT SELECTORS */}
                 <div className="flex gap-1 flex-1">
                     {(hasSize || hasVariant) ? (
                         <>
@@ -510,7 +507,6 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                     )}
                 </div>
 
-                {/* QTY CONTROLS */}
                 <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
                     <button onClick={() => mode === 'edit' ? handleUpdateEditItemQty(idx, -1) : handleUpdateItemQtyNewTrx(idx, -1)} className="p-1 hover:bg-white rounded-md text-gray-600 transition"><Minus size={12}/></button>
                     <span className="text-xs w-5 text-center font-bold">{item.quantity}</span>
@@ -550,12 +546,13 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
 
   const totalPages = Math.ceil(totalCount / itemsPerPage);
 
-  // Filtered Products for POS Grid
   const posFilteredProducts = products.filter(p => {
       const matchesSearch = p.name.toLowerCase().includes(newTrxSearch.toLowerCase());
       const matchesCategory = posCategory === 'Semua' || p.category === posCategory;
       return matchesSearch && matchesCategory;
   });
+
+  const addItemFilteredProducts = products.filter(p => p.name.toLowerCase().includes(addItemSearch.toLowerCase()));
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col h-[calc(100vh-150px)]">
@@ -566,7 +563,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
          onScanSuccess={handleScanSuccess} 
       />
 
-      {/* Main Admin Transaction Header (Listing) */}
+      {/* Main Admin Transaction Header */}
       <div className="p-5 border-b border-gray-100 bg-nature-50 flex flex-col md:flex-row gap-4 justify-between items-center">
         <h3 className="font-bold text-lg text-nature-800 flex items-center gap-2">
           <ClipboardList size={20} /> Manajemen Transaksi
@@ -671,7 +668,6 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
         </table>
       </div>
 
-      {/* Pagination Controls */}
       <div className="p-4 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
           <div className="text-xs text-gray-500">
               Total: <strong>{totalCount}</strong> Transaksi
@@ -697,124 +693,281 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
           </div>
       </div>
 
-      {/* --- EDIT MODAL (RETAINED AS IS) --- */}
+      {/* --- REDESIGNED EDIT MODAL --- */}
       {isEditModalOpen && selectedTransaction && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={closeEditModal}></div>
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col overflow-hidden animate-slide-in-right">
-            {/* ... Content of Edit Modal (Same as existing code to keep functionality) ... */}
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-6xl h-[95vh] flex flex-col overflow-hidden animate-slide-in-right">
+            
+            {/* Modal Header */}
             <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
                <div>
                   <h3 className="font-bold text-xl text-gray-900 flex items-center gap-2">
-                     <ClipboardList className="text-nature-600"/> 
-                     {isEditingData ? 'Edit Data Transaksi' : `Detail Transaksi #${selectedTransaction.id.slice(0,8)}`}
+                     <Edit className="text-nature-600" size={24}/> 
+                     {isEditingData ? 'Mode Edit Data' : `Detail Transaksi #${selectedTransaction.id.slice(0,8)}`}
                   </h3>
-                  {!isEditingData && <p className="text-xs text-gray-500 mt-1">Dibuat: {new Date(selectedTransaction.created_at || '').toLocaleString('id-ID')}</p>}
+                  <div className="text-xs text-gray-500 mt-1 flex items-center gap-2">
+                     <Calendar size={12}/> Dibuat: {new Date(selectedTransaction.created_at || '').toLocaleString('id-ID')}
+                  </div>
                </div>
                <div className="flex items-center gap-2">
                    {!isEditingData ? (
                        <>
-                         <button onClick={() => openWhatsApp(selectedTransaction.customerWhatsapp, selectedTransaction.customerName)} className="flex items-center gap-1 bg-green-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-green-600 transition shadow-sm">
-                             <MessageCircle size={14}/> Chat WA
+                         <button onClick={() => openWhatsApp(selectedTransaction.customerWhatsapp, selectedTransaction.customerName)} className="flex items-center gap-1 bg-green-500 text-white px-3 py-2 rounded-lg text-xs font-bold hover:bg-green-600 transition shadow-sm">
+                             <MessageCircle size={14}/> WA
                          </button>
-                         <button onClick={() => setIsEditingData(true)} className="flex items-center gap-1 bg-white border border-gray-200 text-gray-600 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-gray-50">
-                             <Edit size={14}/> Edit / Ubah
+                         <button onClick={() => setIsEditingData(true)} className="flex items-center gap-1 bg-blue-600 text-white px-3 py-2 rounded-lg text-xs font-bold hover:bg-blue-700 shadow-sm">
+                             <Edit size={14}/> Ubah Data
                          </button>
                        </>
                    ) : (
-                       <button onClick={() => setIsEditingData(false)} className="flex items-center gap-1 bg-gray-100 text-gray-600 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-gray-200">
-                           <X size={14}/> Batal Edit
-                       </button>
+                       <>
+                         <button onClick={() => setIsEditingData(false)} className="px-3 py-2 rounded-lg text-xs font-bold hover:bg-gray-200 text-gray-600">Batal</button>
+                         <button onClick={handleSaveDetails} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 shadow-lg"><Save size={16}/> Simpan Perubahan</button>
+                       </>
                    )}
                    <button onClick={closeEditModal} className="p-2 hover:bg-gray-200 rounded-full transition"><X size={20}/></button>
                </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 bg-gray-50/50">
-               <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-                  <div className="xl:col-span-2 space-y-6">
-                     {isEditingData ? (
-                         <div className="bg-white p-5 rounded-2xl border border-blue-200 shadow-sm animate-slide-in-right">
-                             <h4 className="text-sm font-bold text-blue-800 mb-4 flex items-center gap-2"><Edit size={16}/> Edit Data Pelanggan & Barang</h4>
-                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                <div><label className="text-xs font-bold text-gray-500 block mb-1">Nama</label><input className="w-full border rounded p-2 text-sm" value={editForm.customerName} onChange={e => setEditForm({...editForm, customerName: e.target.value})} /></div>
-                                <div><label className="text-xs font-bold text-gray-500 block mb-1">WA</label><input className="w-full border rounded p-2 text-sm" value={editForm.customerWhatsapp} onChange={e => setEditForm({...editForm, customerWhatsapp: e.target.value})} /></div>
-                                {/* ... other fields if needed ... */}
-                             </div>
-                             <div className="mb-4 pt-4 border-t border-gray-100">
-                                <div className="space-y-2 bg-gray-50 p-3 rounded-lg border border-gray-100 max-h-60 overflow-y-auto">
-                                    {editForm.items.map((item, idx) => renderItemRow(item, idx, 'edit'))}
-                                </div>
-                                <div className="mt-2 text-right"><span className="font-bold text-blue-800">Rp{calculateEditTotal().toLocaleString('id-ID')}</span></div>
-                             </div>
-                             <div className="flex justify-end pt-2 border-t border-gray-100">
-                                 <button onClick={handleSaveDetails} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 shadow-sm"><Save size={16}/> Simpan</button>
-                             </div>
-                         </div>
-                     ) : (
-                         <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
-                            <h4 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2"><CheckCircle size={16}/> Update Status</h4>
-                            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                            {['pending', 'booked', 'rented', 'completed', 'cancelled'].map(s => (
-                                <button key={s} onClick={() => handleStatusChange(selectedTransaction.id, s)} className={`px-3 py-2 rounded-xl text-xs font-bold uppercase transition border ${selectedTransaction.status === s ? 'bg-nature-600 text-white border-nature-600 shadow-md' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}>{s}</button>
-                            ))}
-                            </div>
-                         </div>
-                     )}
-
-                     {!isEditingData && (
-                        <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
-                            <h4 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2"><ShoppingBag size={16}/> Barang Sewaan</h4>
-                            <div className="space-y-3">
-                            {selectedTransaction.items.map((item, idx) => (
-                                <div key={idx} className="flex justify-between items-center p-3 bg-gray-50 rounded-xl border border-gray-100">
-                                    <div><div className="font-bold text-gray-800 text-sm">{item.name}</div><div className="text-xs text-gray-500">Size: {item.selectedSize||'-'} | Warna: {item.selectedColor||'-'}</div></div>
-                                    <div className="font-bold text-nature-600">x{item.quantity}</div>
-                                </div>
-                            ))}
-                            </div>
-                        </div>
-                     )}
-                  </div>
-
-                  <div className="space-y-6">
-                     <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
-                        <h4 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2"><Wallet size={16}/> Pembayaran</h4>
-                        <div className="space-y-4">
-                           <div className="flex justify-between text-sm"><span className="text-gray-600">Total Tagihan</span><span className="font-bold text-gray-900">Rp{selectedTransaction.totalPrice.toLocaleString('id-ID')}</span></div>
-                           <div className="flex justify-between text-sm"><span className="text-gray-600">Sudah Bayar</span><span className="font-bold text-green-600">Rp{selectedTransaction.amountPaid.toLocaleString('id-ID')}</span></div>
-                           <div className="flex justify-between text-sm pt-2 border-t border-gray-100"><span className="text-gray-600">Sisa</span><span className="font-bold text-red-500">Rp{Math.max(0, selectedTransaction.totalPrice - selectedTransaction.amountPaid).toLocaleString('id-ID')}</span></div>
-                           
-                           <div className="pt-3 border-t border-gray-100">
-                              <label className="text-xs font-bold text-gray-500 mb-2 block">Catat Pembayaran</label>
-                              <div className="flex flex-col gap-2 bg-gray-50 p-2 rounded-lg border border-gray-100">
-                                 <div className="flex gap-2">
-                                    <input type="number" className="flex-1 border border-gray-200 rounded px-2 py-1 text-sm font-bold" value={newPaymentAmount||''} onChange={(e) => setNewPaymentAmount(Number(e.target.value))} />
-                                    <select className="border border-gray-200 rounded px-2 py-1 text-xs" value={newPaymentMethod} onChange={(e) => setNewPaymentMethod(e.target.value as any)}><option value="cash">Cash</option><option value="transfer">TF</option></select>
-                                 </div>
-                                 {getAddPaymentChangeDisplay()}
-                                 <button onClick={handleAddPayment} disabled={!newPaymentAmount || isRecordingPayment} className="w-full bg-green-600 text-white text-xs font-bold py-2 rounded hover:bg-green-700 transition flex items-center justify-center gap-1">{isRecordingPayment ? <Loader2 size={12} className="animate-spin"/> : <Save size={12}/>} Simpan</button>
-                              </div>
-                           </div>
-                        </div>
-                     </div>
+            <div className="flex-1 overflow-y-auto p-0 bg-gray-100 flex flex-col lg:flex-row">
+               
+               {/* LEFT PANEL: INFO & PAYMENTS */}
+               <div className="lg:w-1/3 bg-white border-r border-gray-200 overflow-y-auto custom-scrollbar">
+                  <div className="p-6 space-y-6">
                      
-                     <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
-                        <h4 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2"><Printer size={16}/> Cetak</h4>
-                        <div className="grid grid-cols-2 gap-3 mb-3">
-                           <button onClick={() => printInvoice(selectedTransaction, 'view', 'full')} className="bg-nature-600 text-white py-2 rounded-lg text-xs font-bold">Nota Lengkap</button>
-                           <button onClick={() => printInvoice(selectedTransaction, 'view', 'rental')} className="bg-white border text-gray-600 py-2 rounded-lg text-xs font-bold">Nota Sewa</button>
+                     {/* 1. STATUS & DATE */}
+                     <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                        <div className="flex justify-between items-center mb-4">
+                            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Status Sewa</span>
+                            {!isEditingData && (
+                                <div className="flex gap-1">
+                                    {['pending', 'booked', 'rented', 'completed'].map(s => (
+                                        <button key={s} 
+                                            onClick={() => handleStatusChange(selectedTransaction.id, s)} 
+                                            className={`w-6 h-6 rounded-full border flex items-center justify-center text-[10px] font-bold uppercase transition ${selectedTransaction.status === s ? 'bg-nature-600 text-white border-nature-600' : 'bg-white text-gray-400 hover:border-gray-400'}`}
+                                            title={s}
+                                        >
+                                            {s.charAt(0).toUpperCase()}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                         </div>
-                        <button onClick={() => printTransactionReceipt(selectedTransaction)} className="w-full py-2 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 transition flex items-center justify-center gap-2 shadow-sm"><Bluetooth size={14}/> 🖨️ Cetak Thermal</button>
+                        
+                        <div className="flex items-center gap-2 mb-4">
+                            <div className={`px-3 py-1 rounded-lg text-sm font-bold uppercase border w-full text-center ${
+                                selectedTransaction.status === 'rented' ? 'bg-purple-100 text-purple-700 border-purple-200' :
+                                selectedTransaction.status === 'completed' ? 'bg-green-100 text-green-700 border-green-200' :
+                                'bg-gray-100 text-gray-600 border-gray-200'
+                            }`}>
+                                {selectedTransaction.status}
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="text-[10px] font-bold text-gray-400 uppercase">Ambil</label>
+                                {isEditingData ? (
+                                    <input type="date" className="w-full text-sm border rounded p-1 bg-white" value={editForm.rentalDate} onChange={e => setEditForm({...editForm, rentalDate: e.target.value})} />
+                                ) : (
+                                    <div className="font-bold text-sm text-gray-800">{new Date(editForm.rentalDate).toLocaleDateString('id-ID')}</div>
+                                )}
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-bold text-gray-400 uppercase">Durasi</label>
+                                {isEditingData ? (
+                                    <input type="number" min="1" className="w-full text-sm border rounded p-1 bg-white" value={editForm.duration} onChange={e => setEditForm({...editForm, duration: parseInt(e.target.value)||1})} />
+                                ) : (
+                                    <div className="font-bold text-sm text-gray-800">{editForm.duration} Hari</div>
+                                )}
+                            </div>
+                        </div>
                      </div>
+
+                     {/* 2. CUSTOMER INFO */}
+                     <div className="space-y-3">
+                        <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2"><User size={14}/> Data Penyewa</h4>
+                        <div className="space-y-2">
+                            {isEditingData ? (
+                                <>
+                                    <input className="w-full text-sm border rounded-lg p-2" placeholder="Nama" value={editForm.customerName} onChange={e => setEditForm({...editForm, customerName: e.target.value})} />
+                                    <input className="w-full text-sm border rounded-lg p-2" placeholder="WhatsApp" value={editForm.customerWhatsapp} onChange={e => setEditForm({...editForm, customerWhatsapp: e.target.value})} />
+                                    <input className="w-full text-sm border rounded-lg p-2" placeholder="No Identitas (KTP)" value={editForm.customerIdentity} onChange={e => setEditForm({...editForm, customerIdentity: e.target.value})} />
+                                </>
+                            ) : (
+                                <div className="bg-white p-3 border rounded-xl shadow-sm">
+                                    <div className="font-bold text-gray-800">{editForm.customerName}</div>
+                                    <div className="text-xs text-gray-500 font-mono">{editForm.customerWhatsapp}</div>
+                                    <div className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                                        <IdCard size={12}/> {editForm.customerIdentity || 'Belum input KTP'}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                     </div>
+
+                     {/* 3. DOCUMENTS (PROOF & IDENTITY) */}
+                     <div className="space-y-3">
+                        <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2"><FileCheck size={14}/> Dokumen</h4>
+                        <div className="grid grid-cols-2 gap-3">
+                            {/* KTP Upload */}
+                            <div className="border border-dashed border-gray-300 rounded-xl p-3 flex flex-col items-center justify-center text-center bg-gray-50 hover:bg-white transition cursor-pointer relative group overflow-hidden h-24">
+                                {selectedTransaction.identityPhotoUrl ? (
+                                    <>
+                                        <img src={selectedTransaction.identityPhotoUrl} className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:opacity-100" />
+                                        <a href={selectedTransaction.identityPhotoUrl} target="_blank" className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 text-white font-bold text-xs">Lihat</a>
+                                    </>
+                                ) : (
+                                    <>
+                                        <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleUploadIdentity} />
+                                        {isUploadingIdentity ? <Loader2 className="animate-spin text-gray-400"/> : <IdCard className="text-gray-400 mb-1" size={20}/>}
+                                        <span className="text-[10px] text-gray-500 font-bold">Foto Identitas</span>
+                                    </>
+                                )}
+                            </div>
+                            {/* Transfer Proof */}
+                            <div className="border border-dashed border-gray-300 rounded-xl p-3 flex flex-col items-center justify-center text-center bg-gray-50 hover:bg-white transition cursor-pointer relative group overflow-hidden h-24">
+                                {selectedTransaction.paymentProofUrl ? (
+                                    <>
+                                        <img src={selectedTransaction.paymentProofUrl} className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:opacity-100" />
+                                        <a href={selectedTransaction.paymentProofUrl} target="_blank" className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 text-white font-bold text-xs">Lihat</a>
+                                    </>
+                                ) : (
+                                    <>
+                                        <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleUploadProof} />
+                                        <Receipt className="text-gray-400 mb-1" size={20}/>
+                                        <span className="text-[10px] text-gray-500 font-bold">Bukti Transfer</span>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                     </div>
+
+                     {/* 4. PAYMENT & PRINT */}
+                     <div className="space-y-4 pt-4 border-t border-gray-100">
+                        <div className="bg-green-50 p-4 rounded-xl border border-green-100">
+                            <div className="flex justify-between text-sm mb-1">
+                                <span className="text-gray-600">Total Tagihan</span>
+                                <span className="font-bold text-gray-900">Rp{isEditingData ? calculateEditTotal().toLocaleString('id-ID') : selectedTransaction.totalPrice.toLocaleString('id-ID')}</span>
+                            </div>
+                            <div className="flex justify-between text-sm mb-2">
+                                <span className="text-gray-600">Sudah Bayar</span>
+                                <span className="font-bold text-green-700">Rp{selectedTransaction.amountPaid.toLocaleString('id-ID')}</span>
+                            </div>
+                            <div className="h-2 w-full bg-green-200 rounded-full overflow-hidden mb-3">
+                                <div className="h-full bg-green-600" style={{width: `${Math.min(100, (selectedTransaction.amountPaid / selectedTransaction.totalPrice) * 100)}%`}}></div>
+                            </div>
+                            
+                            {/* Payment Input */}
+                            <div className="flex gap-2">
+                                <input 
+                                    type="number" 
+                                    className="flex-1 text-sm border border-green-300 rounded-lg px-2 py-1.5 font-bold" 
+                                    placeholder="Nominal" 
+                                    value={newPaymentAmount || ''} 
+                                    onChange={e => setNewPaymentAmount(Number(e.target.value))}
+                                />
+                                <button onClick={handleAddPayment} disabled={isRecordingPayment || !newPaymentAmount} className="bg-green-600 text-white px-3 py-1.5 rounded-lg font-bold text-xs hover:bg-green-700 disabled:opacity-50">
+                                    {isRecordingPayment ? <Loader2 size={14} className="animate-spin"/> : 'Terima Uang'}
+                                </button>
+                            </div>
+                            {getAddPaymentChangeDisplay()}
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                            <button onClick={() => printInvoice(selectedTransaction, 'view', 'full')} className="py-2.5 border rounded-lg text-xs font-bold hover:bg-gray-50 flex items-center justify-center gap-1"><Printer size={14}/> Nota PDF</button>
+                            <button onClick={() => printTransactionReceipt(selectedTransaction)} className="py-2.5 bg-gray-900 text-white rounded-lg text-xs font-bold hover:bg-black flex items-center justify-center gap-1"><Bluetooth size={14}/> Struk Thermal</button>
+                        </div>
+                     </div>
+
                   </div>
                </div>
+
+               {/* RIGHT PANEL: CART & ITEMS */}
+               <div className="flex-1 bg-gray-50 flex flex-col overflow-hidden">
+                  {/* ADD ITEM BAR (ALWAYS VISIBLE IN EDIT MODE) */}
+                  {isEditingData && (
+                      <div className="p-4 bg-white border-b border-gray-200 shadow-sm z-10">
+                          <div className="relative">
+                              <Search className="absolute left-3 top-2.5 text-gray-400" size={18}/>
+                              <input 
+                                autoFocus
+                                type="text" 
+                                className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-medium"
+                                placeholder="Cari barang untuk ditambahkan..."
+                                value={addItemSearch}
+                                onChange={e => setAddItemSearch(e.target.value)}
+                              />
+                              {addItemSearch && (
+                                  <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-xl border border-gray-200 max-h-60 overflow-y-auto z-50">
+                                      {addItemFilteredProducts.length === 0 ? (
+                                          <div className="p-4 text-center text-gray-400 text-sm">Tidak ditemukan</div>
+                                      ) : (
+                                          addItemFilteredProducts.map(p => (
+                                              <button key={p.id} onClick={() => handleAddEditItem(p)} className="w-full text-left px-4 py-3 hover:bg-blue-50 flex justify-between items-center border-b border-gray-50">
+                                                  <div className="flex items-center gap-3">
+                                                      <img src={p.image} className="w-8 h-8 rounded object-cover bg-gray-200"/>
+                                                      <div>
+                                                          <div className="text-sm font-bold text-gray-800">{p.name}</div>
+                                                          <div className="text-xs text-gray-500">Stok: {p.stock}</div>
+                                                      </div>
+                                                  </div>
+                                                  <Plus size={16} className="text-blue-600"/>
+                                              </button>
+                                          ))
+                                      )}
+                                  </div>
+                              )}
+                          </div>
+                      </div>
+                  )}
+
+                  {/* ITEM LIST */}
+                  <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
+                      {(isEditingData ? editForm.items : selectedTransaction.items).map((item, idx) => renderItemRow(item, idx, 'edit'))}
+                      
+                      {/* Denda Row */}
+                      {isEditingData ? (
+                          <div className="bg-red-50 p-3 rounded-xl border border-red-200 flex justify-between items-center">
+                              <div className="font-bold text-red-800 text-sm flex items-center gap-2"><AlertTriangle size={16}/> Denda / Biaya Tambahan</div>
+                              <div className="flex items-center gap-2">
+                                  <span className="text-xs text-red-600 font-bold">Rp</span>
+                                  <input 
+                                    type="number" 
+                                    className="w-24 bg-white border border-red-300 rounded px-2 py-1 text-right font-bold text-red-700 text-sm"
+                                    value={editForm.fineAmount}
+                                    onChange={e => setEditForm({...editForm, fineAmount: Number(e.target.value)})}
+                                  />
+                              </div>
+                          </div>
+                      ) : (
+                          (selectedTransaction.fineAmount || 0) > 0 && (
+                              <div className="bg-red-50 p-3 rounded-xl border border-red-200 flex justify-between items-center">
+                                  <div className="font-bold text-red-800 text-sm flex items-center gap-2"><AlertTriangle size={16}/> Denda Keterlambatan</div>
+                                  <div className="font-black text-red-700">Rp{(selectedTransaction.fineAmount||0).toLocaleString('id-ID')}</div>
+                              </div>
+                          )
+                      )}
+                  </div>
+
+                  {/* TOTAL FOOTER */}
+                  <div className="p-6 bg-white border-t border-gray-200 shadow-up">
+                      <div className="flex justify-between items-end">
+                          <div className="text-sm text-gray-500 font-bold uppercase tracking-wider">Estimasi Total</div>
+                          <div className="text-3xl font-black text-gray-900 tracking-tight">
+                              Rp{isEditingData ? calculateEditTotal().toLocaleString('id-ID') : selectedTransaction.totalPrice.toLocaleString('id-ID')}
+                          </div>
+                      </div>
+                  </div>
+               </div>
+
             </div>
           </div>
         </div>
       )}
 
-      {/* --- NEW FULLSCREEN POS (REDESIGNED) --- */}
+      {/* --- NEW FULLSCREEN POS (RETAINED AS IS) --- */}
       {isCreateModalOpen && (
         <div className="fixed inset-0 z-[60] bg-gray-50 flex flex-col h-screen w-screen overflow-hidden">
            
