@@ -9,6 +9,7 @@ import { AdminDashboard } from './components/AdminDashboard';
 import ProductDetailModal from './components/ProductDetailModal';
 import Toast from './components/Toast'; 
 import ImageLoader from './components/ImageLoader'; 
+import FloatingWhatsApp from './components/FloatingWhatsApp'; // Import Floating WA
 import { PRODUCTS, CATEGORIES as CONSTANT_CATEGORIES } from './constants'; 
 import { CartItem, Product, Category, Transaction } from './types';
 import { getProducts, addProduct, updateProduct, deleteProduct } from './services/productService';
@@ -337,6 +338,9 @@ function App() {
         onAddToCart={addToCart}
         isInCart={viewingProduct ? !!cartItems.find(i => i.id === viewingProduct.id) : false} 
       />
+
+      {/* FLOATING WHATSAPP BUTTON ADDED HERE */}
+      <FloatingWhatsApp />
 
       {/* Hero Section WITH BOOKING WIDGET */}
       <section className="relative min-h-[85vh] flex flex-col items-center justify-center overflow-hidden py-32 group/hero">
