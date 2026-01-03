@@ -20,7 +20,7 @@ const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ products, onAddRecommende
   const [messages, setMessages] = useState<Message[]>([
     { 
       role: 'ai', 
-      content: 'Halo Mas/Mba! Mau naik gunung mana nih? Saya bisa bantu rekomendasikan alat yang cocok buat trip kamu. Ceritain aja rencananya!' 
+      content: 'Halo Bestie! 👋 Mau healing kemana nih? Ceritain aja rencana lo, ntar gue bantuin racik alat tempur yang paling pas biar liburan lo aman jaya!' 
     }
   ]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -72,11 +72,11 @@ const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ products, onAddRecommende
           <div className="bg-white/10 w-16 h-16 rounded-2xl flex items-center justify-center mb-6 backdrop-blur-sm">
             <Sparkles className="text-adventure-500" size={32} />
           </div>
-          <h2 className="text-3xl font-bold mb-4">Mamas AI Guide</h2>
+          <h2 className="text-3xl font-bold mb-4">Tenang Ada Mamas</h2>
           <p className="text-nature-100 mb-6 leading-relaxed">
-            Bingung mau bawa apa ke Gunung Slamet? Atau mau camping ceria di Baturraden tapi takut salah kostum?
+            Mau gas ke Slamet tapi blank harus bawa apa? Atau mau camp ceria di Baturraden tapi takut salah kostum?
             <br/><br/>
-            Tanya asisten pintar kami! Didukung oleh Gemini AI, kami siap bantu list perlengkapanmu.
+            Tanya sini aja! Mamas siap spill list perlengkapan lo detik ini juga. Anti bingung, anti ribet.
           </p>
           <div className="bg-white/10 rounded-xl p-4 text-sm text-nature-100 border border-white/10">
             <p className="font-semibold text-white mb-2">Contoh pertanyaan:</p>
@@ -98,7 +98,7 @@ const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ products, onAddRecommende
                   
                   {/* Avatar */}
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${msg.role === 'ai' ? 'bg-nature-600 text-white' : 'bg-gray-300 text-gray-600'}`}>
-                    {msg.role === 'ai' ? <Bot size={16} /> : <div className="text-xs font-bold">U</div>}
+                    {msg.role === 'ai' ? <Bot size={16} /> : <div className="text-xs font-bold">Kamu</div>}
                   </div>
 
                   {/* Bubble */}
@@ -112,7 +112,7 @@ const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ products, onAddRecommende
                     {/* Recommended Products Quick Add */}
                     {msg.recommendedIds && msg.recommendedIds.length > 0 && (
                       <div className="mt-4 pt-3 border-t border-gray-100">
-                        <p className="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wide">Produk Terkait:</p>
+                        <p className="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wide">Rekomendasi Mamas:</p>
                         <div className="flex flex-wrap gap-2">
                           {msg.recommendedIds.map(recId => {
                             // Mencari produk berdasarkan ID atau Nama (case insensitive)
@@ -148,7 +148,7 @@ const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ products, onAddRecommende
                    </div>
                    <div className="bg-white p-4 rounded-2xl rounded-tl-none border border-gray-100 shadow-sm flex items-center gap-2 text-gray-500 text-sm">
                      <Loader2 className="animate-spin" size={16} />
-                     <span>Sedang mengetik...</span>
+                     <span>Mamas lagi ngetik...</span>
                    </div>
                  </div>
               </div>
@@ -164,7 +164,7 @@ const GeminiAdvisor: React.FC<GeminiAdvisorProps> = ({ products, onAddRecommende
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={handleKeyPress}
-                placeholder="Tulis pertanyaanmu disini..." 
+                placeholder="Mau nanya apa? Ketik sini..." 
                 className="w-full pl-4 pr-12 py-3 bg-gray-100 rounded-xl border-transparent focus:bg-white focus:border-nature-500 focus:ring-2 focus:ring-nature-200 outline-none transition text-sm text-gray-800"
                 disabled={isLoading}
               />
