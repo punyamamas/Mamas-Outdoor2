@@ -14,7 +14,7 @@ import { CartItem, Product, Category, Transaction } from './types';
 import { getProducts, addProduct, updateProduct, deleteProduct } from './services/productService';
 import { getCategories, addCategory, updateCategory, deleteCategory } from './services/categoryService';
 import { getActiveTransactions } from './services/transactionService'; 
-import { MapPin, Star, Plus, Check, School, Github, Loader2, Flame, Lock, Calendar, Users, ArrowRight as ArrowIcon, ChevronDown, ShieldCheck, Zap, ShoppingCart, Info, Weight, Tent, Wind, ArrowUpDown, Search, XCircle, ShoppingBag, ClipboardList, MessageCircle, Truck, CalendarCheck, CalendarDays, Clock, Handshake, FileText } from 'lucide-react';
+import { MapPin, Star, Plus, Check, School, Github, Loader2, Flame, Lock, Calendar, Users, ArrowRight as ArrowIcon, ChevronDown, ShieldCheck, Zap, ShoppingCart, Info, Weight, Tent, Wind, ArrowUpDown, Search, XCircle, ShoppingBag, ClipboardList, MessageCircle, Truck, CalendarCheck, CalendarDays, Clock, Handshake, FileText, ExternalLink } from 'lucide-react';
 
 function App() {
   const [currentPage, setCurrentPage] = useState<'home' | 'admin'>('home');
@@ -665,7 +665,7 @@ function App() {
       </section>
       
       {/* SPONSORSHIP PORTFOLIO SECTION (NEW) */}
-      <section id="event" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+      <section id="event" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 bg-white">
          <div className="mb-12 text-center">
           <span className="text-nature-600 font-bold tracking-widest uppercase text-sm mb-2 block">Jejak Langkah Kami</span>
           <h2 className="text-3xl md:text-4xl font-black text-gray-900">Portofolio Sponsorship</h2>
@@ -731,12 +731,12 @@ function App() {
         </div>
 
         {/* Call to Action Sponsorship */}
-        <div className="mt-16 bg-white rounded-3xl p-8 md:p-12 border border-nature-200 shadow-xl relative overflow-hidden group">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-nature-100 rounded-full blur-3xl -mr-16 -mt-16 opacity-50 group-hover:scale-110 transition duration-700"></div>
+        <div className="mt-16 bg-nature-50 rounded-3xl p-8 md:p-12 border border-nature-100 relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-nature-200 rounded-full blur-3xl -mr-16 -mt-16 opacity-50 group-hover:scale-110 transition duration-700"></div>
             
             <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8 text-center md:text-left">
                 <div className="max-w-xl">
-                    <div className="inline-flex items-center gap-2 text-nature-600 font-bold bg-nature-50 px-3 py-1 rounded-full text-xs mb-4 border border-nature-100">
+                    <div className="inline-flex items-center gap-2 text-nature-600 font-bold bg-white px-3 py-1 rounded-full text-xs mb-4 border border-nature-100 shadow-sm">
                         <Handshake size={14} /> Open Collaboration
                     </div>
                     <h3 className="text-2xl md:text-3xl font-black text-gray-900 mb-3">Bikin Event Outdoor?</h3>
