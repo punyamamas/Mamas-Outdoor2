@@ -10,7 +10,7 @@ import { AdminDashboard } from './components/AdminDashboard';
 import FloatingWhatsApp from './components/FloatingWhatsApp';
 import ImageLoader from './components/ImageLoader';
 import Toast from './components/Toast'; 
-import MobileBottomNav from './components/MobileBottomNav'; // Import Bottom Nav
+import MobileBottomNav from './components/MobileBottomNav'; 
 import { Product, Category, CartItem, Transaction } from './types';
 import { getProducts, addProduct, updateProduct, deleteProduct } from './services/productService';
 import { getCategories, addCategory, updateCategory, deleteCategory } from './services/categoryService';
@@ -225,14 +225,31 @@ const App: React.FC = () => {
         />
       </div>
 
-      {/* MOBILE HEADER (Simple) */}
-      <div className="md:hidden fixed top-0 left-0 right-0 bg-white/90 backdrop-blur-md z-50 px-4 py-3 border-b border-gray-100 flex justify-between items-center shadow-sm">
-         <div className="flex items-center gap-2" onClick={() => window.scrollTo({top:0, behavior:'smooth'})}>
-            <img src="https://imgur.com/iC8ycHT.png" alt="Logo" className="w-8 h-8"/>
-            <span className="font-extrabold text-lg text-gray-900">Mamas<span className="text-nature-600">Outdoor</span></span>
-         </div>
-         <div className="flex items-center gap-2">
-            {isAdminMode ? null : <button onClick={() => setIsAdminMode(true)} className="p-1"><Lock size={16} className="text-gray-400"/></button>}
+      {/* MOBILE HEADER (IMPROVED: Shows Selected Date Context) */}
+      <div className="md:hidden fixed top-0 left-0 right-0 bg-white/95 backdrop-blur-md z-50 border-b border-gray-100 shadow-sm transition-all duration-300">
+         <div className="flex justify-between items-center px-4 py-2.5">
+            <div className="flex items-center gap-2" onClick={() => window.scrollTo({top:0, behavior:'smooth'})}>
+                <img src="https://imgur.com/iC8ycHT.png" alt="Logo" className="w-8 h-8"/>
+                <div>
+                    <span className="font-extrabold text-base text-gray-900 leading-none block">Mamas<span className="text-nature-600">Outdoor</span></span>
+                    {/* Booking Context Indicator */}
+                    <div className="flex items-center gap-1 text-[10px] text-gray-500 font-medium leading-none mt-0.5">
+                        <CalendarDays size={10} className="text-nature-600"/>
+                        <span>Sewa: {new Date(checkDate).toLocaleDateString('id-ID', {day:'numeric', month:'short'})} ({checkDuration} Hari)</span>
+                    </div>
+                </div>
+            </div>
+            <div className="flex items-center gap-2">
+                {isAdminMode ? null : (
+                    <button 
+                        onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} // Scroll to Hero to change date
+                        className="bg-gray-100 text-gray-600 px-3 py-1.5 rounded-full text-[10px] font-bold flex items-center gap-1 border border-gray-200"
+                    >
+                        <Clock size={12}/> Ganti Tgl
+                    </button>
+                )}
+                {isAdminMode ? null : <button onClick={() => setIsAdminMode(true)} className="p-1"><Lock size={16} className="text-gray-300"/></button>}
+            </div>
          </div>
       </div>
 
@@ -325,7 +342,7 @@ const App: React.FC = () => {
       </section>
 
       {/* Catalog Section */}
-      <section id="katalog" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-20 bg-white">
+      <section id="katalog" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-20 bg-white min-h-screen">
         <div className="flex flex-col md:flex-row justify-between items-end mb-6 md:mb-10 gap-4 md:gap-6">
           <div className="w-full md:w-auto">
             <span className="text-nature-600 font-black tracking-widest uppercase text-xs md:text-sm mb-2 block">KATALOG ALAT</span>
@@ -348,23 +365,28 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        {/* REPLACEMENT: CATEGORY PILLS (Horizontal Scroll) */}
-        <div className="mb-6 md:mb-8 -mx-4 px-4 md:mx-0 md:px-0 overflow-x-auto no-scrollbar pb-2">
-            <div className="flex gap-2 w-max">
-                {categoryPills.map(cat => (
-                    <button
-                        key={cat}
-                        onClick={() => setActiveCategory(cat)}
-                        className={`
-                            px-4 py-2 rounded-full text-xs md:text-sm font-bold whitespace-nowrap transition-all
-                            ${activeCategory === cat 
-                                ? 'bg-nature-600 text-white shadow-md shadow-nature-200 scale-105' 
-                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200'}
-                        `}
-                    >
-                        {cat}
-                    </button>
-                ))}
+        {/* STICKY CATEGORY PILLS (IMPROVED) */}
+        <div className="sticky top-[53px] md:static z-40 bg-white/95 backdrop-blur-sm -mx-4 px-4 md:mx-0 md:px-0 py-3 mb-6 shadow-sm md:shadow-none border-b border-gray-100 md:border-none">
+            <div className="overflow-x-auto no-scrollbar">
+                <div className="flex gap-2 w-max">
+                    {categoryPills.map(cat => (
+                        <button
+                            key={cat}
+                            onClick={() => {
+                                setActiveCategory(cat);
+                                window.scrollTo({ top: document.getElementById('katalog')?.offsetTop ? document.getElementById('katalog')!.offsetTop - 120 : 0, behavior: 'smooth' });
+                            }}
+                            className={`
+                                px-4 py-2 rounded-full text-xs md:text-sm font-bold whitespace-nowrap transition-all
+                                ${activeCategory === cat 
+                                    ? 'bg-nature-600 text-white shadow-md shadow-nature-200 scale-105' 
+                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200'}
+                            `}
+                        >
+                            {cat}
+                        </button>
+                    ))}
+                </div>
             </div>
         </div>
 

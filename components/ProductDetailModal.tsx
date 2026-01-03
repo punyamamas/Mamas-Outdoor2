@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, ShoppingCart, Check, PackageOpen, Palette, Scissors, Clock, MessageSquare, BadgeCheck, Star, ShoppingBag, Layers, AlertCircle } from 'lucide-react';
+import { X, ShoppingCart, Check, PackageOpen, Palette, Scissors, Clock, MessageSquare, BadgeCheck, Star, ShoppingBag, Layers, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { Product, Review } from '../types';
 import { getReviewsForProduct } from '../services/reviewService';
 import ImageLoader from './ImageLoader';
@@ -26,6 +26,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const [activeTab, setActiveTab] = useState<'details' | 'reviews'>('details');
   const [reviews, setReviews] = useState<Review[]>([]);
   const [isLoadingReviews, setIsLoadingReviews] = useState(false);
+  const [isDescExpanded, setIsDescExpanded] = useState(false);
 
   useEffect(() => {
     if (isOpen && product) {
@@ -33,6 +34,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       setSelectedSize(undefined);
       setSelectedColor(undefined);
       setActiveTab('details');
+      setIsDescExpanded(false);
       
       // Auto-select if only 1 option
       if (product.colors && product.colors.length === 1) setSelectedColor(product.colors[0]);
@@ -116,6 +118,8 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     { day: 7, label: '7 Hari', price: product.price7Days },
   ];
 
+  const isLongDescription = product.description.length > 150;
+
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 md:p-6">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={onClose}></div>
@@ -195,8 +199,18 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
            <div className="flex-1 overflow-y-auto p-5 md:p-8 custom-scrollbar">
               {activeTab === 'details' ? (
                 <>
-                  <div className="prose prose-sm text-gray-600 mb-6 md:mb-8 text-sm leading-relaxed">
-                    <p>{product.description}</p>
+                  <div className="mb-6 md:mb-8">
+                    <div className={`prose prose-sm text-gray-600 text-sm leading-relaxed transition-all ${!isDescExpanded && isLongDescription ? 'line-clamp-3' : ''}`}>
+                      <p>{product.description}</p>
+                    </div>
+                    {isLongDescription && (
+                      <button 
+                        onClick={() => setIsDescExpanded(!isDescExpanded)}
+                        className="text-nature-600 text-xs font-bold mt-1 flex items-center gap-1 hover:text-nature-700"
+                      >
+                        {isDescExpanded ? <>Lihat Lebih Sedikit <ChevronUp size={12}/></> : <>Baca Selengkapnya <ChevronDown size={12}/></>}
+                      </button>
+                    )}
                   </div>
 
                   {/* PACKAGE CONTENTS */}
