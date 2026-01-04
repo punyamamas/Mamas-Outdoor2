@@ -1,0 +1,30 @@
+
+{
+  "name": "Mamas Outdoor Rental",
+  "short_name": "Mamas Outdoor",
+  "description": "Aplikasi sewa alat outdoor premium di Purwokerto khusus untuk mahasiswa dan pegiat alam bebas.",
+  "theme_color": "#DC0000",
+  "background_color": "#ffffff",
+  "display": "standalone",
+  "orientation": "portrait",
+  "scope": "/",
+  "start_url": "/",
+  "icons": [
+    {
+      "src": "https://imgur.com/iC8ycHT.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://imgur.com/iC8ycHT.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "https://imgur.com/iC8ycHT.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -11,37 +11,10 @@ export default defineConfig(({ mode }) => {
       react(),
       VitePWA({
         registerType: 'autoUpdate',
-        includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
-        manifest: {
-          name: 'Mamas Outdoor Rental',
-          short_name: 'Mamas Outdoor',
-          description: 'Aplikasi Sewa Alat Outdoor & Camping Purwokerto',
-          theme_color: '#DC0000',
-          background_color: '#ffffff',
-          display: 'standalone',
-          orientation: 'portrait',
-          start_url: '/',
-          icons: [
-            {
-              src: 'https://imgur.com/iC8ycHT.png',
-              sizes: '192x192',
-              type: 'image/png'
-            },
-            {
-              src: 'https://imgur.com/iC8ycHT.png',
-              sizes: '512x512',
-              type: 'image/png'
-            },
-            {
-              src: 'https://imgur.com/iC8ycHT.png',
-              sizes: '512x512',
-              type: 'image/png',
-              purpose: 'any maskable'
-            }
-          ]
-        },
+        manifest: false, // Kita menggunakan public/manifest.json manual
+        includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg', 'manifest.json'],
         workbox: {
-          globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+          globPatterns: ['**/*.{js,css,html,ico,png,svg,json}'],
           runtimeCaching: [
             {
               urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
