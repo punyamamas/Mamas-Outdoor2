@@ -8,7 +8,7 @@
   "display": "standalone",
   "orientation": "portrait",
   "scope": "/",
-  "start_url": "/",
+  "start_url": "https://mamas-outdoor.vercel.app/",
   "icons": [
     {
       "src": "https://placehold.co/512x512/DC0000/FFFFFF/png?text=Mamas+Outdoor",
