@@ -42,7 +42,7 @@ const Navbar: React.FC<NavbarProps> = ({ cartCount, onOpenCart, onToggleMobileMe
               {/* IMAGE LOGO REPLACEMENT */}
               <div className="relative">
                 <img 
-                  src="https://imgur.com/iC8ycHT.png" 
+                  src="https://imgur.com/dxw0vio.png" 
                   alt="Mamas Outdoor Logo" 
                   className="w-10 h-10 object-contain drop-shadow-sm group-hover:scale-110 transition-transform duration-300"
                 />

@@ -120,7 +120,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           if (document.hidden && Notification.permission === "granted") {
              new Notification("🔔 Orderan Baru Masuk!", {
                 body: `Pelanggan: ${newTrx.customer_name}\nTotal: Rp${(newTrx.total_price||0).toLocaleString('id-ID')}`,
-                icon: 'https://imgur.com/iC8ycHT.png'
+                icon: 'https://imgur.com/dxw0vio.png'
              });
           }
 
@@ -345,7 +345,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </h1>
           <div className="flex items-center gap-4">
              <div className="hidden md:flex items-center gap-2 text-xs font-medium text-gray-500 bg-gray-100 px-3 py-1.5 rounded-full">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <div className="w-2 h-2 bg-green-50 rounded-full animate-pulse"></div>
                 Admin Session Active
              </div>
              <button onClick={handleRefreshData} disabled={isRefreshing} className="p-2 text-gray-500 hover:text-nature-600 hover:bg-gray-100 rounded-lg transition disabled:animate-spin" title="Refresh Data">

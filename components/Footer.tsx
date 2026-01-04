@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { MapPin, Phone, Instagram, Facebook, Mail, Clock, Mountain } from 'lucide-react';
 import { getStoreConfig } from '../utils/storeConfig';
@@ -13,7 +14,7 @@ const Footer: React.FC = () => {
           {/* Brand Info */}
           <div className="space-y-4">
             <div className="flex items-center gap-2 mb-2">
-              <img src="https://imgur.com/iC8ycHT.png" alt="Logo" className="w-8 h-8 grayscale brightness-200" />
+              <img src="https://imgur.com/dxw0vio.png" alt="Logo" className="w-8 h-8 grayscale brightness-200" />
               <span className="text-xl font-black tracking-tight text-white">Mamas<span className="text-nature-500">Outdoor</span></span>
             </div>
             <p className="text-gray-400 text-sm leading-relaxed">
