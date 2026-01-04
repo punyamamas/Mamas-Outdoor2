@@ -1,20 +1,46 @@
-
 {
-  "name": "Mamas Outdoor Rental",
+  "name": "Mamas Outdoor Purwokerto",
   "short_name": "Mamas Outdoor",
-  "description": "Aplikasi sewa alat outdoor premium di Purwokerto khusus untuk mahasiswa dan pegiat alam bebas.",
+  "description": "Sewa alat camping dan outdoor lengkap di Purwokerto. Murah, bersih, dan dekat UNSOED.",
   "theme_color": "#DC0000",
   "background_color": "#ffffff",
   "display": "standalone",
   "orientation": "portrait",
+  "id": "/",
   "scope": "/",
-  "start_url": "https://mamas-outdoor.vercel.app/",
+  "start_url": "/?utm_source=pwa",
   "icons": [
     {
-      "src": "https://placehold.co/512x512/DC0000/FFFFFF/png?text=Mamas+Outdoor",
+      "src": "https://imgur.com/dxw0vio.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://imgur.com/dxw0vio.png",
       "sizes": "512x512",
       "type": "image/png"
-      "purpose": "any maskable"
     },
+    {
+      "src": "https://imgur.com/dxw0vio.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?ixlib=rb-1.2.1&auto=format&fit=crop&w=1950&q=80",
+      "sizes": "1950x1300",
+      "type": "image/jpeg",
+      "form_factor": "wide",
+      "label": "Beranda Mamas Outdoor"
+    },
+    {
+      "src": "https://images.unsplash.com/photo-1478131143081-80f7f84ca84d?ixlib=rb-1.2.1&auto=format&fit=crop&w=1080&q=80",
+      "sizes": "1080x1920",
+      "type": "image/jpeg",
+      "form_factor": "narrow",
+      "label": "Katalog Alat Lengkap"
+    }
   ]
 }
