@@ -245,7 +245,7 @@ const App: React.FC = () => {
       <div className="md:hidden fixed top-0 left-0 right-0 bg-white/95 backdrop-blur-md z-50 border-b border-gray-100 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] transition-all duration-300 h-[60px] flex items-center">
          <div className="flex justify-between items-center w-full px-4">
             <div className="flex items-center gap-2" onClick={() => window.scrollTo({top:0, behavior:'smooth'})}>
-                <img src="https://imgur.com/iC8ycHT.png" alt="Logo" className="w-8 h-8 object-contain"/>
+                <img src="https://image2url.com/r2/default/images/1767518643928-dd5a63dc-ddb0-4fdf-85e9-084b12f9c036.png" alt="Logo" className="w-8 h-8 object-contain"/>
                 <div>
                     <span className="font-extrabold text-base text-gray-900 leading-none block">Mamas<span className="text-nature-600">Outdoor</span></span>
                     <div className="flex items-center gap-1 text-[10px] text-gray-500 font-medium leading-none mt-0.5">
