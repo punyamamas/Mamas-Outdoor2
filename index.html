@@ -5,10 +5,15 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     
+    <!-- PWA MANIFEST LINK -->
+    <link rel="manifest" href="/manifest.webmanifest">
+    
     <!-- BRANDING & ICONS -->
     <link rel="icon" type="image/png" href="https://imgur.com/iC8ycHT.png" />
     <link rel="apple-touch-icon" href="https://imgur.com/iC8ycHT.png" />
     <meta name="theme-color" content="#DC0000" />
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
     <!-- SEO UTAMA -->
     <title>Mamas Outdoor - Sewa Alat Camping Purwokerto & Rental Outdoor UNSOED</title>
@@ -23,7 +28,7 @@
     <meta name="author" content="Mamas Outdoor">
     <meta name="robots" content="index, follow">
 
-    <!-- OPEN GRAPH (Agar link bagus saat dishare di WA/FB) -->
+    <!-- OPEN GRAPH -->
     <meta property="og:type" content="business.business">
     <meta property="og:title" content="Mamas Outdoor - Rental Alat Camping Purwokerto">
     <meta property="og:description" content="Partner nanjak paling asik se-Purwokerto. Alat lengkap, harga mahasiswa, lokasi dekat UNSOED.">
@@ -31,7 +36,7 @@
     <meta property="og:url" content="https://mamas-outdoor.vercel.app">
     <meta property="og:site_name" content="Mamas Outdoor">
 
-    <!-- STRUCTURED DATA (Agar Google mengenali ini sebagai Bisnis Lokal & Website Resmi) -->
+    <!-- STRUCTURED DATA -->
     <script type="application/ld+json">
     [
       {
@@ -98,7 +103,7 @@
                 300: '#FCA5A5',
                 400: '#F87171',
                 500: '#EF4444',
-                600: '#DC0000', // PRIMARY BRAND COLOR (Red Mamas)
+                600: '#DC0000', 
                 700: '#B91C1C',
                 800: '#991B1B',
                 900: '#7F1D1D',
@@ -151,7 +156,6 @@
       body {
         font-family: 'Plus Jakarta Sans', sans-serif;
         background-color: #F8FAFC;
-        /* Prevent bounce on iOS safari */
         overscroll-behavior-y: none;
       }
       ::selection {
@@ -172,7 +176,6 @@
         background: #7F1D1D; 
       }
       
-      /* MOBILE UX UTILITIES */
       .pb-safe {
         padding-bottom: env(safe-area-inset-bottom);
       }
@@ -180,10 +183,9 @@
         display: none;
       }
       .no-scrollbar {
-        -ms-overflow-style: none;  /* IE and Edge */
-        scrollbar-width: none;  /* Firefox */
+        -ms-overflow-style: none;
+        scrollbar-width: none;
       }
-      /* Prevent iOS input zoom */
       @media screen and (max-width: 768px) {
         input, select, textarea {
           font-size: 16px !important;
@@ -203,7 +205,8 @@
     "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
     "html2canvas": "https://esm.sh/html2canvas@1.4.1",
     "qrcode": "https://esm.sh/qrcode@1.5.3",
-    "html5-qrcode": "https://esm.sh/html5-qrcode@2.3.8"
+    "html5-qrcode": "https://esm.sh/html5-qrcode@2.3.8",
+    "vite-plugin-pwa": "https://esm.sh/vite-plugin-pwa@^0.19.2"
   }
 }
 </script>
