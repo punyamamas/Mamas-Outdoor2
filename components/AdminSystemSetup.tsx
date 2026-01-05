@@ -1,10 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
-import { Database, HardDrive, Check, Copy, Terminal, Shield, AlertTriangle, RefreshCw, Settings, Save, Clock, Printer, Bluetooth, Bot, Zap, Server, BellRing, PlayCircle, UserCheck, UserPlus } from 'lucide-react';
+import { Database, HardDrive, Check, Copy, Terminal, Shield, AlertTriangle, RefreshCw, Settings, Save, Clock, Printer, Bluetooth, Bot, Zap, Server, BellRing, PlayCircle, UserCheck, UserPlus, Key } from 'lucide-react';
 import { getStoreConfig, saveStoreConfig, DEFAULT_CONFIG } from '../utils/storeConfig';
 import { StoreConfig } from '../types';
 import { connectPrinter, printTestPage, getPrinterStatus, disconnectPrinter } from '../services/bluetoothPrinterService';
-import { playNotificationSound } from '../services/audioService'; // IMPORT AUDIO SERVICE
+import { playNotificationSound } from '../services/audioService';
+import { getCurrentUser, getUserRole } from '../services/authService';
 
 const AdminSystemSetup: React.FC = () => {
   const [activeSubTab, setActiveSubTab] = useState<'config' | 'database' | 'hardware' | 'automation'>('config');
@@ -20,10 +21,25 @@ const AdminSystemSetup: React.FC = () => {
   // Role Generator State
   const [newRoleEmail, setNewRoleEmail] = useState('');
   const [newRoleType, setNewRoleType] = useState('staff');
+  
+  // Current User State
+  const [currentUserEmail, setCurrentUserEmail] = useState('');
+  const [currentUserRole, setCurrentUserRole] = useState('');
 
   useEffect(() => {
     setConfig(getStoreConfig());
     setIsPrinterConnected(getPrinterStatus());
+    
+    // Get Current User Info
+    const fetchUser = async () => {
+        const user = await getCurrentUser();
+        if (user && user.email) {
+            setCurrentUserEmail(user.email);
+            const role = await getUserRole(user.email);
+            setCurrentUserRole(role);
+        }
+    };
+    fetchUser();
   }, []);
 
   const handleSaveConfig = (e: React.FormEvent) => {
@@ -49,26 +65,22 @@ const AdminSystemSetup: React.FC = () => {
       setIsPrinterConnected(false);
   };
 
-  // NEW: TEST NOTIFICATION FUNCTION (Mobile Friendly Fix)
+  // NEW: TEST NOTIFICATION FUNCTION
   const handleTestNotification = async () => {
-    // 1. Cek Permission
     if (Notification.permission !== 'granted') {
         const permission = await Notification.requestPermission();
         if (permission !== 'granted') {
-            return alert("❌ Izin notifikasi ditolak oleh Browser/HP.\n\nSilakan buka Pengaturan HP > Aplikasi > Mamas Outdoor > Notifikasi > ON.");
+            return alert("❌ Izin notifikasi ditolak oleh Browser/HP.");
         }
     }
 
-    // 2. Play Sound (Priority - Menggunakan Web Audio API)
     try {
         playNotificationSound();
     } catch (e) {
         console.error("Audio error:", e);
     }
 
-    // 3. Show System Notification (Safe Logic for Mobile)
     const title = "🔔 Cek Suara Ting!";
-    // Use 'any' to avoid TS error: 'vibrate' does not exist in type 'NotificationOptions'
     const options: any = {
         body: "Jika Anda mendengar suara, sistem berjalan normal!",
         icon: 'https://image2url.com/r2/default/images/1767518643928-dd5a63dc-ddb0-4fdf-85e9-084b12f9c036.png',
@@ -77,8 +89,6 @@ const AdminSystemSetup: React.FC = () => {
     };
 
     try {
-        // ANDROID CHROME FIX: Gunakan ServiceWorker jika tersedia
-        // Ini menghindari error "Illegal constructor" pada new Notification() di Android
         if ('serviceWorker' in navigator) {
             const registration = await navigator.serviceWorker.ready;
             if (registration && registration.showNotification) {
@@ -86,13 +96,8 @@ const AdminSystemSetup: React.FC = () => {
                 return; 
             }
         }
-        
-        // Fallback untuk Desktop/iOS atau jika SW belum ready
         new Notification(title, options);
-        
     } catch (e: any) {
-        // SILENT CATCH: Jangan alert error visual di HP agar tidak mengganggu user
-        // Yang terpenting suara notifikasi (step 2) sudah berbunyi
         console.warn("Visual notification skipped on this device:", e.message);
     }
   };
@@ -100,6 +105,10 @@ const AdminSystemSetup: React.FC = () => {
   // Generate Role SQL dynamically
   const generatedRoleSQL = `insert into public.user_roles (email, role)
 values ('${newRoleEmail || 'email@karyawan.com'}', '${newRoleType}');`;
+
+  const promoteSelfSQL = `insert into public.user_roles (email, role)
+values ('${currentUserEmail}', 'super_admin')
+on conflict (email) do update set role = 'super_admin';`;
 
 // BAGIAN 7: USER ROLES (RBAC)
 const userRolesSQL = `-- BAGIAN 7: User Roles (RBAC)
@@ -115,10 +124,6 @@ alter table public.user_roles enable row level security;
 -- Policy: Allow read for authenticated users (to check their own role)
 drop policy if exists "Read User Roles" on public.user_roles;
 create policy "Read User Roles" on public.user_roles for select using (auth.role() = 'authenticated');
-
--- Policy: Only Super Admin can manage roles (Manual Insert via SQL Editor initially)
--- Note: Insert data awal manual di SQL Editor Supabase:
--- insert into public.user_roles (email, role) values ('admin@mamas.com', 'super_admin');
 `;
 
   // SQL Stock Logs
@@ -138,11 +143,9 @@ create table if not exists public.stock_logs (
 
 alter table public.stock_logs enable row level security;
 
--- POLICY: Public boleh Insert (untuk log otomatis saat checkout)
 drop policy if exists "Public Insert Stock Log" on public.stock_logs;
 create policy "Public Insert Stock Log" on public.stock_logs for insert with check (true);
 
--- POLICY: Admin boleh Select, Update & Delete (untuk audit)
 drop policy if exists "Admin Select Stock Log" on public.stock_logs;
 create policy "Admin Select Stock Log" on public.stock_logs for select using (auth.role() = 'authenticated');
 
@@ -358,9 +361,6 @@ create policy "Public Insert" on storage.objects for insert with check (
   bucket_id in ('payment_proofs', 'product_images')
 );`;
 
-// BAGIAN 6: CRON JOB SCRIPT (SUPABASE EDGE FUNCTION)
-const cronJobScript = `// ... (Script sama seperti sebelumnya) ...`;
-
   return (
     <div className="space-y-6 pb-10">
       
@@ -573,7 +573,7 @@ const cronJobScript = `// ... (Script sama seperti sebelumnya) ...`;
                     </div>
                     <div>
                         <h3 className="text-xl font-bold text-gray-900">Konfigurasi Database (SQL)</h3>
-                        <p className="text-sm text-gray-500">Salin skrip SQL di bawah dan jalankan di SQL Editor Supabase untuk membuat tabel yang dibutuhkan.</p>
+                        <p className="text-sm text-gray-500">Salin skrip SQL di bawah dan jalankan di SQL Editor Supabase.</p>
                     </div>
                 </div>
 
@@ -595,13 +595,30 @@ const cronJobScript = `// ... (Script sama seperti sebelumnya) ...`;
 
                     {/* BAGIAN 7: USER ROLES (NEW) & GENERATOR */}
                     <div className="border border-gray-200 rounded-xl overflow-hidden border-l-4 border-l-blue-500">
-                        <div className="bg-blue-50 px-4 py-3 border-b border-gray-200">
-                            <h4 className="text-sm font-bold text-blue-800 flex items-center gap-2"><UserCheck size={16}/> Tabel User Roles (Wajib untuk Akses Staff)</h4>
+                        <div className="bg-blue-50 px-4 py-3 border-b border-gray-200 flex justify-between items-center">
+                            <h4 className="text-sm font-bold text-blue-800 flex items-center gap-2"><UserCheck size={16}/> Manajemen Akses Role</h4>
+                            <div className="text-[10px] bg-white px-2 py-1 rounded font-mono text-blue-600 border border-blue-200">
+                                Current: <span className="font-bold">{currentUserRole.toUpperCase()}</span>
+                            </div>
                         </div>
                         
-                        {/* HELPER GENERATOR */}
+                        {/* MY ACCESS & PROMOTE */}
                         <div className="p-4 bg-white border-b border-gray-200">
-                            <h5 className="text-xs font-bold text-gray-600 mb-3 flex items-center gap-2"><UserPlus size={14}/> Generator Akses User</h5>
+                            <h5 className="text-xs font-bold text-gray-600 mb-3 flex items-center gap-2"><Key size={14}/> Akses Saya (Emergency Promote)</h5>
+                            <div className="bg-yellow-50 border border-yellow-200 p-3 rounded-lg flex items-center justify-between mb-4">
+                                <div className="text-xs text-yellow-800">
+                                    <p>Email: <strong>{currentUserEmail}</strong></p>
+                                    <p className="mt-1">Ingin menjadikan akun ini <strong>Super Admin</strong>?</p>
+                                </div>
+                                <button onClick={() => copyToClipboard(promoteSelfSQL, 'promote')} className="bg-yellow-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-yellow-700 shadow-sm">
+                                    {copiedSection === 'promote' ? 'SQL Disalin!' : 'Copy Script Promote'}
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* HELPER GENERATOR */}
+                        <div className="p-4 bg-gray-50 border-b border-gray-200">
+                            <h5 className="text-xs font-bold text-gray-600 mb-3 flex items-center gap-2"><UserPlus size={14}/> Generator Akses Karyawan</h5>
                             <div className="flex flex-col md:flex-row gap-3 items-end">
                                 <div className="flex-1 w-full">
                                     <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Email User</label>
@@ -629,9 +646,6 @@ const cronJobScript = `// ... (Script sama seperti sebelumnya) ...`;
                                     {copiedSection === 'gen_role' ? 'Disalin!' : 'Copy Script'}
                                 </button>
                             </div>
-                            <p className="text-[10px] text-gray-400 mt-2">
-                                Copy script di atas lalu jalankan di Supabase SQL Editor untuk menambah akses login.
-                            </p>
                         </div>
 
                         <div className="bg-blue-50 px-4 py-2 border-t border-gray-200 flex justify-between items-center">
