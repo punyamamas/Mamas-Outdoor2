@@ -92,7 +92,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     checkSession();
   }, []);
 
-  // REALTIME LISTENER FOR NEW ORDERS (Visual Only - No Sound)
+  // REALTIME LISTENER FOR NEW ORDERS (Visual + Audio)
   useEffect(() => {
     if (!isAuthenticated || !supabase) return;
 
@@ -113,18 +113,31 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         async (payload) => {
           const newTrx = payload.new;
           
-          // 1. Show In-App Alert (Popup Visual)
+          // 1. Play Sound "Ting!"
+          try {
+            // URL suara notifikasi pendek (Ding Sound)
+            const audio = new Audio('https://cdn.pixabay.com/download/audio/2022/03/24/audio_c8c8a73467.mp3?filename=ding-36029.mp3');
+            await audio.play();
+          } catch (err) {
+            console.warn("Autoplay blocked by browser. Interact with document first.", err);
+          }
+
+          // 2. Show In-App Alert (Popup Visual)
           setNewOrderAlert(newTrx);
 
-          // 2. Show System Notification (jika tab tidak aktif)
+          // 3. Show System Notification (jika tab tidak aktif / background)
           if (document.hidden && Notification.permission === "granted") {
+             // Coba getar di HP (Vibrate)
+             if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+             
              new Notification("🔔 Orderan Baru Masuk!", {
                 body: `Pelanggan: ${newTrx.customer_name}\nTotal: Rp${(newTrx.total_price||0).toLocaleString('id-ID')}`,
-                icon: 'https://imgur.com/dxw0vio.png'
+                icon: 'https://image2url.com/r2/default/images/1767518643928-dd5a63dc-ddb0-4fdf-85e9-084b12f9c036.png',
+                tag: 'new-order'
              });
           }
 
-          // 3. Auto Refresh Data
+          // 4. Auto Refresh Data
           handleRefreshData(); 
         }
       )
