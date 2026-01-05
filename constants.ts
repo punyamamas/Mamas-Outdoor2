@@ -162,4 +162,4 @@ export const CATEGORIES = [
   'Koper'
 ];
 
-export const WA_NUMBER = '6281234567890'; // Ganti dengan nomor Admin Mamas Outdoor
+export const WA_NUMBER = '6285137411145'; // Nomor Admin Mamas Outdoor (Grendeng)

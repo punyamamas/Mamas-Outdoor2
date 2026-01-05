@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { X, Trash2, Calendar, Phone, User, ArrowRight, AlertCircle, Loader2, Clock, CreditCard, Banknote, MapPin, LocateFixed, Layers, Upload, Image as ImageIcon, CheckCircle } from 'lucide-react';
+import { X, Trash2, Calendar, Phone, User, ArrowRight, AlertCircle, Loader2, Clock, CreditCard, Banknote, MapPin, LocateFixed, Layers, Upload, Image as ImageIcon, CheckCircle, GraduationCap, Briefcase } from 'lucide-react';
 import { CartItem, UserDetails, Transaction, Product } from '../types';
 import { processStockReduction } from '../services/productService';
 import { createTransaction, uploadPaymentProof } from '../services/transactionService';
@@ -33,6 +33,7 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
   const [isLocating, setIsLocating] = useState(false);
   
   const [proofFile, setProofFile] = useState<File | null>(null);
+  const [customerType, setCustomerType] = useState<'mahasiswa' | 'umum'>('mahasiswa');
   
   const [userDetails, setUserDetails] = useState<UserDetails>({
     name: '',
@@ -208,9 +209,11 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
       const dpAmount = Math.ceil(total * 0.5); 
       const remainingAmount = total - dpAmount;
       const trxIdShort = createdTrx.id.slice(0, 8); 
-
+      
+      // WhatsApp Message Formatting
+      const customerStatusLabel = customerType === 'mahasiswa' ? 'Mahasiswa/Pelajar' : 'Umum';
       const header = `*Halo ${storeConfig.storeName}! Saya mau sewa/beli dong.*\n*(Order ID: #${trxIdShort})*\n\n`;
-      const buyerInfo = `*Data Pelanggan:*\nNama: ${userDetails.name}\nWA: ${userDetails.whatsapp}\nDomisili: ${userDetails.location || '-'}\n\n*Detail Order:*\nAmbil: ${userDetails.rentalDate}\nDurasi Sewa: ${userDetails.duration} Hari\nKembali (Utk Sewa): ${returnDateFormatted}\n\n`;
+      const buyerInfo = `*Data Pelanggan:*\nNama: ${userDetails.name}\nStatus: ${customerStatusLabel}\nWA: ${userDetails.whatsapp}\nDomisili: ${userDetails.location || '-'}\n\n*Detail Order:*\nAmbil: ${userDetails.rentalDate}\nDurasi Sewa: ${userDetails.duration} Hari\nKembali (Utk Sewa): ${returnDateFormatted}\n\n`;
       
       const itemsList = cartItems.map((item, idx) => {
         const priceForDuration = getItemPriceForDuration(item, userDetails.duration);
@@ -238,6 +241,14 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
 
       } else {
         footer += `\n*Metode Bayar: Cash di Outlet*`;
+      }
+      
+      // Jaminan Reminder in WA
+      footer += `\n\n*Catatan Jaminan:*`;
+      if (customerType === 'mahasiswa') {
+          footer += `\nSaya akan membawa KTM/Kartu Pelajar Asli saat pengambilan.`;
+      } else {
+          footer += `\nSaya akan membawa KTP Asli + Jaminan Lain (KTP ke-2 / Uang) saat pengambilan.`;
       }
       
       const fullMessage = encodeURIComponent(header + buyerInfo + "*List Barang:*\n" + itemsList + footer);
@@ -397,6 +408,39 @@ const CartDrawer: React.FC<CartDrawerProps> = ({
                     </div>
                     </div>
                 )}
+
+                {/* Status Pelanggan Toggle */}
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Status Penyewa</label>
+                    <div className="grid grid-cols-2 gap-2 bg-gray-100 p-1 rounded-xl">
+                        <button
+                            onClick={() => setCustomerType('mahasiswa')}
+                            className={`flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition-all ${
+                                customerType === 'mahasiswa' 
+                                    ? 'bg-white text-nature-700 shadow-sm' 
+                                    : 'text-gray-500 hover:bg-gray-200'
+                            }`}
+                        >
+                            <GraduationCap size={16}/> Mahasiswa
+                        </button>
+                        <button
+                            onClick={() => setCustomerType('umum')}
+                            className={`flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition-all ${
+                                customerType === 'umum' 
+                                    ? 'bg-white text-blue-700 shadow-sm' 
+                                    : 'text-gray-500 hover:bg-gray-200'
+                            }`}
+                        >
+                            <Briefcase size={16}/> Umum
+                        </button>
+                    </div>
+                    <p className="text-[10px] text-nature-600 mt-1.5 italic flex items-center gap-1">
+                        <AlertCircle size={10}/> 
+                        {customerType === 'mahasiswa' 
+                            ? 'Siapkan KTM Asli saat pengambilan barang.' 
+                            : 'Siapkan KTP + Identitas ke-2 saat pengambilan.'}
+                    </p>
+                </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Nama Lengkap</label>
