@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Tags, Plus, Edit, Trash2, Save, X, Loader2 } from 'lucide-react';
 import { Category } from '../types';
@@ -48,9 +49,9 @@ const AdminCategoryManager: React.FC<AdminCategoryManagerProps> = ({
         </h3>
       </div>
       
-      <div className="p-6">
-        {/* Form Tambah */}
-        <form onSubmit={handleCategoryAdd} className="flex gap-3 mb-8">
+      <div className="p-4 md:p-6">
+        {/* Form Tambah - Responsif */}
+        <form onSubmit={handleCategoryAdd} className="flex flex-col md:flex-row gap-3 mb-8">
           <input 
             type="text" 
             placeholder="Nama Kategori Baru..."
@@ -61,7 +62,7 @@ const AdminCategoryManager: React.FC<AdminCategoryManagerProps> = ({
           <button 
             type="submit"
             disabled={!newCategoryName.trim() || isSubmitting}
-            className="bg-nature-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-nature-700 disabled:opacity-50 transition flex items-center gap-2"
+            className="bg-nature-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-nature-700 disabled:opacity-50 transition flex items-center justify-center gap-2"
           >
             {isSubmitting ? <Loader2 className="animate-spin" size={18}/> : <Plus size={18} />} 
             Tambah

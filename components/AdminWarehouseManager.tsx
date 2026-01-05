@@ -62,13 +62,13 @@ const AdminWarehouseManager: React.FC<AdminWarehouseManagerProps> = ({ products,
   };
 
   const handlePrintStockOpname = () => {
+    // ... (Logika cetak tidak berubah)
     const printWindow = window.open('', '', 'width=800,height=800');
     if (!printWindow) return;
 
     const config = getStoreConfig();
     const dateStr = new Date().toLocaleDateString('id-ID', { weekday:'long', year: 'numeric', month: 'long', day: 'numeric' });
 
-    // Group by Category for printing
     const grouped: Record<string, Product[]> = {};
     products.forEach(p => {
         const c = p.category || 'Lainnya';
@@ -302,19 +302,19 @@ const AdminWarehouseManager: React.FC<AdminWarehouseManagerProps> = ({ products,
          onScanSuccess={handleScanSuccess} 
       />
 
-      {/* Header & Filters */}
-      <div className="p-5 border-b border-gray-100 flex flex-col xl:flex-row justify-between gap-4 bg-nature-50">
-        <div className="flex flex-col md:flex-row items-center gap-3">
-           <h3 className="font-bold text-nature-800 flex items-center gap-2"><FileText size={18} /> Laporan Stok Gudang</h3>
-           <div className="flex gap-2 bg-white p-1 rounded-lg border border-gray-200">
+      {/* Header & Filters - STACKED ON MOBILE */}
+      <div className="p-4 md:p-5 border-b border-gray-100 flex flex-col xl:flex-row justify-between gap-4 bg-nature-50">
+        <div className="flex flex-col md:flex-row items-start md:items-center gap-3">
+           <h3 className="font-bold text-nature-800 flex items-center gap-2"><FileText size={18} /> Stok Gudang</h3>
+           <div className="flex gap-2 bg-white p-1 rounded-lg border border-gray-200 w-full md:w-auto overflow-x-auto">
               {['all', 'rented', 'damaged'].map(f => (
                 <button key={f} onClick={() => setFilter(f as any)} 
-                  className={`px-3 py-1 text-xs font-bold rounded-md transition capitalize ${filter === f ? 'bg-nature-100 text-nature-700' : 'text-gray-500 hover:bg-gray-50'}`}>
-                  {f === 'all' ? 'Semua' : f === 'rented' ? 'Sedang Disewa' : 'Rusak / Maintenance'}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-md transition capitalize whitespace-nowrap ${filter === f ? 'bg-nature-100 text-nature-700' : 'text-gray-500 hover:bg-gray-50'}`}>
+                  {f === 'all' ? 'Semua' : f === 'rented' ? 'Sedang Disewa' : 'Rusak'}
                 </button>
               ))}
            </div>
-           <select value={catFilter} onChange={(e) => setCatFilter(e.target.value)} className="text-xs font-bold p-2 rounded-lg border border-gray-200 outline-none focus:border-nature-500">
+           <select value={catFilter} onChange={(e) => setCatFilter(e.target.value)} className="text-xs font-bold p-2 rounded-lg border border-gray-200 outline-none focus:border-nature-500 w-full md:w-auto">
               <option value="Semua">Semua Kategori</option>
               {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
            </select>
@@ -325,25 +325,53 @@ const AdminWarehouseManager: React.FC<AdminWarehouseManagerProps> = ({ products,
               <input type="text" placeholder="Cari SKU / Nama..." className="pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg w-full focus:ring-2 focus:ring-nature-500 outline-none" 
                 value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
            </div>
-           <button 
-             onClick={() => setIsScannerOpen(true)}
-             className="bg-gray-800 hover:bg-gray-900 text-white p-2 rounded-lg transition shadow-sm"
-             title="Scan QR Barang"
-           >
-             <Camera size={18}/>
-           </button>
-           <button 
-             onClick={handlePrintStockOpname} 
-             className="bg-gray-100 hover:bg-gray-200 text-gray-700 p-2 rounded-lg transition shadow-sm border border-gray-200"
-             title="Cetak Form Stock Opname"
-           >
-             <Printer size={18}/>
-           </button>
+           <button onClick={() => setIsScannerOpen(true)} className="bg-gray-800 hover:bg-gray-900 text-white p-2 rounded-lg transition shadow-sm"><Camera size={18}/></button>
+           <button onClick={handlePrintStockOpname} className="bg-gray-100 hover:bg-gray-200 text-gray-700 p-2 rounded-lg transition shadow-sm border border-gray-200"><Printer size={18}/></button>
         </div>
       </div>
 
-      {/* Table */}
-      <div className="overflow-x-auto min-h-[400px]">
+      {/* MOBILE CARD VIEW */}
+      <div className="md:hidden p-4 space-y-3 bg-gray-50">
+          {filteredProducts.length === 0 ? (
+              <div className="text-center p-8 text-gray-400">Tidak ada barang.</div>
+          ) : (
+              filteredProducts.map(p => (
+                  <div key={p.id} className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                      <div className="flex justify-between items-start mb-2">
+                          <div>
+                              <h4 className="font-bold text-gray-800">{p.name}</h4>
+                              <button onClick={() => handleViewHistory(p)} className="text-xs text-nature-600 flex items-center gap-1 mt-1 font-bold"><History size={12}/> Kartu Stok</button>
+                          </div>
+                          <div className="text-right">
+                              <span className="text-lg font-black text-green-700">{p.stock}</span>
+                              <span className="text-[10px] text-gray-400 block">Ready</span>
+                          </div>
+                      </div>
+                      
+                      <div className="flex gap-2 mb-3">
+                          <div className="flex-1 bg-blue-50 rounded p-2 text-center">
+                              <span className="block text-blue-700 font-bold">{p.rented || 0}</span>
+                              <span className="text-[9px] text-blue-600 uppercase">Sewa</span>
+                          </div>
+                          <div className="flex-1 bg-red-50 rounded p-2 text-center">
+                              <span className="block text-red-600 font-bold">{p.damaged || 0}</span>
+                              <span className="text-[9px] text-red-500 uppercase">Rusak</span>
+                          </div>
+                      </div>
+
+                      <div className="flex gap-2 overflow-x-auto pb-1">
+                            <button onClick={() => openActionModal(p, 'restock')} className="flex-1 py-2 bg-green-50 text-green-700 rounded-lg text-xs font-bold border border-green-100">+ Stok</button>
+                            <button onClick={() => openActionModal(p, 'return')} disabled={(p.rented||0)<=0} className="flex-1 py-2 bg-blue-50 text-blue-700 rounded-lg text-xs font-bold border border-blue-100 disabled:opacity-50">Kembali</button>
+                            <button onClick={() => openActionModal(p, 'damage')} className="flex-1 py-2 bg-red-50 text-red-700 rounded-lg text-xs font-bold border border-red-100">Rusak</button>
+                            <button onClick={() => openActionModal(p, 'repair')} disabled={(p.damaged||0)<=0} className="flex-1 py-2 bg-orange-50 text-orange-700 rounded-lg text-xs font-bold border border-orange-100 disabled:opacity-50">Fix</button>
+                      </div>
+                  </div>
+              ))
+          )}
+      </div>
+
+      {/* DESKTOP TABLE VIEW */}
+      <div className="hidden md:block overflow-x-auto min-h-[400px]">
         <table className="w-full text-left text-sm text-gray-600">
           <thead className="bg-white text-gray-700 font-bold uppercase text-xs border-b border-gray-200">
             <tr>
@@ -420,11 +448,11 @@ const AdminWarehouseManager: React.FC<AdminWarehouseManagerProps> = ({ products,
         </table>
       </div>
 
-      {/* UNIFIED ACTION MODAL */}
+      {/* UNIFIED ACTION MODAL - FIXED WIDTH FOR MOBILE */}
       {isModalOpen && selectedProduct && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}></div>
-           <div className="relative bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-slide-in-right">
+           <div className="relative bg-white rounded-2xl w-full max-w-sm md:max-w-md shadow-2xl overflow-hidden animate-slide-in-right">
               
               {/* Modal Header */}
               <div className={`${getModalColor()} px-6 py-4 flex justify-between items-center text-white`}>
@@ -444,7 +472,7 @@ const AdminWarehouseManager: React.FC<AdminWarehouseManagerProps> = ({ products,
                  {hasVariants && (
                     <div className="mb-4">
                         <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                            Pilih Varian {actionType === 'restock' ? '(Yang Ditambah)' : '(Yang Diproses)'}
+                            Pilih Varian
                         </label>
                         <select 
                             className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm font-bold focus:ring-2 focus:ring-nature-500 outline-none"
@@ -484,13 +512,13 @@ const AdminWarehouseManager: React.FC<AdminWarehouseManagerProps> = ({ products,
                     </div>
                     {qty >= getMaxQty() && actionType !== 'restock' && (
                         <p className="text-xs text-red-500 mt-2 font-bold flex items-center gap-1 justify-center">
-                            <AlertCircle size={12}/> Maksimal jumlah tersedia: {getMaxQty()}
+                            <AlertCircle size={12}/> Maksimal: {getMaxQty()}
                         </p>
                     )}
                  </div>
 
                  <div className="mb-6">
-                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Catatan (Optional)</label>
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Catatan</label>
                     <input 
                         type="text"
                         placeholder="Contoh: Beli di Toko X, Rusak Frame, dll"
@@ -545,20 +573,20 @@ const AdminWarehouseManager: React.FC<AdminWarehouseManagerProps> = ({ products,
                       <table className="w-full text-sm text-left">
                          <thead className="bg-gray-100 text-gray-600 font-bold text-xs sticky top-0">
                             <tr>
-                               <th className="px-6 py-3">Tanggal</th>
-                               <th className="px-6 py-3">Tipe</th>
-                               <th className="px-6 py-3">Ket</th>
-                               <th className="px-6 py-3 text-right">Jumlah</th>
-                               <th className="px-6 py-3 text-right">Saldo Akhir</th>
+                               <th className="px-4 py-3">Tanggal</th>
+                               <th className="px-4 py-3">Tipe</th>
+                               <th className="px-4 py-3">Ket</th>
+                               <th className="px-4 py-3 text-right">Jumlah</th>
+                               <th className="px-4 py-3 text-right">Saldo</th>
                             </tr>
                          </thead>
                          <tbody className="divide-y divide-gray-100">
                             {stockLogs.map((log) => (
                                <tr key={log.id} className="hover:bg-gray-50">
-                                  <td className="px-6 py-3 text-xs text-gray-500 font-mono">
+                                  <td className="px-4 py-3 text-xs text-gray-500 font-mono">
                                      {new Date(log.created_at).toLocaleString('id-ID')}
                                   </td>
-                                  <td className="px-6 py-3">
+                                  <td className="px-4 py-3">
                                      <span className={`text-[10px] font-bold px-2 py-1 rounded border ${
                                         log.type === 'IN' ? 'bg-green-50 text-green-700 border-green-200' :
                                         log.type === 'OUT' ? 'bg-blue-50 text-blue-700 border-blue-200' :
@@ -568,13 +596,13 @@ const AdminWarehouseManager: React.FC<AdminWarehouseManagerProps> = ({ products,
                                         {log.type}
                                      </span>
                                   </td>
-                                  <td className="px-6 py-3 text-gray-700 max-w-xs truncate" title={log.reason}>
+                                  <td className="px-4 py-3 text-gray-700 max-w-xs truncate" title={log.reason}>
                                      {log.reason}
                                   </td>
-                                  <td className={`px-6 py-3 text-right font-bold ${log.type === 'IN' ? 'text-green-600' : 'text-red-500'}`}>
+                                  <td className={`px-4 py-3 text-right font-bold ${log.type === 'IN' ? 'text-green-600' : 'text-red-500'}`}>
                                      {log.type === 'IN' ? '+' : '-'}{log.qty}
                                   </td>
-                                  <td className="px-6 py-3 text-right font-mono font-bold text-gray-800">
+                                  <td className="px-4 py-3 text-right font-mono font-bold text-gray-800">
                                      {log.current_stock}
                                   </td>
                                </tr>

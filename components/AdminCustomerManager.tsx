@@ -106,7 +106,7 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
     return Object.values(customerMap).sort((a, b) => b.totalSpent - a.totalSpent);
   }, [transactions]);
 
-  // 2. MARKET BASKET ANALYSIS LOGIC (New Feature)
+  // 2. MARKET BASKET ANALYSIS LOGIC
   const basketAnalysis = useMemo(() => {
       const pairCounts: Record<string, number> = {};
       const itemCounts: Record<string, number> = {};
@@ -115,8 +115,6 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
       transactions.forEach(t => {
           if(t.status === 'cancelled') return;
           totalTrx++;
-          // Get unique item names in this transaction (avoid self-pairing)
-          // Simple cleaning: remove extra spaces
           const uniqueItems = Array.from(new Set(t.items.map(i => i.name.trim()))) as string[];
 
           // Count Individual Items
@@ -127,7 +125,6 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
           // Count Pairs
           for (let i = 0; i < uniqueItems.length; i++) {
               for (let j = i + 1; j < uniqueItems.length; j++) {
-                  // Sort alphabetically to ensure A|B is same as B|A
                   const pair = [uniqueItems[i], uniqueItems[j]].sort();
                   const key = pair.join('|');
                   pairCounts[key] = (pairCounts[key] || 0) + 1;
@@ -143,19 +140,12 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
               const itemA = String(parts[0]);
               const itemB = String(parts[1]);
               
-              // Confidence Calculation: P(B|A)
-              // Likelihood of buying B if A is bought
               const countA = itemCounts[itemA] || 0;
               const countB = itemCounts[itemB] || 0;
 
               const confAtoB = countA ? (count / countA) * 100 : 0;
               const confBtoA = countB ? (count / countB) * 100 : 0;
 
-              // Determine Driver (Trigger) vs Follower
-              // The Item with HIGHER individual count is usually the "Anchor", 
-              // but higher confidence tells us the direction of strong association.
-              // Let's assume Driver is the one that implies the other most strongly.
-              
               const isStrongerAtoB = confAtoB >= confBtoA;
 
               return {
@@ -165,9 +155,9 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
                   confidence: isStrongerAtoB ? confAtoB : confBtoA
               };
           })
-          .filter(p => p.count > 1) // Filter out single coincidences
-          .sort((a, b) => b.count - a.count) // Sort by frequency first
-          .slice(0, 6); // Top 6
+          .filter(p => p.count > 1) 
+          .sort((a, b) => b.count - a.count) 
+          .slice(0, 6); 
 
       return topPairs;
   }, [transactions]);
@@ -210,7 +200,7 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
       };
   }, [customers]);
 
-  // 5. LOCATION & COHORT LOGIC (Existing)
+  // 5. LOCATION & COHORT LOGIC
   const locationStats = useMemo(() => {
     const stats: Record<string, number> = {};
     let validCount = 0;
@@ -335,7 +325,7 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
   const cohortInsight = getCohortInsight();
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 pb-10">
         
       {/* 1. ANALISIS GEOSPASIAL (HEATMAP) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -409,16 +399,16 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
 
       {/* 2. ANALISIS PSIKOGRAFIS & KOMUNITAS */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-         <div className="p-6 border-b border-gray-100">
+         <div className="p-4 md:p-6 border-b border-gray-100">
             <h3 className="font-bold text-gray-800 flex items-center gap-2">
-                <Share2 size={20} className="text-indigo-600"/> Analisis Jejaring Sosial & Komunitas
+                <Share2 size={20} className="text-indigo-600"/> Analisis Komunitas
             </h3>
             <p className="text-xs text-gray-500 mt-1">
-                Profil komunitas pelanggan Anda berdasarkan pola sewa (Behavioral Profiling). Gunakan ini untuk strategi kemitraan B2B.
+                Profil komunitas pelanggan Anda berdasarkan pola sewa.
             </p>
          </div>
          
-         <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-8">
+         <div className="p-4 md:p-6 grid grid-cols-1 lg:grid-cols-2 gap-8">
             <div className="space-y-6">
                 <div className="grid grid-cols-2 gap-4">
                     <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-xl">
@@ -426,32 +416,28 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
                             <div className="p-2 bg-white rounded-lg text-indigo-600 shadow-sm"><Briefcase size={18}/></div>
                             <span className="text-2xl font-black text-indigo-700">{communityStats.organizer}</span>
                         </div>
-                        <h5 className="font-bold text-gray-800 text-sm">Organizer / B2B</h5>
-                        <p className="text-[10px] text-gray-500 leading-tight mt-1">Belanja besar (&gt;300rb/sewa). Potensi kerjasama tetap.</p>
+                        <h5 className="font-bold text-gray-800 text-xs md:text-sm">Organizer (B2B)</h5>
                     </div>
                     <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-xl">
                         <div className="flex justify-between items-start mb-2">
                             <div className="p-2 bg-white rounded-lg text-emerald-600 shadow-sm"><TrendingUp size={18}/></div>
                             <span className="text-2xl font-black text-emerald-700">{communityStats.mapala}</span>
                         </div>
-                        <h5 className="font-bold text-gray-800 text-sm">Mapala / Pro</h5>
-                        <p className="text-[10px] text-gray-500 leading-tight mt-1">Sewa alat teknis. Influencer komunitas.</p>
+                        <h5 className="font-bold text-gray-800 text-xs md:text-sm">Mapala / Pro</h5>
                     </div>
                     <div className="p-4 bg-orange-50 border border-orange-100 rounded-xl">
                         <div className="flex justify-between items-start mb-2">
                             <div className="p-2 bg-white rounded-lg text-orange-600 shadow-sm"><Zap size={18}/></div>
                             <span className="text-2xl font-black text-orange-700">{communityStats.camper}</span>
                         </div>
-                        <h5 className="font-bold text-gray-800 text-sm">Camper Ceria</h5>
-                        <p className="text-[10px] text-gray-500 leading-tight mt-1">Wisata keluarga/pemula. Alat nyaman & mudah.</p>
+                        <h5 className="font-bold text-gray-800 text-xs md:text-sm">Camper Ceria</h5>
                     </div>
                     <div className="p-4 bg-slate-50 border border-slate-100 rounded-xl">
                         <div className="flex justify-between items-start mb-2">
                             <div className="p-2 bg-white rounded-lg text-slate-600 shadow-sm"><Users size={18}/></div>
                             <span className="text-2xl font-black text-slate-700">{communityStats.student}</span>
                         </div>
-                        <h5 className="font-bold text-gray-800 text-sm">Mahasiswa Hemat</h5>
-                        <p className="text-[10px] text-gray-500 leading-tight mt-1">Sensitif harga. Butuh paket promo.</p>
+                        <h5 className="font-bold text-gray-800 text-xs md:text-sm">Mahasiswa Hemat</h5>
                     </div>
                 </div>
             </div>
@@ -464,14 +450,14 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
                 <div className="space-y-4 relative z-10 flex-1">
                     {communityStats.organizer > 2 ? (
                         <div className="bg-white/10 p-3 rounded-lg border border-white/10">
-                            <h5 className="font-bold text-yellow-400 text-sm mb-1">🎯 Kemitraan B2B (High Priority)</h5>
+                            <h5 className="font-bold text-yellow-400 text-sm mb-1">🎯 Kemitraan B2B</h5>
                             <p className="text-xs text-gray-300 leading-relaxed">
                                 Terdeteksi <strong>{communityStats.organizer} pelanggan tipe Organizer</strong>. Hubungi & tawarkan "Member Card Prioritas".
                             </p>
                         </div>
                     ) : (
                         <div className="bg-white/10 p-3 rounded-lg border border-white/10">
-                            <h5 className="font-bold text-blue-300 text-sm mb-1">📢 Akuisisi Komunitas Kampus</h5>
+                            <h5 className="font-bold text-blue-300 text-sm mb-1">📢 Akuisisi Kampus</h5>
                             <p className="text-xs text-gray-300 leading-relaxed">
                                 Data B2B masih rendah. Coba datangi Sekretariat Mapala dan ajukan proposal kerjasama.
                             </p>
@@ -482,274 +468,9 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
          </div>
       </div>
 
-      {/* 3. MARKET BASKET ANALYSIS (NEW FEATURE) */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-         <div className="p-6 border-b border-gray-100 bg-nature-50">
-            <h3 className="font-bold text-gray-800 flex items-center gap-2">
-                <GitMerge size={20} className="text-nature-600"/> Analisis Keranjang Belanja (Market Basket)
-            </h3>
-            <p className="text-xs text-nature-700 mt-1">
-                Menemukan pola kombinasi barang yang sering disewa bersamaan. Gunakan data ini untuk <strong>Bundling Paket</strong> & <strong>Optimasi Gudang</strong>.
-            </p>
-         </div>
-
-         <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* List Pasangan Produk */}
-            <div>
-               <h4 className="font-bold text-sm text-gray-500 uppercase tracking-widest mb-4">Pola Kombinasi Tertinggi</h4>
-               <div className="space-y-3">
-                  {basketAnalysis.length === 0 ? (
-                     <div className="p-4 bg-gray-50 rounded-xl text-center text-gray-400 italic text-sm border border-dashed border-gray-200">
-                        Belum cukup data transaksi untuk menemukan pola.
-                     </div>
-                  ) : (
-                     basketAnalysis.map((pair, idx) => (
-                        <div key={idx} className="flex items-center justify-between p-3 bg-white border border-gray-100 rounded-xl shadow-sm hover:shadow-md transition group">
-                           <div className="flex items-center gap-3 flex-1">
-                              <div className="flex flex-col items-end min-w-[30%] text-right">
-                                 <span className="font-bold text-gray-800 text-xs md:text-sm">{pair.driver}</span>
-                                 <span className="text-[9px] bg-nature-100 text-nature-700 px-1.5 rounded font-bold mt-0.5">Pemicu</span>
-                              </div>
-                              <div className="flex flex-col items-center px-2">
-                                 <ArrowUpRight size={16} className="text-gray-400 group-hover:text-nature-500 transition"/>
-                              </div>
-                              <div className="flex flex-col items-start min-w-[30%]">
-                                 <span className="font-bold text-gray-800 text-xs md:text-sm">{pair.follower}</span>
-                                 <span className="text-[9px] bg-blue-100 text-blue-700 px-1.5 rounded font-bold mt-0.5">Ikutan</span>
-                              </div>
-                           </div>
-                           <div className="pl-4 border-l border-gray-100 text-center min-w-[80px]">
-                              <span className="block text-lg font-black text-nature-700">{Math.round(pair.confidence)}%</span>
-                              <span className="text-[9px] text-gray-400 uppercase font-bold">Peluang</span>
-                           </div>
-                        </div>
-                     ))
-                  )}
-               </div>
-            </div>
-
-            {/* Actionable Insight Box */}
-            <div className="bg-gray-50 rounded-xl p-5 border border-gray-200 flex flex-col h-full">
-               <h4 className="font-bold text-sm text-gray-800 uppercase tracking-widest mb-4 flex items-center gap-2">
-                  <Megaphone size={16} className="text-orange-500"/> Rekomendasi Bisnis
-               </h4>
-               
-               <div className="space-y-4 flex-1">
-                  <div className="bg-white p-4 rounded-xl border border-blue-100 shadow-sm">
-                     <div className="flex items-start gap-3">
-                        <div className="bg-blue-50 p-2 rounded-lg text-blue-600"><PackagePlus size={20}/></div>
-                        <div>
-                           <h5 className="font-bold text-blue-800 text-sm mb-1">Ide Paket Bundling Baru</h5>
-                           <p className="text-xs text-gray-600 leading-relaxed">
-                              {basketAnalysis.length > 0 
-                                ? `Data menunjukkan pelanggan yang menyewa "${basketAnalysis[0].driver}" hampir pasti menyewa "${basketAnalysis[0].follower}". Buatlah paket bundling mereka berdua dengan diskon 5% untuk meningkatkan nilai transaksi.`
-                                : "Tunggu data transaksi lebih banyak untuk melihat pola bundling yang potensial."}
-                           </p>
-                        </div>
-                     </div>
-                  </div>
-
-                  <div className="bg-white p-4 rounded-xl border border-orange-100 shadow-sm">
-                     <div className="flex items-start gap-3">
-                        <div className="bg-orange-50 p-2 rounded-lg text-orange-600"><Warehouse size={20}/></div>
-                        <div>
-                           <h5 className="font-bold text-orange-800 text-sm mb-1">Optimasi Tata Letak Gudang</h5>
-                           <p className="text-xs text-gray-600 leading-relaxed">
-                              {basketAnalysis.length > 0 
-                                ? `Simpan rak "${basketAnalysis[0].follower}" bersebelahan dengan "${basketAnalysis[0].driver}". Ini akan mempercepat proses pengambilan barang oleh karyawan saat packing.`
-                                : "Pantau terus pola ini untuk mengatur ulang posisi rak di gudang agar efisien."}
-                           </p>
-                        </div>
-                     </div>
-                  </div>
-               </div>
-            </div>
-         </div>
-      </div>
-
-      {/* 4. ANALISIS CLV (CUSTOMER LIFETIME VALUE) */}
-      {clvStats && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col">
-                <div className="flex justify-between items-start mb-6">
-                    <div>
-                        <h3 className="font-bold text-gray-800 flex items-center gap-2">
-                            <Crown size={20} className="text-yellow-500" /> Analisis CLV (Nilai Pelanggan)
-                        </h3>
-                        <p className="text-xs text-gray-500 mt-1">
-                            Rata-rata uang yang dihabiskan 1 pelanggan: <span className="font-bold text-nature-700">Rp{clvStats.avgClv.toLocaleString('id-ID', {maximumFractionDigits:0})}</span>
-                        </p>
-                    </div>
-                    <div className="bg-yellow-50 p-2 rounded-lg border border-yellow-100">
-                        <Award className="text-yellow-600" size={24}/>
-                    </div>
-                </div>
-
-                <div className="space-y-4 flex-1">
-                    <div className="relative p-4 rounded-xl bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200">
-                        <div className="flex justify-between items-center mb-2">
-                            <span className="font-bold text-yellow-800 flex items-center gap-2"><Crown size={14} fill="currentColor"/> Sultan Outdoor (Top 20%)</span>
-                            <span className="text-xs font-bold text-yellow-700 bg-white px-2 py-1 rounded-full shadow-sm">{clvStats.whales.count} Org</span>
-                        </div>
-                        <div className="flex justify-between items-end">
-                            <div>
-                                <p className="text-[10px] text-yellow-700 uppercase tracking-wide">Kontribusi Omset</p>
-                                <p className="text-xl font-black text-yellow-900">Rp{clvStats.whales.revenue.toLocaleString('id-ID')}</p>
-                            </div>
-                            <div className="text-right">
-                                <p className="text-lg font-bold text-yellow-800">{Math.round((clvStats.whales.revenue / clvStats.totalRevenue) * 100)}%</p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    {/* ... Dolphins & Minnows blocks omitted for brevity but preserved in output ... */}
-                    <div className="relative p-4 rounded-xl bg-blue-50 border border-blue-100">
-                        <div className="flex justify-between items-center mb-2">
-                            <span className="font-bold text-blue-800 flex items-center gap-2"><Star size={14} className="text-blue-500"/> Juragan (Middle 30%)</span>
-                            <span className="text-xs font-bold text-blue-700 bg-white px-2 py-1 rounded-full shadow-sm">{clvStats.dolphins.count} Org</span>
-                        </div>
-                        <div className="flex justify-between items-end">
-                            <div>
-                                <p className="text-xl font-black text-blue-900">Rp{clvStats.dolphins.revenue.toLocaleString('id-ID')}</p>
-                            </div>
-                            <div className="text-right">
-                                <p className="text-lg font-bold text-blue-800">{Math.round((clvStats.dolphins.revenue / clvStats.totalRevenue) * 100)}%</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="relative p-4 rounded-xl bg-gray-50 border border-gray-200">
-                        <div className="flex justify-between items-center mb-2">
-                            <span className="font-bold text-gray-700 flex items-center gap-2"><Users size={14} className="text-gray-400"/> Pendaki Hemat (Bottom 50%)</span>
-                            <span className="text-xs font-bold text-gray-600 bg-white px-2 py-1 rounded-full border">{clvStats.minnows.count} Org</span>
-                        </div>
-                        <div className="flex justify-between items-end">
-                            <div>
-                                <p className="text-lg font-black text-gray-800">Rp{clvStats.minnows.revenue.toLocaleString('id-ID')}</p>
-                            </div>
-                            <div className="text-right">
-                                <p className="text-base font-bold text-gray-600">{Math.round((clvStats.minnows.revenue / clvStats.totalRevenue) * 100)}%</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col">
-                <h3 className="font-bold text-gray-800 flex items-center gap-2 mb-4">
-                    <Gift size={20} className="text-red-500" /> Action: Personal Touch
-                </h3>
-                <p className="text-sm text-gray-600 mb-6 leading-relaxed">
-                    Pelanggan "Sultan" adalah aset terbesar. Jaga hubungan personal dengan mereka. 
-                    Kirim pesan WA manual berisi ucapan terima kasih atau diskon eksklusif.
-                </p>
-
-                <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-3">
-                    {clvStats.whales.list.slice(0, 5).map((whale, idx) => (
-                        <div key={idx} className="flex items-center justify-between p-3 rounded-xl border border-yellow-100 bg-yellow-50/50 hover:bg-yellow-50 transition group">
-                            <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-full bg-yellow-100 text-yellow-700 flex items-center justify-center text-xs font-bold border border-yellow-200">
-                                    #{idx+1}
-                                </div>
-                                <div>
-                                    <p className="font-bold text-gray-800 text-sm">{whale.name}</p>
-                                    <p className="text-[10px] text-gray-500 uppercase tracking-wide font-bold">Total: Rp{whale.totalSpent.toLocaleString('id-ID')}</p>
-                                </div>
-                            </div>
-                            <button 
-                                onClick={() => openWa(whale.whatsapp)}
-                                className="p-2 bg-white text-green-600 rounded-lg shadow-sm border border-green-100 hover:bg-green-50 transition text-xs font-bold flex items-center gap-1"
-                            >
-                                <MessageCircle size={14} /> Sapa
-                            </button>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        </div>
-      )}
-
-      {/* 5. ANALISIS KOHORT (RETENTION) */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-         <div className="p-6 border-b border-gray-100 flex flex-col md:flex-row justify-between items-start gap-4">
-            <div>
-               <h3 className="font-bold text-gray-800 flex items-center gap-2">
-                  <Layers size={20} className="text-purple-600"/> Analisis Kohort (Retensi Pelanggan)
-               </h3>
-               <p className="text-xs text-gray-500 mt-1 max-w-xl">
-                  Membaca pola kesetiaan pelanggan. Kolom "Bulan 1" menunjukkan berapa % pelanggan yang kembali menyewa di bulan berikutnya.
-               </p>
-            </div>
-            
-            {cohortInsight && (
-               <div className={`px-4 py-3 rounded-xl border flex items-start gap-3 max-w-md ${
-                  cohortInsight.type === 'danger' ? 'bg-red-50 border-red-100 text-red-800' :
-                  cohortInsight.type === 'success' ? 'bg-green-50 border-green-100 text-green-800' :
-                  'bg-blue-50 border-blue-100 text-blue-800'
-               }`}>
-                  <div className="mt-0.5"><Info size={16}/></div>
-                  <div>
-                     <h5 className="font-bold text-xs uppercase mb-0.5">{cohortInsight.title}</h5>
-                     <p className="text-xs leading-relaxed opacity-90">{cohortInsight.desc}</p>
-                  </div>
-               </div>
-            )}
-         </div>
-
-         <div className="overflow-x-auto p-6">
-            {cohortStats.length === 0 ? (
-                <div className="text-center py-10 text-gray-400 italic bg-gray-50 rounded-xl border border-dashed border-gray-200">
-                   Belum cukup data transaksi untuk membuat analisis kohort.
-                </div>
-            ) : (
-                <table className="w-full text-xs text-center border-separate border-spacing-1">
-                   <thead>
-                      <tr>
-                         <th className="p-2 text-left w-32 font-bold text-gray-700 bg-gray-100 rounded">Angkatan (Cohort)</th>
-                         <th className="p-2 w-20 font-bold text-gray-700 bg-gray-100 rounded">Pelanggan</th>
-                         {Array.from({length: 12}).map((_, i) => (
-                            <th key={i} className="p-2 w-16 font-medium text-gray-500 bg-gray-50 rounded">Bulan {i}</th>
-                         ))}
-                      </tr>
-                   </thead>
-                   <tbody>
-                      {cohortStats.map((row, idx) => (
-                         <tr key={idx}>
-                            <td className="p-2 text-left font-bold text-gray-800 bg-gray-50 rounded">
-                               {new Date(row.cohortMonth + '-01').toLocaleDateString('id-ID', {month: 'long', year: 'numeric'})}
-                            </td>
-                            <td className="p-2 font-mono text-gray-600 bg-gray-50 rounded border border-gray-100">
-                               {row.totalCustomers} org
-                            </td>
-                            {Array.from({length: 12}).map((_, i) => {
-                               const count = row.retentionCounts[i];
-                               const percent = row.totalCustomers > 0 ? Math.round((count / row.totalCustomers) * 100) : 0;
-                               const cellColor = i === 0 ? 'bg-white text-gray-300' : getCohortCellColor(percent);
-                               
-                               return (
-                                  <td key={i} className={`p-2 rounded transition hover:scale-105 cursor-default ${cellColor} border border-gray-100`}>
-                                     {count > 0 ? (
-                                        <div className="flex flex-col">
-                                           <span className="font-bold">{percent}%</span>
-                                           {i > 0 && <span className="text-[9px] opacity-70">({count})</span>}
-                                        </div>
-                                     ) : (
-                                        <span className="text-gray-200">-</span>
-                                     )}
-                                  </td>
-                               )
-                            })}
-                         </tr>
-                      ))}
-                   </tbody>
-                </table>
-            )}
-         </div>
-      </div>
-
-      {/* 6. TABEL PELANGGAN (EXISTING) */}
+      {/* 6. TABEL PELANGGAN (Mobile Card View + Desktop Table) */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
-        <div className="p-6 border-b border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4 bg-nature-50">
+        <div className="p-4 md:p-6 border-b border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4 bg-nature-50">
             <div>
             <h3 className="font-bold text-lg text-nature-800 flex items-center gap-2">
                 <Users size={20} /> Data Pelanggan Lengkap
@@ -771,7 +492,72 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
             </div>
         </div>
 
-        <div className="p-0 overflow-x-auto">
+        {/* MOBILE CARD VIEW */}
+        <div className="md:hidden p-4 space-y-4 bg-gray-50">
+            {filteredCustomers.length === 0 ? (
+                <div className="text-center p-8 text-gray-400 italic">Belum ada data pelanggan yang cocok.</div>
+            ) : (
+                filteredCustomers.map((cust, idx) => (
+                    <div key={idx} className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+                        <div className="flex justify-between items-start mb-3">
+                            <div className="flex items-center gap-3">
+                                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${
+                                    idx < 3 ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600'
+                                }`}>
+                                    {cust.name.charAt(0).toUpperCase()}
+                                </div>
+                                <div>
+                                    <div className="font-bold text-gray-900 flex items-center gap-1">
+                                        {cust.name}
+                                        {cust.status === 'VIP' && <Crown size={12} className="text-yellow-500 fill-current"/>}
+                                    </div>
+                                    <div className="text-xs text-gray-400 font-mono">{cust.whatsapp}</div>
+                                </div>
+                            </div>
+                            <button 
+                                onClick={() => openWa(cust.whatsapp)}
+                                className="p-2 bg-green-50 text-green-600 hover:bg-green-100 rounded-lg transition border border-green-200"
+                            >
+                                <MessageCircle size={18} />
+                            </button>
+                        </div>
+                        
+                        <div className="flex flex-wrap gap-2 mb-3">
+                            <span className={`px-2 py-1 rounded text-[10px] font-bold border uppercase tracking-wider ${getPersonaColor(cust.persona)}`}>
+                                {cust.persona}
+                            </span>
+                            <span className={`px-2 py-1 rounded text-[10px] font-bold border uppercase tracking-wider ${getStatusColor(cust.status)}`}>
+                                {cust.status}
+                            </span>
+                            {cust.location !== '-' && (
+                                <div className="flex items-center gap-1 text-gray-500 text-[10px] font-medium bg-gray-50 px-2 py-1 rounded border border-gray-100">
+                                    <MapPin size={10} /> {cust.location.replace('(IP Detected)', '').split(',')[0]}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 text-sm border-t border-gray-100 pt-3">
+                            <div>
+                                <p className="text-[10px] text-gray-400">Total Sewa</p>
+                                <p className="font-bold text-gray-700">{cust.totalRentals}x Transaksi</p>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-[10px] text-gray-400">Total Belanja</p>
+                                <p className="font-black text-nature-700">Rp{cust.totalSpent.toLocaleString('id-ID')}</p>
+                            </div>
+                        </div>
+                        {cust.lateCount > 0 && (
+                            <div className="mt-2 text-[10px] font-bold text-red-600 bg-red-50 px-2 py-1 rounded text-center">
+                                Pernah Terlambat {cust.lateCount}x
+                            </div>
+                        )}
+                    </div>
+                ))
+            )}
+        </div>
+
+        {/* DESKTOP TABLE VIEW */}
+        <div className="hidden md:block p-0 overflow-x-auto">
             <table className="w-full text-left text-sm text-gray-600">
             <thead className="bg-gray-50 text-gray-700 font-bold uppercase text-xs border-b border-gray-200">
                 <tr>
@@ -831,7 +617,6 @@ const AdminCustomerManager: React.FC<AdminCustomerManagerProps> = ({ transaction
                         <div className="font-bold text-gray-700">{cust.totalRentals}x</div>
                         <div className="text-[10px] text-gray-400">Transaksi</div>
                     </td>
-                    {/* KOLOM TERLAMBAT */}
                     <td className="px-6 py-4 text-center">
                         {cust.lateCount > 0 ? (
                             <span className="text-red-600 font-bold bg-red-50 px-2 py-1 rounded text-xs border border-red-100">
