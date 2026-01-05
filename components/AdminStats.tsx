@@ -1,6 +1,6 @@
 
 import React, { useMemo } from 'react';
-import { Package, Database, AlertCircle, ShoppingBag, ArrowRightLeft, Clock, CalendarCheck } from 'lucide-react';
+import { Package, Database, AlertCircle, ShoppingBag, ArrowRightLeft, Clock, CalendarCheck, Share2, Globe, CheckCircle } from 'lucide-react';
 import { Product, Transaction } from '../types';
 
 interface AdminStatsProps {
@@ -51,8 +51,53 @@ const AdminStats: React.FC<AdminStatsProps> = ({ products, transactions }) => {
     return { pickups, returns, overdue, income };
   }, [transactions, today]);
 
+  // Handle Share Link Store
+  const handleShareStore = () => {
+      const url = window.location.origin;
+      if (navigator.share) {
+          navigator.share({
+              title: 'Mamas Outdoor',
+              text: 'Sewa alat outdoor terlengkap di Purwokerto!',
+              url: url
+          });
+      } else {
+          navigator.clipboard.writeText(url);
+          alert("Link toko disalin: " + url);
+      }
+  };
+
   return (
     <div className="space-y-8 animate-slide-in-right">
+        
+        {/* BANNER: SYSTEM READY (Tampil hanya jika belum ada transaksi) */}
+        {transactions.length === 0 && (
+            <div className="bg-gradient-to-r from-green-600 to-emerald-600 rounded-2xl p-6 text-white shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">
+                <div>
+                    <h2 className="text-2xl font-black mb-2 flex items-center gap-2">
+                        <CheckCircle size={28} className="text-green-300" /> Sistem Siap Beroperasi! 🚀
+                    </h2>
+                    <p className="text-green-100 text-sm leading-relaxed max-w-xl">
+                        Selamat! Database berhasil terhubung. Saat ini belum ada transaksi masuk. 
+                        Silakan mulai promosi atau input produk baru.
+                    </p>
+                </div>
+                <div className="flex gap-3 w-full md:w-auto">
+                    <button 
+                        onClick={() => window.open('/', '_blank')}
+                        className="flex-1 md:flex-none bg-white/20 hover:bg-white/30 text-white px-5 py-3 rounded-xl font-bold transition flex items-center justify-center gap-2"
+                    >
+                        <Globe size={18}/> Buka Web Toko
+                    </button>
+                    <button 
+                        onClick={handleShareStore}
+                        className="flex-1 md:flex-none bg-white text-green-700 px-5 py-3 rounded-xl font-bold shadow-lg hover:bg-gray-50 transition flex items-center justify-center gap-2"
+                    >
+                        <Share2 size={18}/> Share Link
+                    </button>
+                </div>
+            </div>
+        )}
+
         {/* SECTION 1: AGENDA HARI INI (OPERATIONAL DASHBOARD) */}
         <div>
             <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2 text-lg">
