@@ -4,6 +4,7 @@ import { Database, HardDrive, Check, Copy, Terminal, Shield, AlertTriangle, Refr
 import { getStoreConfig, saveStoreConfig, DEFAULT_CONFIG } from '../utils/storeConfig';
 import { StoreConfig } from '../types';
 import { connectPrinter, printTestPage, getPrinterStatus, disconnectPrinter } from '../services/bluetoothPrinterService';
+import { playNotificationSound } from '../services/audioService'; // IMPORT AUDIO SERVICE
 
 const AdminSystemSetup: React.FC = () => {
   const [activeSubTab, setActiveSubTab] = useState<'config' | 'database' | 'hardware' | 'automation'>('config');
@@ -55,9 +56,8 @@ const AdminSystemSetup: React.FC = () => {
     }
 
     try {
-        // 2. Play Sound (Updated Source)
-        const audio = new Audio('https://codeskulptor-demos.commondatastorage.googleapis.com/one_timer.mp3');
-        await audio.play();
+        // 2. Play Sound (GENERATED SYNTHETIC AUDIO - No 404/Network Errors)
+        playNotificationSound();
 
         // 3. Show System Notification
         new Notification("🔔 Cek Suara Ting!", {
@@ -65,9 +65,6 @@ const AdminSystemSetup: React.FC = () => {
             icon: 'https://image2url.com/r2/default/images/1767518643928-dd5a63dc-ddb0-4fdf-85e9-084b12f9c036.png',
             vibrate: [200, 100, 200]
         } as any);
-
-        // Feedback UI
-        // alert("✅ Perintah notifikasi dikirim!\n\nJika tidak ada suara/banner:\n1. Pastikan volume media HP besar.\n2. Pastikan HP tidak di mode 'Silent'/'Jangan Ganggu'.");
 
     } catch (e: any) {
         console.error(e);

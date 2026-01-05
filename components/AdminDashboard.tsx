@@ -5,6 +5,7 @@ import { Product, Category, Transaction } from '../types';
 import { getPaginatedTransactions, updateTransactionStatus, deleteTransaction, getTransactions } from '../services/transactionService';
 import { signIn, signOut, getCurrentUser } from '../services/authService';
 import { supabase } from '../services/supabase'; // Import Supabase Client
+import { playNotificationSound } from '../services/audioService'; // IMPORT AUDIO SERVICE
 
 // Import Modular Components
 import AdminSidebar from './AdminSidebar';
@@ -18,12 +19,12 @@ import AdminReportManager from './AdminReportManager';
 import AdminCustomerManager from './AdminCustomerManager';
 import AdminSystemSetup from './AdminSystemSetup';
 import AdminReviewManager from './AdminReviewManager';
-import AdminCalendarManager from './AdminCalendarManager'; // Import Baru
+import AdminCalendarManager from './AdminCalendarManager'; 
 
 interface AdminDashboardProps {
   products: Product[];
   categories: Category[];
-  transactions: Transaction[]; // Legacy prop (initial data)
+  transactions: Transaction[]; 
   onBackToHome: () => void;
   onAddProduct: (product: Product) => Promise<void>;
   onUpdateProduct: (product: Product) => Promise<void>;
@@ -37,7 +38,7 @@ interface AdminDashboardProps {
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ 
   products, 
   categories,
-  transactions: propTransactions, // Initial full load (if available)
+  transactions: propTransactions, 
   onBackToHome,
   onAddProduct,
   onUpdateProduct,
@@ -113,15 +114,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         async (payload) => {
           const newTrx = payload.new;
           
-          // 1. Play Sound "Ting!"
-          try {
-            // URL Stabil dari Google Cloud Storage (Soundjay/CodeSkulptor)
-            const audio = new Audio('https://codeskulptor-demos.commondatastorage.googleapis.com/one_timer.mp3');
-            // Alternative: https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3
-            await audio.play();
-          } catch (err) {
-            console.warn("Autoplay blocked by browser. Interact with document first.", err);
-          }
+          // 1. Play Sound "Ting!" (Using Generated Audio - No External Source needed)
+          playNotificationSound();
 
           // 2. Show In-App Alert (Popup Visual)
           setNewOrderAlert(newTrx);
@@ -407,7 +401,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
           {activeTab === 'transactions' && (
              <AdminTransactionManager 
-                transactions={transactions} // Passed paginated data
+                transactions={transactions} 
                 isLoading={isLoadingTransactions} 
                 products={products}
                 onStatusUpdate={handleTransactionStatusUpdate}
