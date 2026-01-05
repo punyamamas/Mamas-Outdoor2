@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { RotateCcw, Lock, LogOut, Mail, Key, BellRing, X } from 'lucide-react';
 import { Product, Category, Transaction, UserRole } from '../types';
 import { getPaginatedTransactions, updateTransactionStatus, deleteTransaction, getTransactions } from '../services/transactionService';
-import { signIn, signOut, getCurrentUser, getUserRole } from '../services/authService'; // Import getUserRole
+import { signIn, signOut, getCurrentUser, getUserRole } from '../services/authService';
 import { supabase } from '../services/supabase';
 import { playNotificationSound } from '../services/audioService';
 
@@ -48,37 +48,35 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onDeleteCategory,
   onRefresh
 }) => {
+  // --- AUTH STATE ---
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [loginError, setLoginError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
-  
-  // ROLE STATE
   const [userRole, setUserRole] = useState<UserRole>('staff');
 
-  // Update Type State Tab
+  // --- NAVIGATION STATE ---
   const [activeTab, setActiveTab] = useState<'dashboard' | 'products' | 'warehouse' | 'categories' | 'transactions' | 'finance' | 'reports' | 'customers' | 'system' | 'reviews' | 'calendar'>('dashboard');
   const [isRefreshing, setIsRefreshing] = useState(false);
   
-  // Transaction State
+  // --- DATA STATE ---
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoadingTransactions, setIsLoadingTransactions] = useState(false);
+  const [allTransactions, setAllTransactions] = useState<Transaction[]>(propTransactions);
   
-  // Pagination & Filter State
+  // --- PAGINATION STATE ---
   const [trxPage, setTrxPage] = useState(1);
   const [trxTotal, setTrxTotal] = useState(0);
   const [trxSearch, setTrxSearch] = useState('');
   const [trxStatusFilter, setTrxStatusFilter] = useState('all');
   const itemsPerPage = 20;
 
-  // Full Transactions for Other Tabs
-  const [allTransactions, setAllTransactions] = useState<Transaction[]>(propTransactions);
-
-  // NOTIFICATION STATE
+  // --- NOTIFICATION STATE ---
   const [newOrderAlert, setNewOrderAlert] = useState<any | null>(null);
 
+  // Sync prop changes to local state
   useEffect(() => {
     setAllTransactions(propTransactions);
   }, [propTransactions]);
@@ -89,7 +87,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const user = await getCurrentUser();
       if (user) {
         setIsAuthenticated(true);
-        // Fetch Role
         const role = await getUserRole(user.email || '');
         setUserRole(role);
       }
@@ -98,7 +95,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     checkSession();
   }, []);
 
-  // REALTIME LISTENER
+  // REALTIME LISTENER FOR NEW ORDERS
   useEffect(() => {
     if (!isAuthenticated || !supabase) return;
 
@@ -128,7 +125,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
              if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
              
              const title = "🔔 Orderan Baru Masuk!";
-             const options = {
+             const options: any = {
                 body: `Pelanggan: ${newTrx.customer_name}\nTotal: Rp${(newTrx.total_price||0).toLocaleString('id-ID')}`,
                 icon: 'https://image2url.com/r2/default/images/1767518643928-dd5a63dc-ddb0-4fdf-85e9-084b12f9c036.png',
                 tag: 'new-order'
@@ -161,7 +158,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     };
   }, [isAuthenticated]);
 
-  // Authentication Handler
+  // --- HANDLERS ---
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError('');
@@ -189,12 +187,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     onBackToHome();
   };
 
+  // Fetch Paginated Transactions
   useEffect(() => {
     if (isAuthenticated && activeTab === 'transactions') {
       fetchPaginatedTransactions();
     }
   }, [isAuthenticated, activeTab, trxPage, trxSearch, trxStatusFilter]);
 
+  // Fetch Full Transactions for Analytics
   useEffect(() => {
     if (isAuthenticated && (activeTab === 'dashboard' || activeTab === 'calendar' || activeTab === 'customers' || activeTab === 'reports')) {
        fetchFullTransactions();
@@ -227,7 +227,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const handleDeleteTransaction = async (id: string) => {
-    // RBAC Check
     if (userRole === 'staff') {
         alert("Akses Ditolak: Staff tidak diizinkan menghapus data transaksi.");
         return;
@@ -251,7 +250,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setTimeout(() => setIsRefreshing(false), 500);
   };
 
-  // LOCK SCREEN
+  // --- RENDER LOGIN SCREEN ---
   if (!isAuthenticated) {
     if (isAuthChecking) {
       return (
@@ -324,10 +323,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     );
   }
 
+  // --- RENDER DASHBOARD ---
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row relative">
       
-      {/* NOTIFICATION POPUP */}
+      {/* GLOBAL NOTIFICATION POPUP */}
       {newOrderAlert && (
         <div className="fixed bottom-6 right-6 z-[100] animate-slide-in-right">
            <div className="bg-white border-l-4 border-nature-600 rounded-xl shadow-2xl p-4 max-w-sm flex items-start gap-4 pr-10 relative">
@@ -357,14 +357,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
       )}
 
-      {/* SIDEBAR WITH RBAC */}
+      {/* SIDEBAR NAVIGATION */}
       <AdminSidebar 
         activeTab={activeTab} 
         setActiveTab={setActiveTab as any} 
         onLogout={handleLogout} 
-        userRole={userRole} // Pass role to sidebar
+        userRole={userRole} 
       />
 
+      {/* MAIN CONTENT AREA */}
       <main className="flex-1 overflow-y-auto max-h-screen">
         <header className="bg-white border-b border-gray-200 px-8 py-5 flex justify-between items-center sticky top-0 z-30">
           <div>
@@ -410,7 +411,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 onAddProduct={onAddProduct} 
                 onUpdateProduct={onUpdateProduct} 
                 onDeleteProduct={onDeleteProduct} 
-                userRole={userRole} // Pass role for hiding delete
+                userRole={userRole} 
              />
           )}
 
@@ -446,7 +447,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 onSearchChange={(val) => { setTrxSearch(val); setTrxPage(1); }}
                 filterStatus={trxStatusFilter}
                 onFilterChange={(val) => { setTrxStatusFilter(val); setTrxPage(1); }}
-                userRole={userRole} // Pass role for hiding delete
+                userRole={userRole} 
              />
           )}
 
@@ -456,7 +457,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
              />
           )}
 
-          {/* FINANCE: If staff, default view is Shift Only (handled inside component) */}
           {activeTab === 'finance' && (
              <AdminFinanceManager userRole={userRole} />
           )}

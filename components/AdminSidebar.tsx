@@ -7,7 +7,7 @@ interface AdminSidebarProps {
   activeTab: string;
   setActiveTab: (tab: 'dashboard' | 'products' | 'warehouse' | 'categories' | 'transactions' | 'finance' | 'reports' | 'customers' | 'system' | 'reviews' | 'calendar') => void;
   onLogout: () => void;
-  userRole: UserRole; // New Prop
+  userRole: UserRole; 
 }
 
 const AdminSidebar: React.FC<AdminSidebarProps> = ({ activeTab, setActiveTab, onLogout, userRole }) => {
@@ -22,7 +22,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ activeTab, setActiveTab, on
   const canAccess = (requiredRole: 'admin' | 'super_admin' | 'any') => {
       if (requiredRole === 'any') return true;
       if (userRole === 'super_admin' || userRole === 'owner') return true;
-      // Staff cannot access admin/super_admin specific tabs
+      // Staff cannot access admin/super_admin specific tabs like Reports or System
       return false;
   };
 
