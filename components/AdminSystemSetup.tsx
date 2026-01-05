@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect } from 'react';
-import { Database, HardDrive, Check, Copy, Terminal, Shield, AlertTriangle, RefreshCw, Settings, Save, Clock, Printer, Bluetooth, Bot, Zap, Server } from 'lucide-react';
+import { Database, HardDrive, Check, Copy, Terminal, Shield, AlertTriangle, RefreshCw, Settings, Save, Clock, Printer, Bluetooth, Bot, Zap, Server, BellRing, PlayCircle } from 'lucide-react';
 import { getStoreConfig, saveStoreConfig, DEFAULT_CONFIG } from '../utils/storeConfig';
 import { StoreConfig } from '../types';
 import { connectPrinter, printTestPage, getPrinterStatus, disconnectPrinter } from '../services/bluetoothPrinterService';
@@ -42,6 +41,37 @@ const AdminSystemSetup: React.FC = () => {
   const handleDisconnectPrinter = () => {
       disconnectPrinter();
       setIsPrinterConnected(false);
+  };
+
+  // NEW: TEST NOTIFICATION FUNCTION
+  const handleTestNotification = async () => {
+    // 1. Cek Permission
+    if (Notification.permission !== 'granted') {
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+            return alert("❌ Izin notifikasi ditolak oleh Browser/HP.\n\nSilakan buka Pengaturan HP > Aplikasi > Mamas Outdoor > Notifikasi > ON.");
+        }
+    }
+
+    try {
+        // 2. Play Sound
+        const audio = new Audio('https://cdn.pixabay.com/download/audio/2022/03/24/audio_c8c8a73467.mp3?filename=ding-36029.mp3');
+        await audio.play();
+
+        // 3. Show System Notification
+        new Notification("🔔 Cek Suara Ting!", {
+            body: "Jika Anda mendengar suara & melihat pesan ini, setting HP sudah benar!",
+            icon: 'https://image2url.com/r2/default/images/1767518643928-dd5a63dc-ddb0-4fdf-85e9-084b12f9c036.png',
+            vibrate: [200, 100, 200]
+        } as any);
+
+        // Feedback UI
+        alert("✅ Perintah notifikasi dikirim!\n\nJika tidak ada suara/banner:\n1. Pastikan volume media HP besar.\n2. Pastikan HP tidak di mode 'Silent'/'Jangan Ganggu'.");
+
+    } catch (e: any) {
+        console.error(e);
+        alert(`⚠️ Gagal memutar suara: ${e.message}\n\nTips: Klik di layar dulu sebelum menekan tombol ini (Kebijakan Autoplay Browser).`);
+    }
   };
 
   // SQL Stock Logs
@@ -525,6 +555,31 @@ CARA PASANG DI SUPABASE:
 
       {activeSubTab === 'automation' && (
           <div className="space-y-8 animate-slide-in-right">
+              
+              {/* TEST NOTIFICATION SOUND */}
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 max-w-4xl">
+                  <div className="flex items-start gap-4 mb-4">
+                      <div className="p-3 bg-red-50 text-red-600 rounded-xl">
+                          <BellRing size={32}/>
+                      </div>
+                      <div>
+                          <h3 className="text-xl font-bold text-gray-900">Tes Suara & Notifikasi</h3>
+                          <p className="text-sm text-gray-500">Cek apakah HP Anda sudah diizinkan membunyikan "Ting!" saat order masuk.</p>
+                      </div>
+                  </div>
+                  <div className="bg-red-50 border border-red-100 p-4 rounded-xl flex items-center justify-between">
+                      <div className="text-sm text-red-800">
+                          <strong>Penting:</strong> Pastikan volume HP besar dan tidak di mode silent.
+                      </div>
+                      <button 
+                        onClick={handleTestNotification}
+                        className="bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-lg font-bold shadow-md transition flex items-center gap-2"
+                      >
+                          <PlayCircle size={18}/> Coba Bunyikan
+                      </button>
+                  </div>
+              </div>
+
               {/* CONFIGURATION */}
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 max-w-4xl">
                   <div className="flex items-start gap-4 mb-6">
