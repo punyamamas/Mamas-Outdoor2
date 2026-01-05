@@ -45,7 +45,7 @@ const AdminSystemSetup: React.FC = () => {
       setIsPrinterConnected(false);
   };
 
-  // NEW: TEST NOTIFICATION FUNCTION
+  // NEW: TEST NOTIFICATION FUNCTION (Mobile Friendly Fix)
   const handleTestNotification = async () => {
     // 1. Cek Permission
     if (Notification.permission !== 'granted') {
@@ -55,20 +55,41 @@ const AdminSystemSetup: React.FC = () => {
         }
     }
 
+    // 2. Play Sound (Priority - Menggunakan Web Audio API)
     try {
-        // 2. Play Sound (GENERATED SYNTHETIC AUDIO - No 404/Network Errors)
         playNotificationSound();
+    } catch (e) {
+        console.error("Audio error:", e);
+    }
 
-        // 3. Show System Notification
-        new Notification("🔔 Cek Suara Ting!", {
-            body: "Jika Anda mendengar suara & melihat pesan ini, setting HP sudah benar!",
-            icon: 'https://image2url.com/r2/default/images/1767518643928-dd5a63dc-ddb0-4fdf-85e9-084b12f9c036.png',
-            vibrate: [200, 100, 200]
-        } as any);
+    // 3. Show System Notification (Safe Logic for Mobile)
+    const title = "🔔 Cek Suara Ting!";
+    // Use 'any' to avoid TS error: 'vibrate' does not exist in type 'NotificationOptions'
+    const options: any = {
+        body: "Jika Anda mendengar suara, sistem berjalan normal!",
+        icon: 'https://image2url.com/r2/default/images/1767518643928-dd5a63dc-ddb0-4fdf-85e9-084b12f9c036.png',
+        vibrate: [200, 100, 200],
+        tag: 'test-notification'
+    };
 
+    try {
+        // ANDROID CHROME FIX: Gunakan ServiceWorker jika tersedia
+        // Ini menghindari error "Illegal constructor" pada new Notification() di Android
+        if ('serviceWorker' in navigator) {
+            const registration = await navigator.serviceWorker.ready;
+            if (registration && registration.showNotification) {
+                await registration.showNotification(title, options);
+                return; 
+            }
+        }
+        
+        // Fallback untuk Desktop/iOS atau jika SW belum ready
+        new Notification(title, options);
+        
     } catch (e: any) {
-        console.error(e);
-        alert(`⚠️ Gagal memutar suara: ${e.message}\n\nTips: Klik di layar dulu sebelum menekan tombol ini (Kebijakan Autoplay Browser).`);
+        // SILENT CATCH: Jangan alert error visual di HP agar tidak mengganggu user
+        // Yang terpenting suara notifikasi (step 2) sudah berbunyi
+        console.warn("Visual notification skipped on this device:", e.message);
     }
   };
 
@@ -710,160 +731,98 @@ CARA PASANG DI SUPABASE:
                   <div className="bg-orange-50 p-4 rounded-xl border border-orange-100">
                       <h4 className="text-sm font-bold text-orange-800 mb-2 flex items-center gap-2"><AlertTriangle size={16}/> Catatan Penting</h4>
                       <ul className="list-disc pl-4 text-xs text-orange-700 space-y-1">
-                          <li>Fitur ini menggunakan <strong>Web Bluetooth API</strong>.</li>
-                          <li>Hanya berjalan di <strong>Google Chrome</strong> (Android/Desktop) atau Edge.</li>
-                          <li>Tidak support di iPhone (iOS) karena pembatasan Apple.</li>
-                          <li>Pastikan printer sudah dipairing di setting Bluetooth HP/Laptop terlebih dahulu jika diminta PIN (biasanya 0000 atau 1234).</li>
+                          <li>Fitur ini menggunakan <strong>Web Bluetooth API</strong>. Hanya jalan di browser modern (Chrome/Edge) pada Android atau PC.</li>
+                          <li>Pastikan Bluetooth HP sudah nyala dan Printer sudah dipairing.</li>
+                          <li>Jika gagal, coba refresh halaman atau restart printer.</li>
                       </ul>
                   </div>
-
-                  <div className="pt-4 border-t border-gray-100">
-                      <button 
-                        onClick={printTestPage} 
-                        className="w-full py-3 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 font-bold hover:border-gray-400 hover:text-gray-700 transition flex items-center justify-center gap-2"
-                      >
-                          <Printer size={18}/> Test Print
+                  
+                  {isPrinterConnected && (
+                      <button onClick={printTestPage} className="w-full py-3 bg-gray-900 text-white rounded-xl font-bold hover:bg-black transition flex items-center justify-center gap-2">
+                          <Printer size={18}/> Cetak Test Page
                       </button>
-                  </div>
+                  )}
               </div>
           </div>
       )}
 
       {activeSubTab === 'database' && (
         <div className="space-y-8 animate-slide-in-right">
-          
-          <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6 flex gap-4 items-start">
-             <div className="p-3 bg-blue-100 text-blue-600 rounded-xl">
-                <Terminal size={24} />
-             </div>
-             <div>
-                <h3 className="text-lg font-bold text-blue-900">Setup Database (Security Patched)</h3>
-                <p className="text-sm text-blue-700 mt-1 leading-relaxed">
-                   Script di bawah ini sudah diperbarui dengan <strong>Row Level Security (RLS)</strong> yang ketat. 
-                   Pastikan Anda menjalankan ulang script ini di Supabase SQL Editor untuk mengamankan database.
-                </p>
-             </div>
-          </div>
+            
+            {/* Database Setup */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 max-w-4xl">
+                <div className="flex items-start gap-4 mb-6">
+                    <div className="p-3 bg-orange-50 text-orange-600 rounded-xl">
+                        <Database size={32}/>
+                    </div>
+                    <div>
+                        <h3 className="text-xl font-bold text-gray-900">Konfigurasi Database (SQL)</h3>
+                        <p className="text-sm text-gray-500">Salin skrip SQL di bawah dan jalankan di SQL Editor Supabase untuk membuat tabel yang dibutuhkan.</p>
+                    </div>
+                </div>
 
-          <div className="grid grid-cols-1 gap-8">
-             {/* STEP 1: CORE */}
-             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden border-l-4 border-l-green-500">
-                <div className="px-6 py-4 bg-gray-50 border-b border-gray-100 flex justify-between items-center">
-                   <h4 className="font-bold text-gray-800 flex items-center gap-2">
-                      <Database size={18} className="text-nature-600"/> Bagian 1: Core Tables (Protected)
-                   </h4>
-                   <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded font-bold">Admin Delete Only</span>
-                </div>
-                <div className="p-6">
-                   <div className="relative group">
-                      <pre className="bg-gray-900 text-gray-100 p-4 rounded-xl text-xs font-mono overflow-x-auto whitespace-pre-wrap border border-gray-700 max-h-64">
-                         {coreSQL}
-                      </pre>
-                      <button 
-                         onClick={() => copyToClipboard(coreSQL, 'core')}
-                         className="absolute top-2 right-2 p-2 bg-white/10 hover:bg-white/20 rounded-lg text-white transition flex items-center gap-2 text-xs font-bold backdrop-blur-sm"
-                      >
-                         {copiedSection === 'core' ? <Check size={14}/> : <Copy size={14}/>} 
-                         {copiedSection === 'core' ? 'Disalin!' : 'Copy SQL'}
-                      </button>
-                   </div>
-                </div>
-             </div>
+                <div className="space-y-6">
+                    
+                    {/* BAGIAN 1: TABEL UTAMA */}
+                    <div className="border border-gray-200 rounded-xl overflow-hidden">
+                        <div className="bg-gray-50 px-4 py-3 flex justify-between items-center border-b border-gray-200">
+                            <h4 className="text-sm font-bold text-gray-700 flex items-center gap-2"><Terminal size={16}/> Tabel Utama (Produk & Transaksi)</h4>
+                            <button onClick={() => copyToClipboard(coreSQL, 'core')} className="text-xs flex items-center gap-1 text-blue-600 hover:underline font-bold">
+                                {copiedSection === 'core' ? <Check size={14}/> : <Copy size={14}/>} 
+                                {copiedSection === 'core' ? 'Disalin' : 'Salin SQL'}
+                            </button>
+                        </div>
+                        <pre className="p-4 text-[10px] md:text-xs font-mono bg-white overflow-x-auto text-gray-600 h-40">
+                            {coreSQL}
+                        </pre>
+                    </div>
 
-             {/* STEP 2: FEATURES */}
-             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden border-l-4 border-l-blue-500">
-                <div className="px-6 py-4 bg-gray-50 border-b border-gray-100">
-                   <h4 className="font-bold text-gray-800 flex items-center gap-2">
-                      <Shield size={18} className="text-blue-600"/> Bagian 2: Reviews & Finance (Protected)
-                   </h4>
-                   <span className="text-xs text-gray-500">Data keuangan hanya bisa dilihat Admin</span>
-                </div>
-                <div className="p-6">
-                   <div className="relative group">
-                      <pre className="bg-gray-900 text-gray-100 p-4 rounded-xl text-xs font-mono overflow-x-auto whitespace-pre-wrap border border-gray-700 max-h-64">
-                         {featuresSQL}
-                      </pre>
-                      <button 
-                         onClick={() => copyToClipboard(featuresSQL, 'features')}
-                         className="absolute top-2 right-2 p-2 bg-white/10 hover:bg-white/20 rounded-lg text-white transition flex items-center gap-2 text-xs font-bold backdrop-blur-sm"
-                      >
-                         {copiedSection === 'features' ? <Check size={14}/> : <Copy size={14}/>} 
-                         {copiedSection === 'features' ? 'Disalin!' : 'Copy SQL'}
-                      </button>
-                   </div>
-                </div>
-             </div>
+                    {/* BAGIAN 2: FITUR */}
+                    <div className="border border-gray-200 rounded-xl overflow-hidden">
+                        <div className="bg-gray-50 px-4 py-3 flex justify-between items-center border-b border-gray-200">
+                            <h4 className="text-sm font-bold text-gray-700 flex items-center gap-2"><Terminal size={16}/> Tabel Fitur (Reviews & Payment Log)</h4>
+                            <button onClick={() => copyToClipboard(featuresSQL, 'features')} className="text-xs flex items-center gap-1 text-blue-600 hover:underline font-bold">
+                                {copiedSection === 'features' ? <Check size={14}/> : <Copy size={14}/>} 
+                                {copiedSection === 'features' ? 'Disalin' : 'Salin SQL'}
+                            </button>
+                        </div>
+                        <pre className="p-4 text-[10px] md:text-xs font-mono bg-white overflow-x-auto text-gray-600 h-40">
+                            {featuresSQL}
+                        </pre>
+                    </div>
 
-             {/* STEP 3: STOCK LOGS */}
-             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden border-l-4 border-l-orange-500">
-                <div className="px-6 py-4 bg-gray-50 border-b border-gray-100">
-                   <h4 className="font-bold text-gray-800 flex items-center gap-2">
-                      <RefreshCw size={18} className="text-orange-600"/> Bagian 3: Kartu Stok
-                   </h4>
-                </div>
-                <div className="p-6">
-                   <div className="relative group">
-                      <pre className="bg-gray-900 text-gray-100 p-4 rounded-xl text-xs font-mono overflow-x-auto whitespace-pre-wrap border border-gray-700 max-h-64">
-                         {stockLogSQL}
-                      </pre>
-                      <button 
-                         onClick={() => copyToClipboard(stockLogSQL, 'stock')}
-                         className="absolute top-2 right-2 p-2 bg-white/10 hover:bg-white/20 rounded-lg text-white transition flex items-center gap-2 text-xs font-bold backdrop-blur-sm"
-                      >
-                         {copiedSection === 'stock' ? <Check size={14}/> : <Copy size={14}/>} 
-                         {copiedSection === 'stock' ? 'Disalin!' : 'Copy SQL'}
-                      </button>
-                   </div>
-                </div>
-             </div>
+                    {/* BAGIAN 3: STORAGE */}
+                    <div className="border border-gray-200 rounded-xl overflow-hidden">
+                        <div className="bg-gray-50 px-4 py-3 flex justify-between items-center border-b border-gray-200">
+                            <h4 className="text-sm font-bold text-gray-700 flex items-center gap-2"><HardDrive size={16}/> Storage Buckets</h4>
+                            <button onClick={() => copyToClipboard(storageSQL, 'storage')} className="text-xs flex items-center gap-1 text-blue-600 hover:underline font-bold">
+                                {copiedSection === 'storage' ? <Check size={14}/> : <Copy size={14}/>} 
+                                {copiedSection === 'storage' ? 'Disalin' : 'Salin SQL'}
+                            </button>
+                        </div>
+                        <pre className="p-4 text-[10px] md:text-xs font-mono bg-white overflow-x-auto text-gray-600 h-32">
+                            {storageSQL}
+                        </pre>
+                    </div>
 
-             {/* STEP 4: STORAGE */}
-             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-                <div className="px-6 py-4 bg-gray-50 border-b border-gray-100">
-                   <h4 className="font-bold text-gray-800 flex items-center gap-2">
-                      <HardDrive size={18} className="text-gray-600"/> Bagian 4: Storage
-                   </h4>
-                </div>
-                <div className="p-6">
-                   <div className="relative group">
-                      <pre className="bg-gray-900 text-gray-100 p-4 rounded-xl text-xs font-mono overflow-x-auto whitespace-pre-wrap border border-gray-700 max-h-64">
-                         {storageSQL}
-                      </pre>
-                      <button 
-                         onClick={() => copyToClipboard(storageSQL, 'storage')}
-                         className="absolute top-2 right-2 p-2 bg-white/10 hover:bg-white/20 rounded-lg text-white transition flex items-center gap-2 text-xs font-bold backdrop-blur-sm"
-                      >
-                         {copiedSection === 'storage' ? <Check size={14}/> : <Copy size={14}/>} 
-                         {copiedSection === 'storage' ? 'Disalin!' : 'Copy SQL'}
-                      </button>
-                   </div>
-                </div>
-             </div>
+                    {/* BAGIAN 4 & 5: STOK & SHIFT */}
+                    <div className="border border-gray-200 rounded-xl overflow-hidden">
+                        <div className="bg-gray-50 px-4 py-3 flex justify-between items-center border-b border-gray-200">
+                            <h4 className="text-sm font-bold text-gray-700 flex items-center gap-2"><Shield size={16}/> Manajemen Stok & Shift Kasir</h4>
+                            <button onClick={() => copyToClipboard(stockLogSQL + '\n\n' + shiftLogSQL, 'advanced')} className="text-xs flex items-center gap-1 text-blue-600 hover:underline font-bold">
+                                {copiedSection === 'advanced' ? <Check size={14}/> : <Copy size={14}/>} 
+                                {copiedSection === 'advanced' ? 'Disalin' : 'Salin SQL'}
+                            </button>
+                        </div>
+                        <pre className="p-4 text-[10px] md:text-xs font-mono bg-white overflow-x-auto text-gray-600 h-40">
+                            {stockLogSQL}
+                            {'\n\n'}
+                            {shiftLogSQL}
+                        </pre>
+                    </div>
 
-             {/* STEP 5: SHIFT LOGS (NEW) */}
-             <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden border-l-4 border-l-purple-500">
-                <div className="px-6 py-4 bg-gray-50 border-b border-gray-100">
-                   <h4 className="font-bold text-gray-800 flex items-center gap-2">
-                      <Clock size={18} className="text-purple-600"/> Bagian 5: Manajemen Shift Kasir
-                   </h4>
                 </div>
-                <div className="p-6">
-                   <div className="relative group">
-                      <pre className="bg-gray-900 text-gray-100 p-4 rounded-xl text-xs font-mono overflow-x-auto whitespace-pre-wrap border border-gray-700 max-h-64">
-                         {shiftLogSQL}
-                      </pre>
-                      <button 
-                         onClick={() => copyToClipboard(shiftLogSQL, 'shift')}
-                         className="absolute top-2 right-2 p-2 bg-white/10 hover:bg-white/20 rounded-lg text-white transition flex items-center gap-2 text-xs font-bold backdrop-blur-sm"
-                      >
-                         {copiedSection === 'shift' ? <Check size={14}/> : <Copy size={14}/>} 
-                         {copiedSection === 'shift' ? 'Disalin!' : 'Copy SQL'}
-                      </button>
-                   </div>
-                </div>
-             </div>
-
-          </div>
+            </div>
         </div>
       )}
     </div>

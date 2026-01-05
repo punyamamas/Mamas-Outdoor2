@@ -115,7 +115,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           const newTrx = payload.new;
           
           // 1. Play Sound "Ting!" (Using Generated Audio - No External Source needed)
-          playNotificationSound();
+          try {
+             playNotificationSound();
+          } catch(e) { console.error("Audio failed", e) }
 
           // 2. Show In-App Alert (Popup Visual)
           setNewOrderAlert(newTrx);
@@ -125,11 +127,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
              // Coba getar di HP (Vibrate)
              if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
              
-             new Notification("🔔 Orderan Baru Masuk!", {
+             const title = "🔔 Orderan Baru Masuk!";
+             const options = {
                 body: `Pelanggan: ${newTrx.customer_name}\nTotal: Rp${(newTrx.total_price||0).toLocaleString('id-ID')}`,
                 icon: 'https://image2url.com/r2/default/images/1767518643928-dd5a63dc-ddb0-4fdf-85e9-084b12f9c036.png',
                 tag: 'new-order'
-             });
+             };
+
+             // SAFE NOTIFICATION LOGIC (Avoids "Illegal constructor" on Android Chrome)
+             try {
+                 let handled = false;
+                 // Coba lewat Service Worker dulu (Wajib untuk Android)
+                 if ('serviceWorker' in navigator) {
+                     const reg = await navigator.serviceWorker.ready;
+                     if (reg && reg.showNotification) {
+                         await reg.showNotification(title, options);
+                         handled = true;
+                     }
+                 }
+                 // Fallback ke normal notification jika di Desktop/iOS/SW tidak ready
+                 if (!handled) {
+                     new Notification(title, options);
+                 }
+             } catch (e) {
+                 // Silent fail visual notification
+                 console.warn("System notification skipped:", e);
+             }
           }
 
           // 4. Auto Refresh Data
