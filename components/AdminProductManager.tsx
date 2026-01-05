@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { Plus, Search, Edit, Trash2, X, Layers, Scissors, Palette, Save, Loader2, ShoppingBag, Upload, QrCode } from 'lucide-react';
 import { Product, Category, ProductVariant, ColorImage } from '../types';
@@ -239,7 +240,7 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
   );
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden min-h-[600px] flex flex-col">
       <div className="p-5 border-b border-gray-100 flex flex-col md:flex-row justify-between gap-4 bg-nature-50">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-3 text-gray-400" size={18} />
@@ -253,14 +254,16 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
         </div>
         <button 
           onClick={() => openModal()}
-          className="bg-nature-600 hover:bg-nature-700 text-white px-4 py-2.5 rounded-xl font-bold flex items-center gap-2 transition"
+          className="bg-nature-600 hover:bg-nature-700 text-white px-4 py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 transition"
         >
           <Plus size={18} /> Tambah Produk
         </button>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm text-gray-600">
+      <div className="flex-1 overflow-auto bg-gray-50 md:bg-white">
+        
+        {/* DESKTOP TABLE VIEW */}
+        <table className="w-full text-left text-sm text-gray-600 hidden md:table">
           <thead className="bg-white text-gray-700 font-bold uppercase text-xs border-b border-gray-200">
             <tr>
               <th className="px-6 py-4">Produk</th>
@@ -306,13 +309,39 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
             ))}
           </tbody>
         </table>
+
+        {/* MOBILE CARD VIEW */}
+        <div className="md:hidden p-4 space-y-4">
+            {filteredProducts.map(product => (
+                <div key={product.id} className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-start gap-4" onClick={() => openModal(product)}>
+                    <img src={product.image} className="w-16 h-16 rounded-lg object-cover bg-gray-200 shrink-0"/>
+                    <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-start">
+                            <h4 className="font-bold text-gray-800 text-sm line-clamp-2">{product.name}</h4>
+                            {product.isSale && <span className="text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-bold uppercase">Jual</span>}
+                        </div>
+                        <div className="text-[10px] text-gray-500 mb-1">{product.category}</div>
+                        <div className="flex justify-between items-end mt-2">
+                            <div className="font-black text-nature-700">Rp{product.isSale ? (product.salePrice||0).toLocaleString('id-ID') : product.price2Days.toLocaleString('id-ID')}</div>
+                            <div className="text-xs font-bold bg-gray-100 px-2 py-1 rounded text-gray-600">Stok: {product.stock}</div>
+                        </div>
+                        <div className="flex justify-end gap-2 mt-3 pt-3 border-t border-gray-50">
+                            <button onClick={(e) => { e.stopPropagation(); handlePrintLabel(product); }} className="p-2 text-gray-500 bg-gray-100 rounded-lg"><QrCode size={16}/></button>
+                            <button onClick={(e) => { e.stopPropagation(); openModal(product); }} className="flex-1 bg-blue-50 text-blue-600 font-bold text-xs py-2 rounded-lg">Edit</button>
+                            <button onClick={(e) => { e.stopPropagation(); onDeleteProduct(product.id); }} className="p-2 text-red-500 bg-red-50 rounded-lg"><Trash2 size={16}/></button>
+                        </div>
+                    </div>
+                </div>
+            ))}
+        </div>
       </div>
 
       {/* MODAL FORM */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}></div>
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto animate-slide-in-right">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center sm:p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}></div>
+          <div className="relative bg-white rounded-none md:rounded-2xl shadow-2xl w-full max-w-4xl h-full md:max-h-[90vh] overflow-y-auto animate-slide-in-right">
+            
             <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex justify-between items-center z-10">
               <h3 className="font-bold text-xl text-gray-800">{editingProduct ? 'Edit Produk' : 'Tambah Produk Baru'}</h3>
               <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-gray-100 rounded-full"><X size={20}/></button>
@@ -514,10 +543,10 @@ const AdminProductManager: React.FC<AdminProductManagerProps> = ({
                  </div>
                )}
 
-               <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+               <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 pb-16 md:pb-0">
                   <button type="button" onClick={() => setIsModalOpen(false)} className="px-6 py-2.5 border border-gray-300 rounded-xl font-bold text-gray-600 hover:bg-gray-50 transition">Batal</button>
                   <button type="submit" disabled={isSubmitting} className="px-6 py-2.5 bg-nature-600 hover:bg-nature-700 text-white rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-nature-200 transition">
-                     {isSubmitting ? <Loader2 className="animate-spin" size={18}/> : <Save size={18}/>} Simpan Produk
+                     {isSubmitting ? <Loader2 className="animate-spin" size={18}/> : <Save size={18}/>} Simpan
                   </button>
                </div>
             </form>

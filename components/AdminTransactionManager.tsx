@@ -75,6 +75,9 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
   const [newTrxPaid, setNewTrxPaid] = useState<number>(0);
   const [isCreating, setIsCreating] = useState(false);
   const [posCategory, setPosCategory] = useState('Semua'); 
+  
+  // POS Mobile State
+  const [posMobileTab, setPosMobileTab] = useState<'catalog' | 'cart'>('catalog');
 
   // Payment Recording State
   const [newPaymentAmount, setNewPaymentAmount] = useState<number>(0);
@@ -328,6 +331,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
           if (product) {
               if (scannerContext === 'add_item_create') {
                   handleAddItemToNewTrx(product);
+                  setPosMobileTab('cart'); // Auto switch to cart on mobile
               } else if (scannerContext === 'add_item_edit') {
                   handleAddEditItem(product);
               }
@@ -423,6 +427,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
         setNewTrxItems([]);
         setNewTrxPaid(0);
         setNewTrxStatus('booked');
+        setPosMobileTab('catalog');
         
         setSelectedTransaction(newTrx);
         setIsEditModalOpen(true);
@@ -614,8 +619,10 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto">
-        <table className="w-full text-sm text-left text-gray-600">
+      <div className="flex-1 overflow-auto bg-gray-50">
+        
+        {/* DESKTOP TABLE VIEW */}
+        <table className="w-full text-sm text-left text-gray-600 hidden md:table">
           <thead className="bg-white text-gray-700 font-bold uppercase text-xs border-b border-gray-200 sticky top-0 z-10 shadow-sm">
             <tr>
               <th className="px-6 py-4 whitespace-nowrap">ID & Tanggal</th>
@@ -666,11 +673,50 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
             )}
           </tbody>
         </table>
+
+        {/* MOBILE CARD VIEW */}
+        <div className="md:hidden p-4 space-y-4">
+            {isLoading ? (
+                <div className="text-center p-8"><Loader2 className="animate-spin mx-auto text-nature-600"/></div>
+            ) : transactions.length === 0 ? (
+                <div className="text-center p-8 text-gray-400 bg-white rounded-xl border border-dashed">Tidak ada data.</div>
+            ) : (
+                transactions.map(trx => (
+                    <div key={trx.id} className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm active:scale-[0.98] transition cursor-pointer" onClick={() => openEditModal(trx)}>
+                        <div className="flex justify-between items-start mb-2">
+                            <div>
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${
+                                    trx.status === 'pending' ? 'bg-orange-50 text-orange-600 border-orange-100' :
+                                    trx.status === 'booked' ? 'bg-blue-50 text-blue-600 border-blue-100' :
+                                    trx.status === 'rented' ? 'bg-purple-50 text-purple-600 border-purple-100' :
+                                    trx.status === 'completed' ? 'bg-green-50 text-green-600 border-green-100' :
+                                    'bg-red-50 text-red-600 border-red-100'
+                                }`}>
+                                    {trx.status}
+                                </span>
+                                <div className="font-bold text-gray-800 text-sm mt-1">{trx.customerName}</div>
+                            </div>
+                            <div className="text-right">
+                                <div className="font-mono font-black text-gray-900">Rp{trx.totalPrice.toLocaleString('id-ID')}</div>
+                                <div className="text-[10px] text-gray-400">#{trx.id.slice(0,6)}</div>
+                            </div>
+                        </div>
+                        <div className="flex justify-between items-center text-xs text-gray-500 border-t border-gray-50 pt-2 mt-2">
+                            <div className="flex items-center gap-1"><Calendar size={12}/> {new Date(trx.rentalDate).toLocaleDateString('id-ID')}</div>
+                            <div className="flex gap-2">
+                                <button onClick={(e) => { e.stopPropagation(); openEditModal(trx); }} className="text-blue-600 font-bold">Edit</button>
+                                <button onClick={(e) => { e.stopPropagation(); onDeleteTransaction(trx.id); }} className="text-red-500">Hapus</button>
+                            </div>
+                        </div>
+                    </div>
+                ))
+            )}
+        </div>
       </div>
 
-      <div className="p-4 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
+      <div className="p-4 border-t border-gray-100 bg-gray-50 flex items-center justify-between sticky bottom-0 z-20">
           <div className="text-xs text-gray-500">
-              Total: <strong>{totalCount}</strong> Transaksi
+              Total: <strong>{totalCount}</strong>
           </div>
           <div className="flex items-center gap-2">
               <button 
@@ -695,35 +741,35 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
 
       {/* --- REDESIGNED EDIT MODAL --- */}
       {isEditModalOpen && selectedTransaction && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center sm:p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={closeEditModal}></div>
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-6xl h-[95vh] flex flex-col overflow-hidden animate-slide-in-right">
+          <div className="relative bg-white rounded-none md:rounded-2xl shadow-2xl w-full max-w-6xl h-full md:h-[95vh] flex flex-col overflow-hidden animate-slide-in-right">
             
             {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+            <div className="px-4 py-3 md:px-6 md:py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
                <div>
-                  <h3 className="font-bold text-xl text-gray-900 flex items-center gap-2">
-                     <Edit className="text-nature-600" size={24}/> 
-                     {isEditingData ? 'Mode Edit Data' : `Detail Transaksi #${selectedTransaction.id.slice(0,8)}`}
+                  <h3 className="font-bold text-lg md:text-xl text-gray-900 flex items-center gap-2">
+                     <Edit className="text-nature-600 hidden md:block" size={24}/> 
+                     {isEditingData ? 'Edit Data' : `Trx #${selectedTransaction.id.slice(0,8)}`}
                   </h3>
-                  <div className="text-xs text-gray-500 mt-1 flex items-center gap-2">
-                     <Calendar size={12}/> Dibuat: {new Date(selectedTransaction.created_at || '').toLocaleString('id-ID')}
+                  <div className="text-[10px] md:text-xs text-gray-500 mt-0.5 flex items-center gap-2">
+                     <Calendar size={12}/> {new Date(selectedTransaction.created_at || '').toLocaleString('id-ID')}
                   </div>
                </div>
                <div className="flex items-center gap-2">
                    {!isEditingData ? (
                        <>
                          <button onClick={() => openWhatsApp(selectedTransaction.customerWhatsapp, selectedTransaction.customerName)} className="flex items-center gap-1 bg-green-500 text-white px-3 py-2 rounded-lg text-xs font-bold hover:bg-green-600 transition shadow-sm">
-                             <MessageCircle size={14}/> WA
+                             <MessageCircle size={14}/> <span className="hidden md:inline">WA</span>
                          </button>
                          <button onClick={() => setIsEditingData(true)} className="flex items-center gap-1 bg-blue-600 text-white px-3 py-2 rounded-lg text-xs font-bold hover:bg-blue-700 shadow-sm">
-                             <Edit size={14}/> Ubah Data
+                             <Edit size={14}/> <span className="hidden md:inline">Ubah</span>
                          </button>
                        </>
                    ) : (
                        <>
                          <button onClick={() => setIsEditingData(false)} className="px-3 py-2 rounded-lg text-xs font-bold hover:bg-gray-200 text-gray-600">Batal</button>
-                         <button onClick={handleSaveDetails} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 shadow-lg"><Save size={16}/> Simpan Perubahan</button>
+                         <button onClick={handleSaveDetails} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 shadow-lg"><Save size={16}/> <span className="hidden md:inline">Simpan</span></button>
                        </>
                    )}
                    <button onClick={closeEditModal} className="p-2 hover:bg-gray-200 rounded-full transition"><X size={20}/></button>
@@ -734,7 +780,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                
                {/* LEFT PANEL: INFO & PAYMENTS */}
                <div className="lg:w-1/3 bg-white border-r border-gray-200 overflow-y-auto custom-scrollbar">
-                  <div className="p-6 space-y-6">
+                  <div className="p-4 md:p-6 space-y-6">
                      
                      {/* 1. STATUS & DATE */}
                      <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
@@ -967,17 +1013,17 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
         </div>
       )}
 
-      {/* --- NEW FULLSCREEN POS (RETAINED AS IS) --- */}
+      {/* --- NEW FULLSCREEN POS (WITH MOBILE TABS) --- */}
       {isCreateModalOpen && (
-        <div className="fixed inset-0 z-[60] bg-gray-50 flex flex-col h-screen w-screen overflow-hidden">
+        <div className="fixed inset-0 z-[60] bg-gray-50 flex flex-col h-[100dvh] w-screen overflow-hidden">
            
            {/* Header */}
-           <div className="h-16 bg-white border-b border-gray-200 flex justify-between items-center px-6 shadow-sm z-20">
+           <div className="h-14 bg-white border-b border-gray-200 flex justify-between items-center px-4 md:px-6 shadow-sm z-20 shrink-0">
               <div className="flex items-center gap-3">
-                 <div className="p-2 bg-nature-600 text-white rounded-lg"><PackagePlus size={20}/></div>
+                 <div className="p-1.5 bg-nature-600 text-white rounded-lg"><PackagePlus size={18}/></div>
                  <div>
-                    <h2 className="font-bold text-lg text-gray-800 leading-tight">Kasir / POS</h2>
-                    <p className="text-xs text-gray-500">Buat Transaksi Baru</p>
+                    <h2 className="font-bold text-base md:text-lg text-gray-800 leading-tight">Kasir POS</h2>
+                    <p className="text-[10px] md:text-xs text-gray-500 hidden md:block">Buat Transaksi Baru</p>
                  </div>
               </div>
               <button onClick={() => setIsCreateModalOpen(false)} className="p-2 hover:bg-gray-100 rounded-full transition text-gray-500 hover:text-red-500">
@@ -985,33 +1031,32 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
               </button>
            </div>
 
-           <div className="flex flex-1 overflow-hidden">
+           <div className="flex flex-1 overflow-hidden relative">
               
-              {/* LEFT SIDE: PRODUCT CATALOG */}
-              <div className="flex-1 flex flex-col min-w-0 bg-gray-50 border-r border-gray-200">
+              {/* LEFT SIDE: PRODUCT CATALOG (Hidden on Mobile if Tab != catalog) */}
+              <div className={`flex-1 flex flex-col min-w-0 bg-gray-50 border-r border-gray-200 ${posMobileTab !== 'catalog' ? 'hidden md:flex' : 'flex'}`}>
                  {/* Filters & Search */}
-                 <div className="p-4 bg-white border-b border-gray-100 flex gap-3 items-center sticky top-0 z-10">
+                 <div className="p-3 md:p-4 bg-white border-b border-gray-100 flex gap-2 md:gap-3 items-center sticky top-0 z-10 shrink-0">
                     <div className="relative flex-1">
                         <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
                         <input 
-                            autoFocus
                             type="text" 
-                            className="w-full pl-10 pr-4 py-2.5 bg-gray-100 border-none rounded-xl focus:ring-2 focus:ring-nature-500 outline-none font-medium"
-                            placeholder="Cari nama barang..."
+                            className="w-full pl-9 pr-4 py-2 bg-gray-100 border-none rounded-xl focus:ring-2 focus:ring-nature-500 outline-none font-medium text-sm"
+                            placeholder="Cari barang..."
                             value={newTrxSearch}
                             onChange={(e) => setNewTrxSearch(e.target.value)}
                         />
                     </div>
-                    <button onClick={() => { setScannerContext('add_item_create'); setIsScannerOpen(true); }} className="p-2.5 bg-gray-800 text-white rounded-xl hover:bg-black transition"><Camera size={20}/></button>
+                    <button onClick={() => { setScannerContext('add_item_create'); setIsScannerOpen(true); }} className="p-2 bg-gray-800 text-white rounded-xl hover:bg-black transition"><Camera size={20}/></button>
                  </div>
                  
                  {/* Category Pills */}
-                 <div className="px-4 py-2 bg-white border-b border-gray-100 overflow-x-auto whitespace-nowrap no-scrollbar flex gap-2">
+                 <div className="px-3 md:px-4 py-2 bg-white border-b border-gray-100 overflow-x-auto whitespace-nowrap no-scrollbar flex gap-2 shrink-0">
                     {posCategories.map(cat => (
                         <button 
                             key={cat}
                             onClick={() => setPosCategory(cat)}
-                            className={`px-4 py-1.5 rounded-full text-xs font-bold transition ${posCategory === cat ? 'bg-nature-600 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                            className={`px-3 py-1.5 rounded-full text-xs font-bold transition ${posCategory === cat ? 'bg-nature-600 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
                         >
                             {cat}
                         </button>
@@ -1019,8 +1064,8 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                  </div>
 
                  {/* Product Grid */}
-                 <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
-                    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+                 <div className="flex-1 overflow-y-auto p-3 md:p-4 custom-scrollbar pb-24 md:pb-4">
+                    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
                         {posFilteredProducts.length === 0 ? (
                             <div className="col-span-full text-center py-20 text-gray-400">
                                 <Search size={48} className="mx-auto mb-4 opacity-20"/>
@@ -1028,7 +1073,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                             </div>
                         ) : (
                             posFilteredProducts.map(product => {
-                                const stock = product.stock; // Simplify stock for grid display
+                                const stock = product.stock; 
                                 const isOOS = stock <= 0;
                                 const inCartQty = newTrxItems.filter(i => i.id === product.id).reduce((acc, i) => acc + i.quantity, 0);
                                 
@@ -1039,7 +1084,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                                         onClick={() => handleAddItemToNewTrx(product)}
                                         className={`
                                             relative flex flex-col text-left bg-white rounded-xl border transition-all duration-200 overflow-hidden group
-                                            ${isOOS ? 'opacity-60 grayscale cursor-not-allowed border-gray-200' : 'hover:border-nature-400 hover:shadow-md cursor-pointer border-gray-200'}
+                                            ${isOOS ? 'opacity-60 grayscale cursor-not-allowed border-gray-200' : 'hover:border-nature-400 hover:shadow-md cursor-pointer border-gray-200 active:scale-95'}
                                         `}
                                     >
                                         <div className="aspect-[4/3] w-full bg-gray-100 relative">
@@ -1055,12 +1100,12 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                                                 </div>
                                             )}
                                         </div>
-                                        <div className="p-3 flex flex-col flex-1">
+                                        <div className="p-2 md:p-3 flex flex-col flex-1">
                                             <div className="text-xs font-bold text-gray-800 line-clamp-2 leading-tight mb-1">{product.name}</div>
                                             <div className="mt-auto flex justify-between items-end">
                                                 <div>
                                                     <div className="text-[10px] text-gray-500">{product.category}</div>
-                                                    <div className="font-black text-sm text-nature-700">Rp{product.price2Days.toLocaleString('id-ID')}</div>
+                                                    <div className="font-black text-xs md:text-sm text-nature-700">Rp{product.price2Days.toLocaleString('id-ID')}</div>
                                                 </div>
                                                 <div className="text-[10px] font-bold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">Stok: {stock}</div>
                                             </div>
@@ -1073,11 +1118,11 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                  </div>
               </div>
 
-              {/* RIGHT SIDE: CART & CHECKOUT */}
-              <div className="w-[400px] bg-white border-l border-gray-200 flex flex-col shadow-2xl z-20">
+              {/* RIGHT SIDE: CART & CHECKOUT (Hidden on Mobile if Tab != cart) */}
+              <div className={`w-full md:w-[400px] bg-white border-l border-gray-200 flex flex-col shadow-2xl z-20 ${posMobileTab !== 'cart' ? 'hidden md:flex' : 'flex'}`}>
                  
                  {/* Customer Info Section (Compact) */}
-                 <div className="p-4 border-b border-gray-100 bg-gray-50/50 space-y-3">
+                 <div className="p-3 md:p-4 border-b border-gray-100 bg-gray-50/50 space-y-3 shrink-0">
                     <div className="flex gap-2">
                         <div className="relative flex-1">
                             <User className="absolute left-2.5 top-2.5 text-gray-400" size={14}/>
@@ -1103,12 +1148,12 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                  </div>
 
                  {/* Cart Items List */}
-                 <div className="flex-1 overflow-y-auto p-4 space-y-2 bg-white">
+                 <div className="flex-1 overflow-y-auto p-3 md:p-4 space-y-2 bg-white pb-24 md:pb-4 custom-scrollbar">
                     {newTrxItems.length === 0 ? (
                         <div className="h-full flex flex-col items-center justify-center text-gray-300">
                             <ShoppingBag size={48} className="mb-2 opacity-20"/>
                             <p className="text-sm font-medium">Keranjang Kosong</p>
-                            <p className="text-xs">Pilih barang di kiri untuk menambahkan</p>
+                            <p className="text-xs">Pilih barang di katalog untuk menambahkan</p>
                         </div>
                     ) : (
                         newTrxItems.map((item, idx) => renderItemRow(item, idx, 'create'))
@@ -1116,10 +1161,10 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                  </div>
 
                  {/* Footer: Totals & Payment */}
-                 <div className="p-4 border-t border-gray-200 bg-gray-50">
-                    <div className="flex justify-between items-end mb-4">
+                 <div className="p-4 border-t border-gray-200 bg-gray-50 shrink-0 mb-16 md:mb-0">
+                    <div className="flex justify-between items-end mb-3">
                         <div className="text-xs text-gray-500 font-bold uppercase tracking-wider">Total Tagihan</div>
-                        <div className="text-2xl font-black text-gray-900">Rp{calculateNewTrxTotal().toLocaleString('id-ID')}</div>
+                        <div className="text-xl md:text-2xl font-black text-gray-900">Rp{calculateNewTrxTotal().toLocaleString('id-ID')}</div>
                     </div>
                     
                     <div className="space-y-3">
@@ -1145,13 +1190,13 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                         </div>
 
                         {/* Quick Cash Buttons */}
-                        <div className="flex gap-2 justify-end">
+                        <div className="flex gap-2 justify-end overflow-x-auto no-scrollbar">
                             {[20000, 50000, 100000].map(amt => (
-                                <button key={amt} onClick={() => setNewTrxPaid(amt)} className="text-[10px] bg-white border border-gray-200 rounded px-2 py-1 hover:bg-gray-100 font-medium text-gray-600">
+                                <button key={amt} onClick={() => setNewTrxPaid(amt)} className="text-[10px] bg-white border border-gray-200 rounded px-2 py-1 hover:bg-gray-100 font-medium text-gray-600 whitespace-nowrap">
                                     {amt/1000}k
                                 </button>
                             ))}
-                            <button onClick={() => setNewTrxPaid(calculateNewTrxTotal())} className="text-[10px] bg-blue-50 border border-blue-100 rounded px-2 py-1 hover:bg-blue-100 font-bold text-blue-600">
+                            <button onClick={() => setNewTrxPaid(calculateNewTrxTotal())} className="text-[10px] bg-blue-50 border border-blue-100 rounded px-2 py-1 hover:bg-blue-100 font-bold text-blue-600 whitespace-nowrap">
                                 Pas
                             </button>
                         </div>
@@ -1161,7 +1206,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                         <button 
                             onClick={handleCreateTransaction} 
                             disabled={isCreating || newTrxItems.length === 0 || !newTrxDetails.name}
-                            className="w-full py-4 bg-nature-600 hover:bg-nature-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-lg transition flex items-center justify-center gap-2 mt-2"
+                            className="w-full py-3.5 bg-nature-600 hover:bg-nature-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-lg transition flex items-center justify-center gap-2 mt-2"
                         >
                             {isCreating ? <Loader2 className="animate-spin" size={20}/> : <Save size={20}/>}
                             PROSES TRANSAKSI
@@ -1169,6 +1214,30 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                     </div>
                  </div>
               </div>
+
+              {/* MOBILE BOTTOM TABS (ONLY VISIBLE ON MOBILE IN POS MODE) */}
+              <div className="md:hidden absolute bottom-0 left-0 right-0 h-14 bg-white border-t border-gray-200 flex z-30">
+                  <button 
+                    onClick={() => setPosMobileTab('catalog')}
+                    className={`flex-1 flex flex-col items-center justify-center gap-1 ${posMobileTab === 'catalog' ? 'text-nature-600 bg-nature-50' : 'text-gray-400'}`}
+                  >
+                      <Grid size={20}/>
+                      <span className="text-[10px] font-bold">Katalog</span>
+                  </button>
+                  <button 
+                    onClick={() => setPosMobileTab('cart')}
+                    className={`flex-1 flex flex-col items-center justify-center gap-1 relative ${posMobileTab === 'cart' ? 'text-nature-600 bg-nature-50' : 'text-gray-400'}`}
+                  >
+                      <div className="relative">
+                        <ShoppingBag size={20}/>
+                        {newTrxItems.length > 0 && (
+                            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] font-bold w-3.5 h-3.5 flex items-center justify-center rounded-full border border-white">{newTrxItems.length}</span>
+                        )}
+                      </div>
+                      <span className="text-[10px] font-bold">Keranjang</span>
+                  </button>
+              </div>
+
            </div>
         </div>
       )}
