@@ -115,8 +115,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           
           // 1. Play Sound "Ting!"
           try {
-            // URL suara notifikasi pendek (Ding Sound)
-            const audio = new Audio('https://cdn.pixabay.com/download/audio/2022/03/24/audio_c8c8a73467.mp3?filename=ding-36029.mp3');
+            // URL Stabil dari Google Cloud Storage (Soundjay/CodeSkulptor)
+            const audio = new Audio('https://codeskulptor-demos.commondatastorage.googleapis.com/one_timer.mp3');
+            // Alternative: https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3
             await audio.play();
           } catch (err) {
             console.warn("Autoplay blocked by browser. Interact with document first.", err);

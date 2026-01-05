@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Database, HardDrive, Check, Copy, Terminal, Shield, AlertTriangle, RefreshCw, Settings, Save, Clock, Printer, Bluetooth, Bot, Zap, Server, BellRing, PlayCircle } from 'lucide-react';
 import { getStoreConfig, saveStoreConfig, DEFAULT_CONFIG } from '../utils/storeConfig';
@@ -54,8 +55,8 @@ const AdminSystemSetup: React.FC = () => {
     }
 
     try {
-        // 2. Play Sound
-        const audio = new Audio('https://cdn.pixabay.com/download/audio/2022/03/24/audio_c8c8a73467.mp3?filename=ding-36029.mp3');
+        // 2. Play Sound (Updated Source)
+        const audio = new Audio('https://codeskulptor-demos.commondatastorage.googleapis.com/one_timer.mp3');
         await audio.play();
 
         // 3. Show System Notification
@@ -66,7 +67,7 @@ const AdminSystemSetup: React.FC = () => {
         } as any);
 
         // Feedback UI
-        alert("✅ Perintah notifikasi dikirim!\n\nJika tidak ada suara/banner:\n1. Pastikan volume media HP besar.\n2. Pastikan HP tidak di mode 'Silent'/'Jangan Ganggu'.");
+        // alert("✅ Perintah notifikasi dikirim!\n\nJika tidak ada suara/banner:\n1. Pastikan volume media HP besar.\n2. Pastikan HP tidak di mode 'Silent'/'Jangan Ganggu'.");
 
     } catch (e: any) {
         console.error(e);
