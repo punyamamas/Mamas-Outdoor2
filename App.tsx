@@ -14,6 +14,7 @@ import Toast from './components/Toast';
 import MobileBottomNav from './components/MobileBottomNav'; 
 import WhyChooseUs from './components/WhyChooseUs'; 
 import AboutSection from './components/AboutSection'; 
+import EventSection from './components/EventSection'; 
 import Footer from './components/Footer'; 
 import { Product, Category, CartItem, Transaction } from './types';
 import { getProducts, addProduct, updateProduct, deleteProduct } from './services/productService';
@@ -523,6 +524,8 @@ const App: React.FC = () => {
       </section>
 
       <WhyChooseUs />
+
+      <EventSection />
 
       <GeminiAdvisor products={products} onAddRecommended={(id) => {
          const p = products.find(prod => prod.id === id);
