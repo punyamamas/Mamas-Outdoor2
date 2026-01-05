@@ -107,7 +107,7 @@ const AdminSystemSetup: React.FC = () => {
 values ('${newRoleEmail || 'email@karyawan.com'}', '${newRoleType}');`;
 
   const promoteSelfSQL = `insert into public.user_roles (email, role)
-values ('${currentUserEmail}', 'super_admin')
+values ('${currentUserEmail || 'mamasoutdoor.rent@gmail.com'}', 'super_admin')
 on conflict (email) do update set role = 'super_admin';`;
 
 // BAGIAN 7: USER ROLES (RBAC)
@@ -607,7 +607,7 @@ create policy "Public Insert" on storage.objects for insert with check (
                             <h5 className="text-xs font-bold text-gray-600 mb-3 flex items-center gap-2"><Key size={14}/> Akses Saya (Emergency Promote)</h5>
                             <div className="bg-yellow-50 border border-yellow-200 p-3 rounded-lg flex items-center justify-between mb-4">
                                 <div className="text-xs text-yellow-800">
-                                    <p>Email: <strong>{currentUserEmail}</strong></p>
+                                    <p>Email: <strong>{currentUserEmail || 'mamasoutdoor.rent@gmail.com'}</strong></p>
                                     <p className="mt-1">Ingin menjadikan akun ini <strong>Super Admin</strong>?</p>
                                 </div>
                                 <button onClick={() => copyToClipboard(promoteSelfSQL, 'promote')} className="bg-yellow-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-yellow-700 shadow-sm">

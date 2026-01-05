@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { CheckCircle, MapPin, Instagram } from 'lucide-react';
 import ImageLoader from './ImageLoader';
@@ -11,8 +12,9 @@ const AboutSection: React.FC = () => {
           {/* Left: Image Composition */}
           <div className="w-full lg:w-1/2 relative">
             <div className="relative h-[300px] md:h-[450px] w-full rounded-3xl overflow-hidden shadow-2xl">
+              {/* Updated Image URL to a reliable Unsplash source */}
               <ImageLoader 
-                src="https://images.unsplash.com/photo-1533240332313-0dbdd3199061?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80" 
+                src="https://images.unsplash.com/photo-1478131143081-80f7f84ca84d?ixlib=rb-1.2.1&auto=format&fit=crop&w=1080&q=80" 
                 alt="Basecamp Mamas Outdoor" 
                 className="w-full h-full object-cover transform hover:scale-105 transition duration-700"
               />
@@ -74,11 +76,11 @@ const AboutSection: React.FC = () => {
                  <MapPin size={18} /> Lokasi Gmaps
                </a>
                <a 
-                 href="https://instagram.com" 
+                 href="https://www.instagram.com/mamas.outdoor/" 
                  target="_blank"
                  className="px-6 py-3 bg-white text-gray-900 border border-gray-200 rounded-xl font-bold hover:bg-gray-50 transition flex items-center gap-2"
                >
-                 <Instagram size={18} /> @mamas_outdoor
+                 <Instagram size={18} /> @mamas.outdoor
                </a>
             </div>
           </div>

@@ -21,9 +21,9 @@ const Footer: React.FC = () => {
               Penyedia layanan sewa peralatan camping dan outdoor nomor 1 di Purwokerto. Sahabat terbaik untuk petualanganmu.
             </p>
             <div className="flex gap-4 pt-2">
-              <a href="#" className="p-2 bg-gray-800 rounded-lg hover:bg-nature-600 transition text-gray-400 hover:text-white"><Instagram size={18}/></a>
+              <a href="https://www.instagram.com/mamas.outdoor/" target="_blank" className="p-2 bg-gray-800 rounded-lg hover:bg-nature-600 transition text-gray-400 hover:text-white"><Instagram size={18}/></a>
               <a href="#" className="p-2 bg-gray-800 rounded-lg hover:bg-nature-600 transition text-gray-400 hover:text-white"><Facebook size={18}/></a>
-              <a href="#" className="p-2 bg-gray-800 rounded-lg hover:bg-nature-600 transition text-gray-400 hover:text-white"><Mail size={18}/></a>
+              <a href="mailto:mamasoutdoor.rent@gmail.com" className="p-2 bg-gray-800 rounded-lg hover:bg-nature-600 transition text-gray-400 hover:text-white"><Mail size={18}/></a>
             </div>
           </div>
 
