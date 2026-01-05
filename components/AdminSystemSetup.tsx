@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Database, HardDrive, Check, Copy, Terminal, Shield, AlertTriangle, RefreshCw, Settings, Save, Clock, Printer, Bluetooth, Bot, Zap, Server, BellRing, PlayCircle, UserCheck } from 'lucide-react';
+import { Database, HardDrive, Check, Copy, Terminal, Shield, AlertTriangle, RefreshCw, Settings, Save, Clock, Printer, Bluetooth, Bot, Zap, Server, BellRing, PlayCircle, UserCheck, UserPlus } from 'lucide-react';
 import { getStoreConfig, saveStoreConfig, DEFAULT_CONFIG } from '../utils/storeConfig';
 import { StoreConfig } from '../types';
 import { connectPrinter, printTestPage, getPrinterStatus, disconnectPrinter } from '../services/bluetoothPrinterService';
@@ -16,6 +16,10 @@ const AdminSystemSetup: React.FC = () => {
 
   // Printer State
   const [isPrinterConnected, setIsPrinterConnected] = useState(false);
+
+  // Role Generator State
+  const [newRoleEmail, setNewRoleEmail] = useState('');
+  const [newRoleType, setNewRoleType] = useState('staff');
 
   useEffect(() => {
     setConfig(getStoreConfig());
@@ -92,6 +96,10 @@ const AdminSystemSetup: React.FC = () => {
         console.warn("Visual notification skipped on this device:", e.message);
     }
   };
+
+  // Generate Role SQL dynamically
+  const generatedRoleSQL = `insert into public.user_roles (email, role)
+values ('${newRoleEmail || 'email@karyawan.com'}', '${newRoleType}');`;
 
 // BAGIAN 7: USER ROLES (RBAC)
 const userRolesSQL = `-- BAGIAN 7: User Roles (RBAC)
@@ -585,10 +593,49 @@ const cronJobScript = `// ... (Script sama seperti sebelumnya) ...`;
                         </pre>
                     </div>
 
-                    {/* BAGIAN 7: USER ROLES (NEW) */}
+                    {/* BAGIAN 7: USER ROLES (NEW) & GENERATOR */}
                     <div className="border border-gray-200 rounded-xl overflow-hidden border-l-4 border-l-blue-500">
-                        <div className="bg-blue-50 px-4 py-3 flex justify-between items-center border-b border-gray-200">
+                        <div className="bg-blue-50 px-4 py-3 border-b border-gray-200">
                             <h4 className="text-sm font-bold text-blue-800 flex items-center gap-2"><UserCheck size={16}/> Tabel User Roles (Wajib untuk Akses Staff)</h4>
+                        </div>
+                        
+                        {/* HELPER GENERATOR */}
+                        <div className="p-4 bg-white border-b border-gray-200">
+                            <h5 className="text-xs font-bold text-gray-600 mb-3 flex items-center gap-2"><UserPlus size={14}/> Generator Akses User</h5>
+                            <div className="flex flex-col md:flex-row gap-3 items-end">
+                                <div className="flex-1 w-full">
+                                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Email User</label>
+                                    <input 
+                                        type="email" 
+                                        placeholder="karyawan@mamas.com"
+                                        className="w-full px-3 py-2 border rounded-lg text-sm"
+                                        value={newRoleEmail}
+                                        onChange={(e) => setNewRoleEmail(e.target.value)}
+                                    />
+                                </div>
+                                <div className="w-full md:w-32">
+                                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Role</label>
+                                    <select 
+                                        className="w-full px-3 py-2 border rounded-lg text-sm font-bold"
+                                        value={newRoleType}
+                                        onChange={(e) => setNewRoleType(e.target.value)}
+                                    >
+                                        <option value="staff">Staff</option>
+                                        <option value="super_admin">Admin</option>
+                                        <option value="owner">Owner</option>
+                                    </select>
+                                </div>
+                                <button onClick={() => copyToClipboard(generatedRoleSQL, 'gen_role')} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 whitespace-nowrap">
+                                    {copiedSection === 'gen_role' ? 'Disalin!' : 'Copy Script'}
+                                </button>
+                            </div>
+                            <p className="text-[10px] text-gray-400 mt-2">
+                                Copy script di atas lalu jalankan di Supabase SQL Editor untuk menambah akses login.
+                            </p>
+                        </div>
+
+                        <div className="bg-blue-50 px-4 py-2 border-t border-gray-200 flex justify-between items-center">
+                            <span className="text-[10px] font-bold text-blue-600">Script Tabel Utama</span>
                             <button onClick={() => copyToClipboard(userRolesSQL, 'roles')} className="text-xs flex items-center gap-1 text-blue-600 hover:underline font-bold">
                                 {copiedSection === 'roles' ? <Check size={14}/> : <Copy size={14}/>} 
                                 {copiedSection === 'roles' ? 'Disalin' : 'Salin SQL'}

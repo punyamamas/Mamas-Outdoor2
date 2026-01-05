@@ -124,16 +124,15 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ activeTab, setActiveTab, on
             <Tags size={20} /> Kategori
           </button>
           
-          {canAccess('super_admin') && (
-            <div className="pt-4 border-t border-white/10 mt-4">
-                <button 
-                onClick={() => handleTabClick('system')}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition ${activeTab === 'system' ? 'bg-white/10 text-white font-bold' : 'text-nature-200 hover:bg-white/5'}`}
-                >
-                <Settings size={20} /> System Setup
-                </button>
-            </div>
-          )}
+          {/* MENU SETUP DIBUKA SEMENTARA UNTUK SEMUA ROLE AGAR BISA SETUP DB */}
+          <div className="pt-4 border-t border-white/10 mt-4">
+              <button 
+              onClick={() => handleTabClick('system')}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition ${activeTab === 'system' ? 'bg-white/10 text-white font-bold' : 'text-nature-200 hover:bg-white/5'}`}
+              >
+              <Settings size={20} /> System Setup
+              </button>
+          </div>
         </nav>
         
         <div className="p-4 mt-auto border-t border-white/10">
