@@ -163,3 +163,6 @@ export interface StoreConfig {
   waGatewayUrl?: string; // e.g., https://api.fonnte.com/send
   waGatewayToken?: string; // API Key
 }
+
+// NEW: User Role
+export type UserRole = 'super_admin' | 'staff' | 'owner';
