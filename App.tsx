@@ -238,6 +238,7 @@ const App: React.FC = () => {
             isMobileMenuOpen={isMobileMenuOpen}
             onOpenHistory={() => setIsHistoryOpen(true)}
             onOpenTerms={() => setIsTermsOpen(true)}
+            onOpenAdmin={() => setIsAdminMode(true)} 
         />
       </div>
 
@@ -263,7 +264,10 @@ const App: React.FC = () => {
                         <Clock size={12}/> Ubah
                     </button>
                 )}
-                {isAdminMode ? null : <button onClick={() => setIsAdminMode(true)} className="p-2 rounded-full active:bg-gray-100 transition"><Lock size={16} className="text-gray-300"/></button>}
+                {/* 
+                  Mobile Lock Button removed from here because it's now in the Mobile Menu (Navbar)
+                  to declutter the main header.
+                */}
             </div>
          </div>
       </div>

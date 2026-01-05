@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { ShoppingBag, Menu, X, History, FileText, Calendar, Phone, Sparkles, ChevronRight, Mountain } from 'lucide-react';
+import { ShoppingBag, Menu, X, History, FileText, Calendar, Phone, Sparkles, ChevronRight, Mountain, Lock } from 'lucide-react';
 
 interface NavbarProps {
   cartCount: number;
@@ -9,9 +9,10 @@ interface NavbarProps {
   isMobileMenuOpen: boolean;
   onOpenHistory: () => void;
   onOpenTerms: () => void;
+  onOpenAdmin: () => void; // Prop baru untuk login admin
 }
 
-const Navbar: React.FC<NavbarProps> = ({ cartCount, onOpenCart, onToggleMobileMenu, isMobileMenuOpen, onOpenHistory, onOpenTerms }) => {
+const Navbar: React.FC<NavbarProps> = ({ cartCount, onOpenCart, onToggleMobileMenu, isMobileMenuOpen, onOpenHistory, onOpenTerms, onOpenAdmin }) => {
   const [isScrolled, setIsScrolled] = useState(false);
 
   useEffect(() => {
@@ -74,6 +75,15 @@ const Navbar: React.FC<NavbarProps> = ({ cartCount, onOpenCart, onToggleMobileMe
 
             {/* Right Actions */}
             <div className="flex items-center gap-3">
+              {/* ADMIN LOGIN BUTTON (Desktop) */}
+              <button
+                onClick={onOpenAdmin}
+                className="hidden md:block p-2 text-gray-300 hover:text-nature-600 hover:bg-nature-50 rounded-full transition-all"
+                title="Login Admin"
+              >
+                <Lock size={18} />
+              </button>
+
               {/* Desktop CTA Button */}
               <button 
                 onClick={onOpenTerms} 
@@ -146,6 +156,16 @@ const Navbar: React.FC<NavbarProps> = ({ cartCount, onOpenCart, onToggleMobileMe
               >
                 <div className="flex items-center gap-3">
                   <History size={18} /> Riwayat Sewa
+                </div>
+              </button>
+              
+              {/* Mobile Admin Link */}
+              <button 
+                onClick={() => { onOpenAdmin(); onToggleMobileMenu(); }} 
+                className="w-full flex items-center justify-between p-3 rounded-xl text-gray-400 font-medium hover:bg-gray-50 transition"
+              >
+                <div className="flex items-center gap-3">
+                  <Lock size={18} /> Login Admin
                 </div>
               </button>
               
