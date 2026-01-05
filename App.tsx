@@ -256,6 +256,14 @@ const App: React.FC = () => {
                 </div>
             </div>
             <div className="flex items-center gap-2">
+                {/* TOMBOL ADMIN MOBILE DIKEMBALIKAN DISINI */}
+                <button 
+                  onClick={() => setIsAdminMode(true)}
+                  className="p-2 text-gray-300 hover:text-nature-600 rounded-full transition"
+                >
+                  <Lock size={18} />
+                </button>
+
                 {isAdminMode ? null : (
                     <button 
                         onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} 
@@ -264,10 +272,6 @@ const App: React.FC = () => {
                         <Clock size={12}/> Ubah
                     </button>
                 )}
-                {/* 
-                  Mobile Lock Button removed from here because it's now in the Mobile Menu (Navbar)
-                  to declutter the main header.
-                */}
             </div>
          </div>
       </div>
