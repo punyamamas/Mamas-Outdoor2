@@ -60,7 +60,6 @@ const Navbar: React.FC<NavbarProps> = ({ cartCount, onOpenCart, onToggleMobileMe
             <div className="hidden md:flex items-center gap-1 bg-gray-50/80 p-1.5 rounded-full border border-gray-200 shadow-sm backdrop-blur-md">
               <NavLink href="#" label="Beranda" />
               <NavLink href="#katalog" label="Katalog" />
-              <NavLink href="#event" label="Event" />
               <NavLink href="#contact" label="Kontak" />
               
               <div className="w-px h-6 bg-gray-300 mx-2"></div>
@@ -135,7 +134,6 @@ const Navbar: React.FC<NavbarProps> = ({ cartCount, onOpenCart, onToggleMobileMe
             <div className="p-6 space-y-2">
               <MobileNavLink onClick={onToggleMobileMenu} href="#" icon={<Mountain size={18} />} label="Beranda" />
               <MobileNavLink onClick={onToggleMobileMenu} href="#katalog" icon={<ShoppingBag size={18} />} label="Katalog Alat" />
-              <MobileNavLink onClick={onToggleMobileMenu} href="#event" icon={<Calendar size={18} />} label="Event & Open Trip" />
               <MobileNavLink onClick={onToggleMobileMenu} href="#ai-guide" icon={<Sparkles size={18} />} label="Tanya Mamas AI" highlight />
               
               <hr className="border-gray-100 my-2" />

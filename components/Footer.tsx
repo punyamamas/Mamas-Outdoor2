@@ -33,7 +33,6 @@ const Footer: React.FC = () => {
             <ul className="space-y-3 text-gray-400 text-sm">
               <li><a href="#" className="hover:text-nature-400 transition flex items-center gap-2"><Mountain size={14}/> Beranda</a></li>
               <li><a href="#katalog" className="hover:text-nature-400 transition flex items-center gap-2"><Mountain size={14}/> Katalog Alat</a></li>
-              <li><a href="#event" className="hover:text-nature-400 transition flex items-center gap-2"><Mountain size={14}/> Event & Trip</a></li>
               <li><a href="#ai-guide" className="hover:text-nature-400 transition flex items-center gap-2"><Mountain size={14}/> Tanya AI</a></li>
             </ul>
           </div>
