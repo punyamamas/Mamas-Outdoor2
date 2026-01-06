@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Eye, Trash2, User, Save, CheckCircle, PackagePlus, Search, Plus, Minus, X, AlertTriangle, Loader2, Printer, Calendar, Clock, DollarSign, RefreshCw, ShoppingCart } from 'lucide-react';
+import { Eye, Trash2, User, Save, CheckCircle, PackagePlus, Search, Plus, Minus, X, AlertTriangle, Loader2, Printer, Calendar, Clock, DollarSign, RefreshCw, ShoppingCart, Wallet, CreditCard, ArrowRight } from 'lucide-react';
 import { Transaction, Product, CartItem, UserDetails, UserRole } from '../types';
-import { createTransaction, updateTransactionStatus, updateTransactionPayment, updateTransactionDetails, updateTransactionItems, applyTransactionFine, calculateItemPriceForDuration } from '../services/transactionService';
+import { createTransaction, updateTransactionStatus, updateTransactionPayment, updateTransactionDetails, updateTransactionItems, applyTransactionFine, calculateItemPriceForDuration, recordPaymentLog } from '../services/transactionService';
 import { printInvoice } from '../services/bluetoothPrinterService';
 import { processStockReduction } from '../services/productService';
 import ImageLoader from './ImageLoader';
@@ -53,6 +53,10 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
   const [addItemSearch, setAddItemSearch] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
+  // PAYMENT STATES (NEW)
+  const [payCash, setPayCash] = useState<number>(0);
+  const [payTransfer, setPayTransfer] = useState<number>(0);
+
   // POS (Create Transaction) State
   const [newTrxDetails, setNewTrxDetails] = useState<UserDetails>({
     name: '', whatsapp: '', location: '', rentalDate: new Date().toISOString().split('T')[0], duration: 2, paymentMethod: 'cash'
@@ -78,6 +82,8 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
   useEffect(() => {
       if (selectedTransaction) {
           setTempTrx(JSON.parse(JSON.stringify(selectedTransaction))); // Deep copy
+          setPayCash(0);
+          setPayTransfer(0);
       }
   }, [selectedTransaction]);
 
@@ -100,7 +106,6 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
     setNewTrxItems(prev => prev.map(item => {
       if (item.id === id) {
         const newQty = Math.max(1, item.quantity + delta);
-        // Basic stock check
         const product = products.find(p => p.id === id);
         if (product && newQty > product.stock) {
             alert(`Stok hanya tersedia ${product.stock}`);
@@ -149,29 +154,108 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
 
   // --- EDIT HANDLERS (UPDATE) ---
 
-  // 1. Update Status Logic
+  // 1. Update Status
   const handleEditStatus = async (newStatus: string) => {
       if (!tempTrx) return;
       setIsSaving(true);
       const success = await onStatusUpdate(tempTrx.id, newStatus);
       if (success) {
           setTempTrx({ ...tempTrx, status: newStatus as any });
-          await onRefreshData(); // Refresh list background
+          await onRefreshData(); 
       } else {
           alert("Gagal update status");
       }
       setIsSaving(false);
   };
 
-  // 2. Update Payment Logic
-  const handleUpdatePayment = async (newAmount: number) => {
+  // 2. PROCESS PAYMENT (SPLIT CASH/TRANSFER + REAL INCOME LOGIC)
+  const handleProcessPayment = async () => {
       if (!tempTrx) return;
+      
+      const totalBill = tempTrx.totalPrice;
+      const alreadyPaid = tempTrx.amountPaid || 0;
+      const remainingBill = Math.max(0, totalBill - alreadyPaid);
+      const inputTotal = payCash + payTransfer;
+
+      if (inputTotal <= 0) return alert("Masukkan nominal pembayaran (Tunai atau Transfer).");
+
       setIsSaving(true);
-      const success = await updateTransactionPayment(tempTrx.id, newAmount);
-      if (success) {
-          setTempTrx({ ...tempTrx, amountPaid: newAmount });
-          await onRefreshData();
+
+      // --- LOGIC UANG REAL (REAL INCOME) ---
+      // Uang masuk ke sistem tidak boleh melebihi sisa tagihan.
+      // Prioritas: Transfer dianggap pas dulu, sisanya ambil dari Cash.
+      
+      let realTransferIncome = 0;
+      let realCashIncome = 0;
+
+      // 1. Hitung Transfer Real
+      // Jika bayar pakai transfer, biasanya pas. Tapi kalau lebih, kita catat max sebesar sisa tagihan.
+      if (payTransfer > 0) {
+          realTransferIncome = Math.min(payTransfer, remainingBill);
       }
+
+      // Sisa tagihan setelah dipotong transfer
+      const remainingAfterTransfer = Math.max(0, remainingBill - realTransferIncome);
+
+      // 2. Hitung Cash Real
+      // Cash yang masuk ke laci = Input Cash - Kembalian
+      // Kembalian = (Total Input - Sisa Tagihan)
+      // Jadi Real Cash = Input Cash - (Input Cash + Input Transfer - Sisa Tagihan) ... Simplified logic below:
+      
+      if (payCash > 0) {
+          // Real Cash adalah sisa tagihan yang belum tertutup transfer, dicover oleh cash.
+          realCashIncome = Math.min(payCash, remainingAfterTransfer);
+      }
+
+      const totalRealIncome = realTransferIncome + realCashIncome;
+      const newAmountPaidTotal = alreadyPaid + totalRealIncome;
+      const changeAmount = Math.max(0, inputTotal - remainingBill); // Kembalian
+
+      // 3. Update Transaction Record
+      const success = await updateTransactionPayment(tempTrx.id, newAmountPaidTotal);
+
+      if (success) {
+          // 4. Log Finance (HANYA UANG REAL)
+          if (realTransferIncome > 0) {
+              await recordPaymentLog({
+                  transaction_id: tempTrx.id,
+                  amount: realTransferIncome,
+                  payment_method: 'transfer',
+                  type: 'IN',
+                  category: 'Sewa',
+                  description: `Pelunasan Sewa #${tempTrx.id.slice(0,6)} (Transfer)`
+              });
+          }
+          if (realCashIncome > 0) {
+              await recordPaymentLog({
+                  transaction_id: tempTrx.id,
+                  amount: realCashIncome,
+                  payment_method: 'cash',
+                  type: 'IN',
+                  category: 'Sewa',
+                  description: `Pelunasan Sewa #${tempTrx.id.slice(0,6)} (Tunai)`
+              });
+          }
+
+          // Auto update status to BOOKED if fully paid & current status is Pending
+          if (newAmountPaidTotal >= totalBill && tempTrx.status === 'pending') {
+               await onStatusUpdate(tempTrx.id, 'booked');
+               setTempTrx({...tempTrx, amountPaid: newAmountPaidTotal, status: 'booked'});
+          } else {
+               setTempTrx({...tempTrx, amountPaid: newAmountPaidTotal});
+          }
+
+          // Reset inputs
+          setPayCash(0);
+          setPayTransfer(0);
+          await onRefreshData();
+          
+          // Show Alert with Change Info
+          alert(`✅ Pembayaran Berhasil!\n\n💵 Masuk Kas: Rp${totalRealIncome.toLocaleString('id-ID')}\n🔄 Kembalian: Rp${changeAmount.toLocaleString('id-ID')}`);
+      } else {
+          alert("Gagal memproses pembayaran.");
+      }
+
       setIsSaving(false);
   };
 
@@ -181,7 +265,8 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
       setIsSaving(true);
       const success = await applyTransactionFine(tempTrx.id, fine);
       if (success) {
-          // Recalculate total locally for UI
+          // Log Fine as Income (Optional: or wait until paid)
+          // For now just update bill
           const newTotal = (tempTrx.totalPrice - (tempTrx.fineAmount || 0)) + fine;
           setTempTrx({ ...tempTrx, fineAmount: fine, totalPrice: newTotal });
           await onRefreshData();
@@ -189,47 +274,29 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
       setIsSaving(false);
   };
 
-  // 4. Update Customer Info (Name, WA, Duration)
+  // ... (Other handlers unchanged: handleSaveInfo, handleEditItemQty, etc.)
   const handleSaveInfo = async () => {
       if (!tempTrx) return;
       setIsSaving(true);
-      
-      // Update basic info
       await updateTransactionDetails(tempTrx.id, {
           customerName: tempTrx.customerName,
           customerWhatsapp: tempTrx.customerWhatsapp,
           customerIdentity: tempTrx.customerIdentity
       });
-
-      // Recalculate Prices if duration changed
       const newTotal = calculateTotal(tempTrx.items, tempTrx.duration, tempTrx.fineAmount);
-      
-      // Update Items & Total (Since duration affects price)
       await updateTransactionItems(tempTrx.id, tempTrx.items, newTotal);
-      
       setTempTrx({ ...tempTrx, totalPrice: newTotal });
       await onRefreshData();
-      
       alert("Data berhasil diperbarui!");
       setIsSaving(false);
   };
 
-  // 5. Item Management inside Edit Modal
   const handleEditItemQty = (idx: number, delta: number) => {
       if (!tempTrx) return;
       const newItems = [...tempTrx.items];
       const item = newItems[idx];
       const newQty = Math.max(1, item.quantity + delta);
-      
-      // Check stock limit (simplified)
-      const product = products.find(p => p.id === item.id);
-      if (product && delta > 0 && newQty > product.stock) { // Note: This check is simple, ideally check (stock + current_rented)
-          alert("Peringatan: Stok di database mungkin tidak cukup.");
-      }
-
       newItems[idx] = { ...item, quantity: newQty };
-      
-      // Recalc Total
       const newTotal = calculateTotal(newItems, tempTrx.duration, tempTrx.fineAmount);
       setTempTrx({ ...tempTrx, items: newItems, totalPrice: newTotal });
   };
@@ -247,16 +314,14 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
       if (!tempTrx) return;
       const newItems = [...tempTrx.items];
       const existingIdx = newItems.findIndex(i => i.id === product.id);
-      
       if (existingIdx >= 0) {
           newItems[existingIdx].quantity += 1;
       } else {
           newItems.push({ ...product, quantity: 1 });
       }
-      
       const newTotal = calculateTotal(newItems, tempTrx.duration, tempTrx.fineAmount);
       setTempTrx({ ...tempTrx, items: newItems, totalPrice: newTotal });
-      setAddItemSearch(''); // Clear search
+      setAddItemSearch(''); 
   };
 
   const handleSaveItems = async () => {
@@ -272,8 +337,12 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
       setIsSaving(false);
   };
 
-  // Filter products for "Add Item" search in Edit Modal
   const editAddProducts = products.filter(p => p.name.toLowerCase().includes(addItemSearch.toLowerCase()) && p.stock > 0);
+
+  // Render Helper for Edit Modal Payment Calculation
+  const remainingBillEdit = tempTrx ? Math.max(0, tempTrx.totalPrice - (tempTrx.amountPaid || 0)) : 0;
+  const inputTotalEdit = payCash + payTransfer;
+  const changeEdit = inputTotalEdit - remainingBillEdit;
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col h-[calc(100vh-150px)]">
@@ -457,27 +526,61 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                                 </div>
                             </div>
 
-                            {/* Payment & Fine */}
+                            {/* Payment Section (Updated Logic) */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="bg-white p-5 rounded-xl border border-blue-200 shadow-sm">
-                                    <h4 className="font-bold text-blue-900 flex items-center gap-2 mb-4"><DollarSign size={18}/> Pembayaran</h4>
+                                    <h4 className="font-bold text-blue-900 flex items-center gap-2 mb-4"><DollarSign size={18}/> Input Pembayaran</h4>
+                                    
                                     <div className="space-y-4">
-                                        <div>
-                                            <label className="text-xs font-bold text-gray-500 mb-1 block">Sudah Dibayar</label>
-                                            <div className="flex gap-2">
+                                        <div className="flex gap-2">
+                                            <div className="flex-1">
+                                                <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 flex items-center gap-1"><Wallet size={12}/> Tunai (Cash)</label>
                                                 <input 
                                                     type="number" 
-                                                    className="flex-1 p-2 border border-gray-300 rounded-lg font-bold"
-                                                    value={tempTrx.amountPaid}
-                                                    onChange={(e) => setTempTrx({...tempTrx, amountPaid: Number(e.target.value)})}
+                                                    className="w-full p-2 border border-gray-300 rounded-lg font-bold text-gray-800"
+                                                    placeholder="Rp 0"
+                                                    value={payCash || ''}
+                                                    onChange={(e) => setPayCash(Number(e.target.value))}
                                                 />
-                                                <button onClick={() => handleUpdatePayment(tempTrx.amountPaid)} disabled={isSaving} className="bg-blue-600 text-white px-4 rounded-lg font-bold hover:bg-blue-700 text-sm">Update</button>
+                                            </div>
+                                            <div className="flex-1">
+                                                <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 flex items-center gap-1"><CreditCard size={12}/> Transfer</label>
+                                                <input 
+                                                    type="number" 
+                                                    className="w-full p-2 border border-gray-300 rounded-lg font-bold text-gray-800"
+                                                    placeholder="Rp 0"
+                                                    value={payTransfer || ''}
+                                                    onChange={(e) => setPayTransfer(Number(e.target.value))}
+                                                />
                                             </div>
                                         </div>
-                                        <div className="p-3 bg-blue-50 rounded-lg text-sm flex justify-between">
-                                            <span>Sisa Tagihan:</span>
-                                            <span className="font-bold text-blue-800">Rp{Math.max(0, tempTrx.totalPrice - tempTrx.amountPaid).toLocaleString('id-ID')}</span>
+
+                                        <div className="p-3 bg-blue-50 rounded-lg text-sm space-y-1">
+                                            <div className="flex justify-between text-gray-600">
+                                                <span>Sudah Masuk:</span>
+                                                <span>Rp{(tempTrx.amountPaid || 0).toLocaleString('id-ID')}</span>
+                                            </div>
+                                            <div className="flex justify-between font-bold text-blue-800 text-lg border-t border-blue-200 pt-1">
+                                                <span>Sisa Tagihan:</span>
+                                                <span>Rp{remainingBillEdit.toLocaleString('id-ID')}</span>
+                                            </div>
+                                            
+                                            {/* Change Calculation Display */}
+                                            {inputTotalEdit > 0 && (
+                                                <div className={`flex justify-between font-bold mt-2 pt-2 border-t border-dashed border-blue-300 ${changeEdit >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                                                    <span>{changeEdit >= 0 ? 'Kembalian:' : 'Kurang Bayar:'}</span>
+                                                    <span>Rp{Math.abs(changeEdit).toLocaleString('id-ID')}</span>
+                                                </div>
+                                            )}
                                         </div>
+
+                                        <button 
+                                            onClick={handleProcessPayment} 
+                                            disabled={isSaving || inputTotalEdit <= 0} 
+                                            className="w-full bg-blue-600 text-white py-2 rounded-lg font-bold hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                                        >
+                                            {isSaving ? <Loader2 className="animate-spin" size={16}/> : <ArrowRight size={16}/>} Proses Pembayaran
+                                        </button>
                                     </div>
                                 </div>
 
@@ -631,7 +734,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
           </div>
       )}
 
-      {/* --- CREATE TRANSACTION MODAL (POS) - Same as before but kept for consistency --- */}
+      {/* --- CREATE TRANSACTION MODAL (POS) - Same as before --- */}
       {isCreateModalOpen && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center p-2 md:p-4 bg-black/60 backdrop-blur-sm">
            <div className="bg-white rounded-2xl w-full max-w-5xl h-[95vh] md:h-[90vh] shadow-2xl flex flex-col md:flex-row overflow-hidden animate-scale-up">
