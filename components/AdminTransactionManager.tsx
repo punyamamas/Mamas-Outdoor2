@@ -1,8 +1,9 @@
 
 import React, { useState, useMemo } from 'react';
-import { Eye, Trash2, User, Save, CheckCircle, PackagePlus, Search, Plus, Minus, X, AlertTriangle, Loader2 } from 'lucide-react';
+import { Eye, Trash2, User, Save, CheckCircle, PackagePlus, Search, Plus, Minus, X, AlertTriangle, Loader2, Printer } from 'lucide-react';
 import { Transaction, Product, CartItem, UserDetails, UserRole } from '../types';
 import { createTransaction, updateTransactionStatus, updateTransactionPayment, recordPaymentLog, calculateItemPriceForDuration } from '../services/transactionService';
+import { printInvoice } from '../services/bluetoothPrinterService';
 import { processStockReduction } from '../services/productService';
 import ImageLoader from './ImageLoader';
 
@@ -221,6 +222,15 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                   </td>
                   <td className="px-6 py-4 text-center" onClick={(e) => e.stopPropagation()}>
                     <div className="flex justify-center gap-2">
+                      {/* TOMBOL CETAK NOTA DI TABEL */}
+                      <button 
+                        onClick={() => printInvoice(trx)}
+                        className="p-2 hover:bg-gray-100 text-gray-600 rounded-lg transition"
+                        title="Cetak Nota"
+                      >
+                        <Printer size={18}/>
+                      </button>
+
                       <button onClick={() => { setSelectedTransaction(trx); setIsEditModalOpen(true); }} className="p-2 hover:bg-blue-50 text-blue-600 rounded-lg"><Eye size={18}/></button>
                       
                       {/* Only Admin/Owner can delete */}
@@ -247,9 +257,20 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
                     </div>
                     <div className="flex justify-between items-center text-sm font-bold text-nature-700 mt-2">
                         <span>Rp{trx.totalPrice.toLocaleString('id-ID')}</span>
-                        {userRole !== 'staff' && (
-                            <button onClick={(e) => { e.stopPropagation(); onDeleteTransaction(trx.id); }} className="text-red-500 text-xs p-2">Hapus</button>
-                        )}
+                        <div className="flex gap-2">
+                            {/* TOMBOL CETAK MOBILE */}
+                            <button 
+                                onClick={(e) => { e.stopPropagation(); printInvoice(trx); }}
+                                className="bg-gray-100 text-gray-700 p-2 rounded-lg"
+                            >
+                                <Printer size={16}/>
+                            </button>
+                            {userRole !== 'staff' && (
+                                <button onClick={(e) => { e.stopPropagation(); onDeleteTransaction(trx.id); }} className="bg-red-50 text-red-500 p-2 rounded-lg">
+                                    <Trash2 size={16}/>
+                                </button>
+                            )}
+                        </div>
                     </div>
                 </div>
             ))}
@@ -396,7 +417,7 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
         </div>
       )}
 
-      {/* --- DETAIL/EDIT MODAL (Simplified for brevity, logic exists in previous files) --- */}
+      {/* --- DETAIL/EDIT MODAL --- */}
       {isEditModalOpen && selectedTransaction && (
           <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
              <div className="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl relative">
@@ -442,7 +463,13 @@ const AdminTransactionManager: React.FC<AdminTransactionManagerProps> = ({
 
                 <div className="flex gap-2">
                     <button onClick={() => setIsEditModalOpen(false)} className="flex-1 py-2 border border-gray-300 rounded-lg font-bold text-gray-600 hover:bg-gray-50">Tutup</button>
-                    {/* Add more edit features here if needed */}
+                    {/* TOMBOL CETAK DI MODAL */}
+                    <button 
+                        onClick={() => printInvoice(selectedTransaction)} 
+                        className="flex-1 py-2 bg-gray-800 text-white rounded-lg font-bold hover:bg-gray-900 flex items-center justify-center gap-2"
+                    >
+                        <Printer size={18} /> Cetak Nota
+                    </button>
                 </div>
              </div>
           </div>
