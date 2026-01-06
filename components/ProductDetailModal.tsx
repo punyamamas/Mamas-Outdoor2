@@ -108,7 +108,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   // Determine available options
   let availableColors: string[] = [];
   if (hasAdvancedVariants) {
-      availableColors = Array.from(new Set(product.variants!.map(v => v.color)));
+      availableColors = Array.from(new Set(product.variants!.map(v => v.color))) as string[];
   } else if (product.colors) {
       availableColors = product.colors;
   }

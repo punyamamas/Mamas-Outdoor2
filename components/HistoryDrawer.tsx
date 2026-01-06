@@ -2,7 +2,8 @@
 import React, { useEffect, useState } from 'react';
 import { X, Calendar, Package, Clock, History, CheckCircle, AlertCircle, Loader, Printer, Trash2, RotateCcw, Wallet, Star, Search, Smartphone, Upload, Image as ImageIcon, QrCode } from 'lucide-react';
 import { Transaction } from '../types';
-import { printInvoice, refreshTransactions, getTransactionsByPhone, uploadPaymentProof } from '../services/transactionService';
+import { refreshTransactions, getTransactionsByPhone, uploadPaymentProof } from '../services/transactionService';
+import { printInvoice } from '../services/bluetoothPrinterService';
 import ReviewModal from './ReviewModal';
 import QRCodeModal from './QRCodeModal';
 import Toast from './Toast';
